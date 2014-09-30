@@ -40,48 +40,45 @@
 ;    Bill Daughton, Simulation
 ;
 ; :Params:
-;       NAMES:                  in, required, type=string
-;                               The name of the vector quantity to be plotted in color.
-;       TIME:                   in, required, type=int
-;                               The simulation time for which a velocity vector field
-;                                   is to be plotted.
+;       THESIM:             in, required, type=string/integer/object
+;                           The name or number of the simulation to be used, or a
+;                           valid simulation object. See MrSim_Create.pro.
+;       NAMES:              in, required, type=string
+;                           The name of the vector quantity to be plotted in color.
+;       TIME:               in, required, type=int
+;                           The simulation time for which a velocity vector field
+;                               is to be plotted.
 ; :Keywords:
-;       C_NAME:                 in, optional, type=string, default=''
-;                               Name of the data product whose contours are to be 
-;                                   overplotted on the image.
-;       NLEVELS:                in, optional, type=int, default=15
-;                               The number of contour lines to draw. Used with `C_NAME`.
-;       OFILENAME:              out, optional, type=string, default=''
-;                               If provided, graphics will be output to a file by this
-;                                   name. The file extension is used to determine which
-;                                   type of image to create. "PNG" is the default.
-;       RANGES:                 in, optional, type=fltarr(2)/fltarr(2\,N)
-;                               Data range of the quantities to be displayed. If a single
+;       C_NAME:             in, optional, type=string, default=''
+;                           Name of the data product whose contours are to be 
+;                               overplotted on the image.
+;       NLEVELS:            in, optional, type=int, default=15
+;                           The number of contour lines to draw. Used with `C_NAME`.
+;       OFILENAME:          out, optional, type=string, default=''
+;                           If provided, graphics will be output to a file by this
+;                               name. The file extension is used to determine which
+;                               type of image to create. "PNG" is the default.
+;       RANGES:             in, optional, type=fltarr(2)/fltarr(2\,N)
+;                           Data range of the quantities to be displayed. If a single
 ;                                   [min,max] pair is given, it will be applied to all
-;                                   quantities. Otherwise, there must be N pairs, where N
-;                                   is the number of `NAMES` given.
-;       SIM_OBJECT:             out, optional, type=object
-;                               The "Sim_Object" (or subclass) reference containing the 
-;                                   simulation data and domain information used in
-;                                   creating the plot. If not provided, one will be
-;                                   created according to the `SIM3D` keyword.
-;       SIM3D:                  in, optional, type=boolean, default=0
-;                               If set, and `SIM_OBJECT` is not given, then a 3D
-;                                   simulation object will be created. The default is
-;                                   to make 2D simulation object.
-;       XSIZE:                  in, optional, type=long, default=500
-;                               Horizontal size of the display window, in pixels.
-;       YSIZE:                  in, optional, type=long, default=(nSlabs+1)*100 < 690
-;                               Vertical size of the display window, in pixels.
-;       _REF_EXTRA:             in, optional, type=structure
-;                               Any keyword accepted Sim_Object::Init(), or any of its
-;                                   subclasses is also accepted here. Ignored of
-;                                   `SIM_OBJECT` is present.
+;                               quantities. Otherwise, there must be N pairs, where N
+;                               is the number of `NAMES` given.
+;       SIM_OBJECT:         out, optional, type=object
+;                           If `THESIM` is the name or number of a simulation, then
+;                               this keyword returns the object reference to the
+;                               corresponding simulation object that is created.
+;       XSIZE:              in, optional, type=long, default=500
+;                           Horizontal size of the display window, in pixels.
+;       YSIZE:              in, optional, type=long, default=(nSlabs+1)*100 < 690
+;                           Vertical size of the display window, in pixels.
+;       _REF_EXTRA:         in, optional, type=structure
+;                           Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
+;                               is an object.
 ;
 ; :Returns:
-;       msWin:                  MrWindow graphic window containing the requested graphics.
-;                                   If the image data does not exist, an invalid object
-;                                   will be returned.
+;       msWin:              MrWindow graphic window containing the requested graphics.
+;                               If the image data does not exist, an invalid object
+;                               will be returned.
 ;
 ; :Uses:
 ;   Uses the following external programs::
@@ -109,8 +106,10 @@
 ;       2014/03/18  -   Written by Matthew Argall
 ;       2014/09/11  -   Added the RANGES keyword. - MRA
 ;       2014/09/14  -   Added the XSIZE and YSIZE keyword. - MRA
+;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
+;                           Repurposed the SIM_OBJECT keyword. - MRA
 ;-
-function MrSim_MultiSlab, names, time, $
+function MrSim_MultiSlab, theSim, names, time, $
 C_NAME = c_name, $
 NLEVELS = nLevels, $
 OFILENAME = ofilename, $
@@ -126,31 +125,45 @@ _REF_EXTRA = extra
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
-        if obj_valid(oSim) && arg_present(oSim) eq 0 then obj_destroy, oSim
+        if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
         if obj_valid(colorWin) then obj_destroy, colorWin
         void = cgErrorMSG()
         return, obj_new
     endif
 
 ;-------------------------------------------------------
-;Define Ranges /////////////////////////////////////////
+; Check Simulation /////////////////////////////////////
 ;-------------------------------------------------------
+    osim_created = 0B
+    
+    ;Simulation name or number?
+    if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
+        oSim = MrSim_Create(theSim, time, _STRICT_EXTRA=extra)
+        if obj_valid(oSim) eq 0 then return, obj_new()
+        osim_created = 1B
+        
+    ;Object?
+    endif else if MrIsA(theSim, 'OBJREF') then begin
+        if obj_isa(theSim, 'MRSIM') eq 0 $
+            then message, 'THESIM must be a subclass of the MrSim class.' $
+            else oSim = theSim
+            
+    ;Somthing else
+    endif else begin
+        MrSim_Which
+        message, 'THESIM must be a simulation name, number, or object.'
+    endelse
+    sim_class = obj_class(oSim)
 
+;-------------------------------------------------------
+; Defaults /////////////////////////////////////////////
+;-------------------------------------------------------
     ;Set defaults
     ;   -YSIZE is determined later and is based on the number of slabs.
     Sim3D   = keyword_set(Sim3D)
-    if Sim3D then sim_class = 'MrSim2D' else sim_class = 'MrSim3D'
     if n_elements(c_name)     eq 0 then c_name    = ''
     if n_elements(ofilename)  eq 0 then ofilename = ''
     if n_elements(xsize)      eq 0 then xsize     = 500
-    
-    ;Create a simulation object
-    if n_elements(oSim) gt 0 then begin
-        if obj_valid(oSim) eq 0 || obj_isa(oSim, 'MRSIM') eq 0 then $
-            message, 'SIM_OBJECT must be valid and a subclass of "MrSim"'
-    endif else begin
-        oSim = obj_new(sim_class, time, _STRICT_EXTRA=extra)
-    endelse
     
     ;Buffer the output?
     if ofilename eq '' then buffer = 0 else buffer = 1
@@ -172,12 +185,14 @@ _REF_EXTRA = extra
         if nRanges gt 0 then range = nRanges eq 1 ? ranges : ranges[*,i]
 
         ;Create the image.
-        !Null = MrSim_ColorSlab(names[i], /CURRENT, $
+        !Null = MrSim_ColorSlab(oSim, names[i], /CURRENT, $
                                 RANGE      = range, $
-                                SIM_OBJECT = oSim, $
                                 C_NAME     = c_name, $
                                 NLEVELS    = nLevels)
     endfor
+    
+    ;Destroy the simulation object
+    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
 
 ;-------------------------------------------------------
 ;Output ////////////////////////////////////////////////

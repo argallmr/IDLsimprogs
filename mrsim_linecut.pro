@@ -40,6 +40,9 @@
 ;    Bill Daughton, Simulation
 ;
 ; :Params:
+;       THESIM:             in, required, type=string/integer/object
+;                           The name or number of the simulation to be used, or a
+;                               valid simulation object. See MrSim_Create.pro.
 ;       NAME:               in, required, type=string
 ;                           The name of the vector quantity to be plotted in color.
 ;       CUTS:               in, required, type=long/lonarr
@@ -74,14 +77,9 @@
 ;                               ordered graphic. In the latter case, the MrGraphics object
 ;                               on which to overplot the line cuts.
 ;       SIM_OBJECT:         out, optional, type=object
-;                           The "MrSim" (or subclass) object reference containing the 
-;                               simulation data and domain information used in
-;                               creating the plot. If not provided, one will be
-;                               created according to the `SIM3D` keyword.
-;       SIM3D:              in, optional, type=boolean, default=0
-;                           If set, then the `SIM_OBJECT` should be a class for 3D
-;                               simulations. The default is a 2D simulation. This
-;                               keyword is ignored if `SIM_OBJECT` is provided.
+;                           If `THESIM` is the name or number of a simulation, then
+;                               this keyword returns the object reference to the
+;                               corresponding simulation object that is created.
 ;       VCUT_RANGE:         in, optional, type=fltarr(2)
 ;                           The verical range, in data coordinates, over which to cut.
 ;                               "Vertical" is defined by the `HORIZONTAL` keyword. Data
@@ -89,9 +87,8 @@
 ;                               within `SIM_OBJECT`. The default is to take the
 ;                               appropriate simulation range.
 ;       _REF_EXTRA:         in, optional, type=structure
-;                           Any keyword accepted Sim_Object::Init(), or any of its
-;                               subclasses is also accepted here. Ignored of
-;                               `SIM_OBJECT` is present.
+;                           Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
+;                               is an object.
 ;
 ; :Returns:
 ;       LCWIN:              A MrWindow graphic window containing the line cut. If the
@@ -123,8 +120,10 @@
 ;                           reference, not the window's. - MRA
 ;       2014/04/16  -   If one cut is taken, add the location to the title. If more than
 ;                           one, add a legend indicating where the cuts were taken. - MRA
+;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
+;                           Repurposed the SIM_OBJECT keyword. - MRA
 ;-
-function MrSim_LineCut, name, cuts, time, $
+function MrSim_LineCut, theSim, name, cuts, time, $
 ADD_LEGEND = add_legend, $
 CURRENT = current, $
 COLOR = color, $
@@ -133,7 +132,6 @@ HORIZONTAL = horizontal, $
 OFILENAME = ofilename, $
 OVERPLOT = overplot, $
 SIM_OBJECT = oSim, $
-SIM3D = Sim3D, $
 VCUT_RANGE = vcut_range, $
 _REF_EXTRA = extra
     compile_opt strictarr
@@ -142,10 +140,34 @@ _REF_EXTRA = extra
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
-        if obj_valid(oSim) && arg_present(oSim) eq 0 then obj_destroy, oSim
+        if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
         if current eq 0 && obj_valid(lcWin) then obj_destroy, lcWin
         return, obj_new()
     endif
+
+;-------------------------------------------------------
+; Check Simulat/////////////////////////////////////////
+;-------------------------------------------------------
+    osim_created = 0B
+    
+    ;Simulation name or number?
+    if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
+        oSim = MrSim_Create(theSim, time, _STRICT_EXTRA=extra)
+        if obj_valid(oSim) eq 0 then return, obj_new()
+        osim_created = 1B
+        
+    ;Object?
+    endif else if MrIsA(theSim, 'OBJREF') then begin
+        if obj_isa(theSim, 'MRSIM') eq 0 $
+            then message, 'THESIM must be a subclass of the MrSim class.' $
+            else oSim = theSim
+            
+    ;Somthing else
+    endif else begin
+        MrSim_Which
+        message, 'THESIM must be a simulation name, number, or object.'
+    endelse
+    sim_class = obj_class(oSim)
 
 ;-------------------------------------------------------
 ;Define Ranges /////////////////////////////////////////
@@ -158,16 +180,6 @@ _REF_EXTRA = extra
     Sim3D      = keyword_set(Sim3D)
     if n_elements(ofilename) eq 0 then ofilename = ''
     nCuts = n_elements(cuts)
-    
-    ;Create a simulation object
-    if n_elements(oSim) gt 0 then begin
-        if obj_valid(oSim) eq 0 || obj_isa(oSim, 'MRSIM') eq 0 then $
-            message, 'SIM_OBJECT must be valid and a subclass of "MrSim"'
-        sim_class = obj_class(oSim)
-    endif else begin
-        sim_class = Sim3D ? 'MRSIM3D' : 'MRSIM2D'
-        oSim = obj_new(sim_class, time, _STRICT_EXTRA=extra)
-    endelse
     
 ;-------------------------------------------------------
 ;Read Data /////////////////////////////////////////////
@@ -182,7 +194,7 @@ _REF_EXTRA = extra
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
         
     ;Destroy the object
-    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
     
     ;Make sure the data exists. Do this /after/ OSIM has a chance to be destroyed
     ;and before the graphic window is created.

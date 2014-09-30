@@ -20,6 +20,9 @@
 ;    Bill Daughton, Simulation
 ;
 ; :Params:
+;       THESIM:             in, required, type=string/integer/object
+;                           The name or number of the simulation to be used, or a
+;                               valid simulation object. See MrSim_Create.pro.
 ;       NAMES:              in, required, type=string
 ;                           The name of the quantitis to be plotted in color.
 ;       CUT:                in, required, type=int
@@ -54,14 +57,9 @@
 ;                               name. The file extension is used to determine which
 ;                               type of image to create. "PNG" is the default.
 ;       SIM_OBJECT:         out, optional, type=object
-;                           The "Sim_Object" (or subclass) reference containing the 
-;                               simulation data and domain information used in
-;                               creating the plot. If not provided, one will be
-;                               created according to the `SIM3D` keyword.
-;       SIM3D:              in, optional, type=boolean, default=0
-;                           If set, and `SIM_OBJECT` is not given, then a 3D
-;                               simulation object will be created. The default is
-;                               to make 2D simulation object.
+;                           If `THESIM` is the name or number of a simulation, then
+;                               this keyword returns the object reference to the
+;                               corresponding simulation object that is created.
 ;       VCUT_RANGE:         in, optional, type=fltarr(2)
 ;                           The verical range, in data coordinates, over which to cut.
 ;                               "Vertical" is defined by the `HORIZONTAL` keyword. Data
@@ -77,9 +75,8 @@
 ;                               field is to be overplotted on the image. Must be used
 ;                               with `VX_NAME`.
 ;       _REF_EXTRA:         in, optional, type=structure
-;                           Any keyword accepted Sim_Object::Init(), or any of its
-;                               subclasses is also accepted here. Ignored if
-;                               `SIM_OBJECT` is present.
+;                           Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
+;                               is an object.
 ;
 ; :Uses:
 ;   Uses the following external programs::
@@ -103,8 +100,10 @@
 ;       2014/02/07  -   Written by Matthew Argall
 ;       2014/03/05  -   Parameter CUT renamed to CUTS and can now be an array. - MRA
 ;       2014/03/27  -   Added the VX_NAME and VY_NAME keywords. - MRA
+;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
+;                           Repurposed the SIM_OBJECT keyword. - MRA
 ;-
-function MrSim_CutSlab, names, cuts, time, $
+function MrSim_CutSlab, theSim, names, cuts, time, $
 C_NAME = c_name, $
 FRACTION = fraction, $
 HCUT_RANGE = hcut_range, $
@@ -112,7 +111,6 @@ HORIZONTAL = horizontal, $
 NLEVELS = nlevels, $
 OFILENAME = ofilename, $
 SIM_OBJECT = oSim, $
-SIM3D = Sim3D, $
 VCUT_RANGE = vcut_range, $
 VX_NAME = vx_name, $
 VY_NAME = vy_name, $
@@ -123,29 +121,43 @@ _REF_EXTRA = extra
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
-        if obj_valid(oSim) && arg_present(oSim) eq 0 then obj_destroy, oSim
+        if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
         if obj_valid(drWin) then obj_destroy, drcWin
         void = cgErrorMSG()
         return, obj_new()
     endif
 
 ;-------------------------------------------------------
+; Check Simulat/////////////////////////////////////////
+;-------------------------------------------------------
+    osim_created = 0B
+    
+    ;Simulation name or number?
+    if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
+        oSim = MrSim_Create(theSim, time, _STRICT_EXTRA=extra)
+        if obj_valid(oSim) eq 0 then return, obj_new()
+        osim_created = 1B
+        
+    ;Object?
+    endif else if MrIsA(theSim, 'OBJREF') then begin
+        if obj_isa(theSim, 'MRSIM') eq 0 $
+            then message, 'THESIM must be a subclass of the MrSim class.' $
+            else oSim = theSim
+            
+    ;Somthing else
+    endif else begin
+        MrSim_Which
+        message, 'THESIM must be a simulation name, number, or object.'
+    endelse
+    sim_class = obj_class(oSim)
+
+;-------------------------------------------------------
 ;Defaults //////////////////////////////////////////////
 ;-------------------------------------------------------
     ;Set defaults
     horizontal = keyword_set(horizontal)
-    sim_class  = keyword_set(sim3d) ? 'MrSim3D' : 'MrSim2D'
     if n_elements(ofilename) eq 0  then ofilename = ''
     if ofilename             eq '' then buffer    = 0 else buffer = 1
-
-    ;Create a simulation object
-    if n_elements(oSim) eq 0 then begin
-        oSim = obj_new(sim_class, time, _STRICT_EXTRA=extra)
-        if obj_valid(oSim) eq 0 then return, obj_new()
-    endif else begin
-        if obj_isa(oSim, 'MRSIM') eq 0 then $
-            message, 'SIM_OBJECT must be a subclass of "MrSim"'
-    endelse
 
     nCuts  = n_elements(cuts)
     nNames = n_elements(names)
@@ -199,10 +211,9 @@ _REF_EXTRA = extra
     for i = 0, nNames - 1 do begin
         
         ;Make a line plot of the data
-        lcWin = MrSim_LineCut(names[i], cuts, /CURRENT, $
+        lcWin = MrSim_LineCut(oSim, names[i], cuts, /CURRENT, $
                               HCUT_RANGE=hcut_range, $
                               HORIZONTAL=horizontal, $
-                              SIM_OBJECT=oSim, $
                               VCUT_RANGE=vcut_range)
 
         ;Skip to the next iteration if the graphic could not be made
@@ -211,12 +222,11 @@ _REF_EXTRA = extra
         count += 1
 
         ;Create an overview image for DATA.
-        !Null = MrSim_ColorSlab(names[i], /CURRENT, $
+        !Null = MrSim_ColorSlab(oSim, names[i], /CURRENT, $
                                 C_NAME = c_name, $
                                 FRACTION = fraction, $
                                 HORIZ_LINES = horiz_lines, $
                                 NLEVELS = nlevels, $
-                                SIM_OBJECT = oSim, $
                                 VERT_LINES = vert_lines, $
                                 VX_NAME = vx_name, $
                                 VY_NAME = vy_name)
@@ -227,7 +237,7 @@ _REF_EXTRA = extra
     endfor
 
     ;Destroy the object.
-    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
     
     ;Get rid of the holes.
     iGr = iGr[0:count-1]
@@ -250,7 +260,7 @@ _REF_EXTRA = extra
     ;Refresh and output, if requested.
     if coord_system eq 'MAGNETOPAUSE' $
         then drcWin -> SetProperty, XSIZE=((400 > nNames*125) < 1000), YSIZE=500, OYMARGIN=[10,3] $
-        else drcWin.YSIZE = nNames*125 < 690
+        else drcWin.YSIZE = 300 > nNames*125 < 690
         
 
     drcWin -> Refresh

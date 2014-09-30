@@ -40,63 +40,61 @@
 ;    Bill Daughton, Simulation
 ;
 ; :Params:
-;       NAME:                   in, required, type=string
-;                               The name of the vector quantity to be plotted in color.
-;       TIME:                   in, required, type=int
-;                               The simulation time for which a velocity vector field
-;                                   is to be plotted.
+;       THESIM:             in, required, type=string/integer/object
+;                           The name or number of the simulation to be used, or a
+;                               valid simulation object. See MrSim_Create.pro.
+;       NAME:               in, required, type=string
+;                           The name of the vector quantity to be plotted in color.
+;       TIME:               in, required, type=int
+;                           The simulation time for which a velocity vector field
+;                               is to be plotted. Required if `THESIM` is not an
+;                               object.
 ; :Keywords:
-;       C_NAME:                 in, optional, type=string, default=''
-;                               Name of the data product whose contours are to be 
-;                                   overplotted on the image.
-;       CURRENT:                in, optional, type=boolean, default=0
-;                               If set, the graphics will be added to the current MrWindow
-;                                   graphics window. The default is to create a new window.
-;       FRACTION:               in, optional, type=float
-;                               Fraction of the vectors to be drawn. Used with `VX_NAME`
-;                                   and `VY_NAME`.
-;       HORIZ_LINES:            in, optional, type=flt/fltarr
-;                               Locations, in data coordinates, along the y-axis of the
-;                                   image, at which horizontal lines are to be drawn.
-;       LINE_COLOR:             in, optional, type=strarr, default="['Blue', 'Forest Green', 'Red', 'Magenta', 'Orange']"
-;                               Colors of the lines to be drawn on the image.
-;       NLEVELS:                in, optional, type=int, default=15
-;                               The number of contour lines to draw. Used with `C_NAME`.
-;       OFILENAME:              out, optional, type=string, default=''
-;                               If provided, graphics will be output to a file by this
-;                                   name. The file extension is used to determine which
-;                                   type of image to create. "PNG" is the default.
-;       RANGE:                  in, optional, type=fltarr(2), default=[min\,max]
-;                               Data range of the quantity to be displayed.
-;       SIM_OBJECT:             out, optional, type=object
-;                               The "Sim_Object" (or subclass) reference containing the 
-;                                   simulation data and domain information used in
-;                                   creating the plot. If not provided, one will be
-;                                   created according to the `SIM3D` keyword.
-;       SIM3D:                  in, optional, type=boolean, default=0
-;                               If set, and `SIM_OBJECT` is not given, then a 3D
-;                                   simulation object will be created. The default is
-;                                   to make 2D simulation object.
-;       VX_NAME:                in, optional, type=string, default=''
-;                               Name of the x-component of a data product whose vector
-;                                   field is to be overplotted on the image. Must be used
-;                                   with `VY_NAME`.
-;       VY_NAME:                in, optional, type=string, default=''
-;                               Name of the y-component of a data product whose vector
-;                                   field is to be overplotted on the image. Must be used
-;                                   with `VX_NAME`.
-;       VERT_LINES:             in, optional, type=flt/fltarr
-;                               Locations, in data coordinates, along the x-axis of the
-;                                   image, at which vertical lines are to be drawn.
-;       _REF_EXTRA:             in, optional, type=structure
-;                               Any keyword accepted Sim_Object::Init(), or any of its
-;                                   subclasses is also accepted here. Ignored of
-;                                   `SIM_OBJECT` is present.
+;       C_NAME:             in, optional, type=string, default=''
+;                           Name of the data product whose contours are to be 
+;                               overplotted on the image.
+;       CURRENT:            in, optional, type=boolean, default=0
+;                           If set, the graphics will be added to the current MrWindow
+;                               graphics window. The default is to create a new window.
+;       FRACTION:           in, optional, type=float
+;                           Fraction of the vectors to be drawn. Used with `VX_NAME`
+;                               and `VY_NAME`.
+;       HORIZ_LINES:        in, optional, type=flt/fltarr
+;                           Locations, in data coordinates, along the y-axis of the
+;                               image, at which horizontal lines are to be drawn.
+;       LINE_COLOR:         in, optional, type=strarr, default="['Blue', 'Forest Green', 'Red', 'Magenta', 'Orange']"
+;                           Colors of the lines to be drawn on the image.
+;       NLEVELS:            in, optional, type=int, default=15
+;                           The number of contour lines to draw. Used with `C_NAME`.
+;       OFILENAME:          out, optional, type=string, default=''
+;                           If provided, graphics will be output to a file by this
+;                               name. The file extension is used to determine which
+;                               type of image to create. "PNG" is the default.
+;       RANGE:              in, optional, type=fltarr(2), default=[min\,max]
+;                           Data range of the quantity to be displayed.
+;       SIM_OBJECT:         out, optional, type=object
+;                           If `THESIM` is the name or number of a simulation, then
+;                               this keyword returns the object reference to the
+;                               corresponding simulation object that is created.
+;       VX_NAME:            in, optional, type=string, default=''
+;                           Name of the x-component of a data product whose vector
+;                               field is to be overplotted on the image. Must be used
+;                               with `VY_NAME`.
+;       VY_NAME:            in, optional, type=string, default=''
+;                           Name of the y-component of a data product whose vector
+;                               field is to be overplotted on the image. Must be used
+;                               with `VX_NAME`.
+;       VERT_LINES:         in, optional, type=flt/fltarr
+;                           Locations, in data coordinates, along the x-axis of the
+;                               image, at which vertical lines are to be drawn.
+;       _REF_EXTRA:         in, optional, type=structure
+;                           Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
+;                               is an object.
 ;
 ; :Returns:
-;       COLORWIN:               MrWindow graphic window containing the requested graphics.
-;                                   If the image data does not exist, an invalid object
-;                                   will be returned.
+;       COLORWIN:           MrWindow graphic window containing the requested graphics.
+;                               If the image data does not exist, an invalid object
+;                               will be returned.
 ;
 ; :Uses:
 ;   Uses the following external programs::
@@ -137,8 +135,10 @@
 ;       2014/03/26  -   Added ability to overplot vector fields. Changed V_NAME to VX_NAME
 ;                           and VY_NAME. Added the FRACTION keyword. - MRA
 ;       2014/09/11  -   Added the RANGE keyword. - MRA
+;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
+;                           Repurposed the SIM_OBJECT keyword. - MRA
 ;-
-function MrSim_ColorSlab, name, time, $
+function MrSim_ColorSlab, theSim, name, time, $
 C_NAME = c_name, $
 CURRENT = current, $
 FRACTION = fraction, $
@@ -148,7 +148,6 @@ NLEVELS = nLevels, $
 OFILENAME = ofilename, $
 RANGE = range, $
 SIM_OBJECT = oSim, $
-SIM3D = Sim3D, $
 VX_NAME = vx_name, $
 VY_NAME = vy_name, $
 VERT_LINES = vert_lines, $
@@ -159,19 +158,40 @@ _REF_EXTRA = extra
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
-        if obj_valid(oSim)     && arg_present(oSim)    eq 0 then obj_destroy, oSim
+        if osim_created        && arg_present(oSim)    eq 0 then obj_destroy, oSim
         if obj_valid(colorWin) && keyword_set(current) eq 0 then obj_destroy, colorWin
         void = cgErrorMSG()
-        return, obj_new
+        return, obj_new()
     endif
 
 ;-------------------------------------------------------
-;Define Ranges /////////////////////////////////////////
+; Check Simulation /////////////////////////////////////
 ;-------------------------------------------------------
-
-    ;Set defaults
-    current = keyword_set(current)
+    osim_created = 0B
     
+    ;Simulation name or number?
+    if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
+        oSim = MrSim_Create(theSim, time, _STRICT_EXTRA=extra)
+        if obj_valid(oSim) eq 0 then return, obj_new()
+        osim_created = 1B
+        
+    ;Object?
+    endif else if MrIsA(theSim, 'OBJREF') then begin
+        if obj_isa(theSim, 'MRSIM') eq 0 $
+            then message, 'THESIM must be a subclass of the MrSim class.' $
+            else oSim = theSim
+            
+    ;Somthing else
+    endif else begin
+        MrSim_Which
+        message, 'THESIM must be a simulation name, number, or object.'
+    endelse
+    sim_class = obj_class(oSim)
+
+;-------------------------------------------------------
+; Defaults /////////////////////////////////////////////
+;-------------------------------------------------------
+    current = keyword_set(current)
     if n_elements(c_name)     eq 0 then c_name    = ''
     if n_elements(fraction)   eq 0 then fraction  = 0.005
     if n_elements(vx_name)    eq 0 then vx_name   = ''
@@ -183,17 +203,6 @@ _REF_EXTRA = extra
     
     nVLines = n_elements(vert_lines)
     nHLines = n_elements(horiz_lines)
-    
-    ;Create a simulation object
-    if n_elements(oSim) gt 0 then begin
-        if obj_valid(oSim) eq 0 || obj_isa(oSim, 'MRSIM') eq 0 then $
-            message, 'SIM_OBJECT must be valid and a subclass of "MrSim"'
-        sim_class = obj_class(oSim)
-    endif else begin
-        Sim3D   = keyword_set(Sim3D)
-        if Sim3D then sim_class = 'MRSIM3D' else sim_class = 'MRSIM2D'
-        oSim = obj_new(sim_class, time, _STRICT_EXTRA=extra)
-    endelse
     
     ;Buffer the output?
     if current eq 0 then $
@@ -216,7 +225,7 @@ _REF_EXTRA = extra
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
         
     ;Destroy the object
-    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
     
     ;Make sure the data exists. Do this /after/ OSIM has a chance to be destroyed
     ;and before the graphic window is created.

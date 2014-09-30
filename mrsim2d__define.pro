@@ -750,6 +750,53 @@ end
 
 
 ;+
+;   The purpose of this method is to set object properties.
+;
+; :Params:
+;       SIM_ID:         in, optional, type=string/integer
+;                       Either the name or the number of the simulation. If not given, a
+;                           list of simulations is printed to the command window.
+;
+; :Keywords:
+;       BINARY:         in, optional, type=boolean, default=0
+;                       If set, `INFO_FILE` points to the binary info file.
+;       DIRECTORY:      in, optional, type=string, default=pwd
+;                       Directory in which to find the ".gda" data.
+;       INFO_FILE:      in, optional, type=string, default=`DIRECTORY`/../info`
+;                       The ASCII info file containing information about the simulation
+;                           setup. If `BINARY` is set, the default file will be
+;                           `DIRECTORY`/info.
+;-
+pro MrSim2D::SetSim, sim_id, $
+BINARY=binary, $
+DIRECTORY=directory, $
+INFO_FILE=info_file
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return
+    endif
+    
+    ;If no simulation was given, print info to command window.
+    if n_elements(sim_id) eq 0 then begin
+        MrSim_Which
+        return
+    endif
+    
+    ;Make sure we are switching to a 2D simulation.
+    MrSim_Which, sim_id, DIMENSION=dimension
+    if dimension ne '2D' then message, 'Cannot change dimensions from 2D to ' + dimension + '.'
+    
+    ;Call the superclass
+    self -> MrSim::SetSim, sim_id, BINARY=binary, DIRECTORY=directory, INFO_FILE=info_file
+end
+
+
+;+
 ;   Clean up after the object is destroyed.
 ;-
 pro MrSim2D::cleanup

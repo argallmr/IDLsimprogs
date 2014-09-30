@@ -172,19 +172,29 @@ function MrSim2_Data::A, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
+VECTOR=vec, $
 X=x, $
 Y=y, $
 Z=z
     compile_opt strictarr, hidden
     on_error, 2
     
+    ;Defaults
+    magnitude     = keyword_set(magnitude)
+    parallel      = keyword_set(parallel)
+    perpendicular = keyword_set(perpendicular)
+    vec           = keyword_set(vec)
+    x             = keyword_set(x)
+    y             = keyword_set(y)
+    z             = keyword_set(z)
+    
     ;Ay is the only component
-    if perpendicular + parallel + x + z + magnitude gt 1 $
+    if perpendicular + parallel + x + z + magnitude + vec gt 1 $
         then message, 'Only the y-component of the vector potential is available.'
     
     ;Ay
     if n_elements(*self.Ay) eq 0 then self -> ReadData, 'Ay'
-    return, self.Ay
+    return, *self.Ay
 end
 
 
@@ -201,13 +211,24 @@ function MrSim2_Data::B, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
+VECTOR=vec
 X=x, $
 Y=y, $
 Z=z
     compile_opt strictarr, hidden
     on_error, 2
     
-    vec = (x + y + z + perpendicular + parallel + magnitude) eq 0
+    ;Defaults
+    magnitude     = keyword_set(magnitude)
+    parallel      = keyword_set(parallel)
+    perpendicular = keyword_set(perpendicular)
+    vec           = keyword_set(vec)
+    x             = keyword_set(x)
+    y             = keyword_set(y)
+    z             = keyword_set(z)
+    
+    ;If nothing was chosen, return the vector.
+    vec = vec || (x + y + z + perpendicular + parallel + magnitude) eq 0
     if vec then begin
         x = 1
         y = 1
@@ -260,14 +281,24 @@ DESTROY=destroy, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
+VECTOR=vec, $
 X=x, $
 Y=y, $
 Z=z
     compile_opt strictarr, hidden
     on_error, 2
     
+    ;Defaults
+    magnitude     = keyword_set(magnitude)
+    parallel      = keyword_set(parallel)
+    perpendicular = keyword_set(perpendicular)
+    vec           = keyword_set(vec)
+    x             = keyword_set(x)
+    y             = keyword_set(y)
+    z             = keyword_set(z)
     
-    vec = (x + y + z + perpendicular + parallel + magnitude) eq 0
+    ;If nothing was chosen, return the vector.
+    vec = vec || (x + y + z + perpendicular + parallel + magnitude) eq 0
     if vec then begin
         x = 1
         y = 1
@@ -289,6 +320,7 @@ Z=z
     ;Return
     ;   - The order is crucial.
     case 1 of
+        vec:           return, [[[*self.Ex], [*self.Ey], [*self.Ez]]]
         parallel:      return, self -> Parallel(Ex, Ey, Ez, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
         perpendicular: return, self -> Perpendicular(Ex, Ey, Ez, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
         magnitude:     return, sqrt(*self.Ex^2 + *self.Ey^2 + *self.Ez^2)

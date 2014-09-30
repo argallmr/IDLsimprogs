@@ -79,6 +79,7 @@
 ;       2014/07/27  -   Added support for the electron parallel and perpendicular
 ;                           pressures, anisotropy, agyrotropy, and nongyrotropy. - MRA
 ;       2014/09/15  -   Added capacity for calculating total pressure. - MRA
+;       2014/09/30  -   Added the SetSim method. - MRA.
 ;-
 ;*****************************************************************************************
 ;+
@@ -174,12 +175,13 @@ ZRANGE = zrange
     
     ;Defaults
     binary = keyword_set(binary)
-    if n_elements(directory) eq 0 then directory   = _dir
+    if n_elements(directory) eq 0 then directory = _dir
     if n_elements(info_file) eq 0 $
         then info_file = binary ? _bin_info : _ascii_info
     
     ;Properties
     self.simnum    = simnum
+    self.simname   = simname
     self.directory = directory
 ;-------------------------------------------------------
 ;Read the Info File ////////////////////////////////////
@@ -1395,6 +1397,7 @@ DIRECTORY = directory, $
 ION_SCALE = ion_scale, $
 MVA_FRAME = mva_frame, $
 ORIENTATION = orientation, $
+SIMNAME = simname, $
 SIMNUM = simnum, $
 TIME = time, $
 
@@ -1428,6 +1431,7 @@ ZSIM = ZSim
     if arg_present(izrange)      then izrange      = getIndexRange(*self.ZSim, self.zrange)
     if arg_present(mva_frame)    then mva_frame    = self.mva_frame
     if arg_present(orientation)  then orientation  = self.orientation
+    if arg_present(simname)      then simname      = self.simname
     if arg_present(simnum)       then simnum       = self.simnum
     if arg_present(time)         then time         = self.time
     if arg_present(xrange)       then xrange       = self.xrange
@@ -1662,6 +1666,99 @@ pro MrSim::SetData, name, data
         'UIZ':   *self.Uiz = data
         else: message, 'Data "' + name + '" is cannot be set.'
     endcase
+end
+
+
+;+
+;   The purpose of this method is to set object properties.
+;
+;   NOTE:
+;       More than likely, you will have to set the TIME, [XYZ]Range and possibly the
+;       YSLICE properties after switching simulations.
+;
+; :Params:
+;       SIM_ID:         in, optional, type=string/integer
+;                       Either the name or the number of the simulation. If not given, a
+;                           list of simulations is printed to the command window.
+;
+; :Keywords:
+;       BINARY:         in, optional, type=boolean, default=0
+;                       If set, `INFO_FILE` points to the binary info file.
+;       DIRECTORY:      in, optional, type=string, default=pwd
+;                       Directory in which to find the ".gda" data.
+;       INFO_FILE:      in, optional, type=string, default=`DIRECTORY`/../info`
+;                       The ASCII info file containing information about the simulation
+;                           setup. If `BINARY` is set, the default file will be
+;                           `DIRECTORY`/info.
+;-
+pro MrSim::SetSim, sim_id, $
+BINARY=binary, $
+DIRECTORY=directory, $
+INFO_FILE=info_file
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return
+    endif
+    
+    ;If no simulation was given, print info to command window.
+    if n_elements(sim_id) eq 0 then begin
+        MrSim_Which
+        return
+    endif
+    
+    ;Get the simulation name, number, etc.
+    MrSim_Which, sim_id, NAME=name, NUMBER=number, $
+                         ASCII_INFO=ascii_info, BINARY_INFO=binary_info, DIRECTORY=dir
+    
+    ;Is the simulation different?
+    if number eq self.simnum then return
+    
+    ;Defaults
+    binary = keyword_set(binary)
+    if n_elements(directory) eq 0 then directory = dir
+    if n_elements(info_file) eq 0 then begin
+        if binary $ 
+            then info_file = binary_info $
+            else info_file = ascii_info
+    endif
+    
+    ;Make sure the info file exists.
+    if file_test(info_file) eq 0 then $
+        message, 'Cannot find info file: "' + info_file + '"'
+    
+    ;Clear all data
+    self -> Clear_Data
+    void = temporary(*self.info)
+    void = temporary(*self.xSim)
+    void = temporary(*self.ySim)
+    void = temporary(*self.zSim)
+    void = -1
+    
+    ;Binary info file
+    if binary then begin
+        if keyword_set(ion_scale) then $
+            message, 'ION_SCALE is only possible with ASCII info file. ' + $
+                     'Setting ION_SCALE=0', /INFORMATIONAL
+        ion_scale = 0
+        self -> ReadInfo_Binary, info_file
+        
+    ;Ascii info file
+    endif else begin
+        self -> ReadInfo_Ascii, info_file
+    endelse
+    
+    ;Create the simulation domain
+    self -> MakeSimDomain
+    
+    ;Properties
+    self.simname   = name
+    self.simnum    = number
+    self.directory = directory
 end
 
 
@@ -5172,6 +5269,7 @@ pro MrSim__DEFINE, class
               nSmooth:      0L, $
               orientation:  '', $
               simnum:       0,  $
+              simname:      '', $
               time:         0L, $
               
               ;Sim Domain

@@ -1,5 +1,3 @@
-
-
 ;+
 ;   Create the desired figure.
 ;
@@ -227,6 +225,118 @@ SIM_OBJECT=oSim
     
     ;Return
     return, wins
+end
+
+
+;+
+;   Create the desired figure.
+;
+; Params:
+;       FIGURE:         in, optional, type=string
+;                       Figure number of the figure to be created.
+;-
+function FEN_AsymmScan_By0_Dng_t28, $
+SIM_OBJECT=oSim
+    compile_opt strictarr
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(oSim) && arg_present(oSim) eq 0 then obj_destroy, oSim
+        if obj_valid(win) then obj_destroy, win
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ;Data Range
+    time   = 28
+    xrange = [345, 390]
+    zrange = [-10, 8]
+    
+;-------------------------------------------------------
+; Simulation Object ////////////////////////////////////
+;-------------------------------------------------------
+    ;Create the simulation object
+    if obj_valid(oSim) eq 0 then begin
+        oSim = MrSim_Create('Asymm-Scan/By0', time, XRANGE=xrange, ZRANGE=zrange)
+                                          
+    ;Make sure the parameters are correct
+    endif else begin
+        ;Get the name of the current simulation
+        oSim -> GetProperty, SIMNUM=number
+        MrSim_Which, number, NAME=name
+        
+        ;Switch simulations?
+        if strupcase(simname) ne strupcase(name) then begin
+            obj_destroy, oSim
+            oSim = MrSim_Create(simname, tIndex, XRANGE=xrange, ZRANGE=zrange)
+        endif else begin
+            oSim -> GetProperty, SIMNUM=simnum, TIME=tt, YSLICE=yy, XRANGE=xx, ZRANGE=zz
+            if (tIndex ne tt) || (array_equal(xx, xrange) eq 0) || (array_equal(zz, zrange) eq 0) $
+                then oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+        endelse
+    endelse
+
+;-------------------------------------------------------
+; Create the Image /////////////////////////////////////
+;-------------------------------------------------------
+    win = MrSim_ColorSlab('Dng_e', C_NAME='Ay', SIM_OBJECT=oSim)
+
+    ;Destroy the simulation object
+    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    
+    return, win
+end
+
+
+;+
+;   Create the desired figure.
+;
+; Params:
+;       FIGURE:         in, optional, type=string
+;                       Figure number of the figure to be created.
+;-
+function FEN_AsymmScan_By1_Dng_t28, $
+SIM_OBJECT=oSim
+    compile_opt strictarr
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(oSim) && arg_present(oSim) eq 0 then obj_destroy, oSim
+        if obj_valid(win) then obj_destroy, win
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ;Data Range
+    time   = 28
+    xrange = [345, 390]
+    zrange = [-10, 8]
+    
+;-------------------------------------------------------
+; Simulation Object ////////////////////////////////////
+;-------------------------------------------------------
+    ;Create the simulation object
+    if obj_valid(oSim) eq 0 then begin
+        oSim = MrSim_Create('Asymm-Scan/By0', time, XRANGE=xrange, ZRANGE=zrange)
+                                          
+    ;Make sure the parameters are correct
+    endif else begin
+        oSim -> GetProperty, TIME=tt, XRANGE=xx, ZRANGE=zz
+        if (time ne tt) || (array_equal(xx, xrange) eq 0) || (array_equal(zz, zrange) eq 0) $
+            then oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+    endelse
+
+;-------------------------------------------------------
+; Create the Image /////////////////////////////////////
+;-------------------------------------------------------
+    win = MrSim_ColorSlab('Dng_e', C_NAME='Ay', SIM_OBJECT=oSim)
+
+    ;Destroy the simulation object
+    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    
+    return, win
 end
 
 
@@ -582,7 +692,8 @@ VPERP1_VPERP2=vperp1_vperp2
     ;Current list of figures
     list_of_figures = [['Figures eNongyrotropy', 'Figures used in my study of nongyrotropy in asymmetric guide field case.'], $
                        ['Asymm-Scan/By0       ', 'Asymm-Scan/By0 simulation figures'], $
-                       ['    t28 eMap      ', ''], $
+                       ['    t28 eMap         ', ''], $
+                       ['    t28 Dng          ', ''], $
                        ['Asymm-Scan/By1       ', 'Asymm-Scan/By1 simulation figures'], $
                        ['    t30 eMap         ', ''], $, $
                        ['3D                   ', 'Asymm-3D simulation figures'], $
@@ -651,6 +762,7 @@ VPERP1_VPERP2=vperp1_vperp2
 
         ;Create the figure    
         case _figure of
+            'ASYMM-SCAN-BY0 T28 DNG': win = FEN_Overview_t06(SIM_OBJECT=oSim)
             'ASYMM-2D-LARGE-NEW T06 OVERVIEW': win = FEN_Overview_t06(SIM_OBJECT=oSim, STRNAME=strname)
             'ASYMM-2D-LARGE-NEW T09 OVERVIEW': win = FEN_Overview_t09(SIM_OBJECT=oSim, STRNAME=strname)
             'ASYMM-2D-LARGE-NEW T13 OVERVIEW': win = FEN_Overview_t13(SIM_OBJECT=oSim, STRNAME=strname)

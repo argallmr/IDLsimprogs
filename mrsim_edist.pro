@@ -1,3 +1,59 @@
+; docformat = 'rst'
+;
+; NAME:
+;    MrSim_eDist
+;
+;*****************************************************************************************
+;   Copyright (c) 2014, Matthew Argall                                                   ;
+;   All rights reserved.                                                                 ;
+;                                                                                        ;
+;   Redistribution and use in source and binary forms, with or without modification,     ;
+;   are permitted provided that the following conditions are met:                        ;
+;                                                                                        ;
+;       * Redistributions of source code must retain the above copyright notice,         ;
+;         this list of conditions and the following disclaimer.                          ;
+;       * Redistributions in binary form must reproduce the above copyright notice,      ;
+;         this list of conditions and the following disclaimer in the documentation      ;
+;         and/or other materials provided with the distribution.                         ;
+;       * Neither the name of the University of New Hampshire nor the names of its       ;
+;         contributors may be used to endorse or promote products derived from this      ;
+;         software without specific prior written permission.                            ;
+;                                                                                        ;
+;   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY  ;
+;   EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES ;
+;   OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT  ;
+;   SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,       ;
+;   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED ;
+;   TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR   ;
+;   BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN     ;
+;   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN   ;
+;   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH  ;
+;   DAMAGE.                                                                              ;
+;*****************************************************************************************
+;
+; PURPOSE:
+;+
+;   The purpose of this program is to create an electron distribution function from
+;   simulation particle data.
+;
+; :Categories:
+;    Bill Daughton, Simulation
+;
+; :Author:
+;    Matthew Argall::
+;    University of New Hampshire
+;    Morse Hall Room 113
+;    8 College Road
+;    Durham, NH 03824
+;    matthew.argall@wildcats.unh.edu
+;
+; :History:
+;    Modification History::
+;       2014/09/27  -   Written by Matthew Argall
+;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
+;                           Repurposed the SIM_OBJECT keyword. - MRA
+;-
+;*****************************************************************************************
 ;+
 ;   Determine the direction parallel to the magnetic field. The average magnetic
 ;   field throughout the area defined by XRANGE and ZRANGE is used.
@@ -802,6 +858,9 @@ end
 ;   Create an electron distribution function.
 ;
 ; :Params:
+;       THESIM:         in, required, type=string/integer/object
+;                       The name or number of the simulation to be used, or a
+;                           valid simulation object. See MrSim_Create.pro.
 ;       TYPE:           in, optional, type=string, default='Vx-Vz'
 ;                       The type of distribution function to make. Choices are::
 ;                           'x-Vx'
@@ -841,28 +900,23 @@ end
 ;                       Number of bins to use when grouping counts. E.g., for Vx-Vz
 ;                           distrubution, the ranges of Vx and Vz will be broken into
 ;                           this many bins.
-;       SIM3D:          in, optional, type=boolean, default=0
-;                       If `SIM_OBJECT` is not given, then set this keyword to indicate
-;                           that a 3D simulation is to be used. The default is to use
-;                           a 2D simulation.
-;       SIM_OBJECT:     in, optional, type=object
-;                       A MrSim object or one of its subclasses that contains information
-;                           about the simulation to be used. Not specified, one will
-;                           be created. See `SIM3D`.
-;       _REF_EXTRA:     in, optional, type=any
-;                       If `SIM_OBJECT` is not given, then use any keyword available to
-;                           MrSim and its subclasses to initialize one.
+;       SIM_OBJECT:     out, optional, type=object
+;                       If `THESIM` is the name or number of a simulation, then
+;                           this keyword returns the object reference to the
+;                           corresponding simulation object that is created.
+;       _REF_EXTRA:     in, optional, type=structure
+;                       Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
+;                           is an object.
 ;
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist, type, x, z, dx, dz, $
+function MrSim_eDist, theSim, type, x, z, dx, dz, $
 CURRENT=current, $
 ENERGY=energy, $
 FILENAME=filename, $
 MOMENTUM=momentum, $
 NBINS=nBins, $
-SIM3D=sim3d, $
 SIM_OBJECT=oSim, $
 _REF_EXTRA=ref_extra
     compile_opt strictarr
@@ -871,13 +925,39 @@ _REF_EXTRA=ref_extra
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
-        if obj_valid(win)  && keyword_set(current) eq 0 then obj_destroy, win
-        if obj_valid(oSim) && arg_present(oSim)    eq 0 then obj_destroy, oSim
+        if obj_valid(win) && keyword_set(current) eq 0 then obj_destroy, win
+        if osim_created   && arg_present(oSim)    eq 0 then obj_destroy, oSim
         void = cgErrorMsg()
         return, obj_new()
     endif
 
-    ;Defaults
+;-------------------------------------------------------
+; Check Simulation /////////////////////////////////////
+;-------------------------------------------------------
+    osim_created = 0B
+    
+    ;Simulation name or number?
+    if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
+        oSim = MrSim_Create(theSim, time, _STRICT_EXTRA=extra)
+        if obj_valid(oSim) eq 0 then return, obj_new()
+        osim_created = 1B
+        
+    ;Object?
+    endif else if MrIsA(theSim, 'OBJREF') then begin
+        if obj_isa(theSim, 'MRSIM') eq 0 $
+            then message, 'THESIM must be a subclass of the MrSim class.' $
+            else oSim = theSim
+            
+    ;Somthing else
+    endif else begin
+        MrSim_Which
+        message, 'THESIM must be a simulation name, number, or object.'
+    endelse
+    sim_class = obj_class(oSim)
+
+;-------------------------------------------------------
+; Defaults /////////////////////////////////////////////
+;-------------------------------------------------------
     _type    = strupcase(type)
     current  = keyword_set(current)
     energy   = keyword_set(energy)
@@ -895,16 +975,6 @@ _REF_EXTRA=ref_extra
     ;Create the spacial range of the distribution function
     xrange = x + [-dx, dx]
     zrange = z + [-dz, dz]
-
-    ;Create a simulation object
-    if n_elements(oSim) eq 0 then begin
-        if keyword_set(sim3d) then sim_class = 'MrSim3D' else sim_class = 'MrSim2D'
-        oSim = obj_new(sim_class, time, _STRICT_EXTRA=extra)
-        if obj_valid(oSim) eq 0 then return, obj_new()
-    endif else begin
-        if obj_isa(oSim, 'MRSIM') eq 0 then $
-            message, 'SIM_OBJECT must be a subclass of "MrSim"'
-    endelse
     
 ;-------------------------------------------------------
 ;Select Data ///////////////////////////////////////////
@@ -945,6 +1015,7 @@ _REF_EXTRA=ref_extra
         else:         message, 'Distribution type "' + type + '" not recognized.'
     endcase
     e_data = !Null
+    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
     
     ;Correct the counts
     img -> GetData, counts

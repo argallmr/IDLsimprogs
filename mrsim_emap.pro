@@ -1,85 +1,86 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    MrSim_CutSlab
+;    MrSim_eMap
 ;
 ; PURPOSE:
 ;+
-;   The purpose of this program is to make two columns of plots. The right column will
-;   be color plots of all quantities specified by `NAMES` and the left column will be
-;   line plots of those quantities taken at `CUT`.::
-;       NAME                    DESCRIPTION
-;       "Color: [name]"     -   2D image of the quantity specified by "name"
-;       "Cut: [name] x=#.#" -   1D vertical cut through the 2D image. #.# locates the cut.
-;       "[name] Contours    -   Contours overlayed on the image.
-;       "CB: Color [name]   -   Colorbar associated with the 2D image.
-;       "VLine [name] #     -   Vertical line overplotted on the image. # = cut number
-;       "HLines [name]      -   Horiztonal line overplotted on the image.
+;   The purpose of this program is to create an array of electron distributions, a.k.a.
+;   an "eMap".
 ;
 ; :Categories:
 ;    Bill Daughton, Simulation
 ;
 ; :Params:
-;       NAMES:              in, required, type=string
-;                           The name of the quantitis to be plotted in color.
-;       CUT:                in, required, type=int
-;                           The x-location (in de) at which the vertical cut will
-;                               be taken.
-;       TIME:               in, required, type=int
-;                           The simulation time for which at which to create the plot.
-;                               Igored if `SIM_OBJECT` is given.
+;       THESIM:         in, required, type=string/integer/object
+;                       The name or number of the simulation to be used, or a
+;                           valid simulation object. See MrSim_Create.pro.
+;       TYPE:           in, optional, type=string, default='Vx-Vz'
+;                       The type of distribution function to make. Choices are::
+;                           'x-Vx'
+;                           'z-Vz'
+;                           'Vx-Vz'
+;                           'Vx-Vy'
+;                           'Vy-Vz'
+;                           'Vpar-Vperp'
+;                           'Vpar-Vperp1'
+;                           'Vpar-Vperp2'
+;                           'Vperp1-Vperp2'
+;       X:              in, required, type=float
+;                       X-location of the center of the spacial bin from which electron
+;                           distribution information is collected.
+;       Z:              in, required, type=float
+;                       Z-location of the center of the spacial bin from which electron
+;                           distribution information is collected.
+;       DX:             in, optional, type=float, default=1
+;                       Half-width of the bin.
+;       DZ:             in, optional, type=float, default=1
+;                       Half-height of the bin.
 ;
 ; :Keywords:
 ;       C_NAME:             in, optional, type=string, default=''
 ;                           Name of the data product whose contours are to be 
 ;                               overplotted on the image.
-;       FRACTION:           in, optional, type=float
-;                           Fraction of the vectors to be drawn. Used with `VX_NAME`
-;                               and `VY_NAME`.
-;       HCUT_RANGE:         in, optional, type=fltarr(2)
-;                           The horizontal range, in data coordinates, over which to cut.
-;                               "Horizontal" is defined by the `HORIZONTAL` keyword. Data
-;                               coordinates are determined by the "ion_scale" property
-;                               within `SIM_OBJECT`. The default is to take the
-;                               appropriate simulation range.
-;       HORIZONTAL:         in, optional, type=boolean, default=0
-;                           If set, a horizontal cut will be taken. The default is
-;                               to take a vertical cut. For an "XY" orientation, "X" is
-;                               horizontal, "Y" is vertical. Similar for "XZ", etc.
-;                               The orientationis taken from the `SIM_OBJECT` property.
-;       NLEVELS:            in, optional, type=int, default=15
-;                           The number of contour lines to draw
-;       OFILENAME:          in, optional, type=string, default=''
-;                           If provided, graphics will be output to a file by this
-;                               name. The file extension is used to determine which
-;                               type of image to create. "PNG" is the default.
+;       HGAP:               in, optional, type=float, default=0.0
+;                           Horizontal space between adjacent distributions.
+;       IM_NAME:            in, optional, type=string, default=''
+;                           Name of a data product for which a 2D overview plot is to be
+;                               made. White square boxes will be drawn on the image to
+;                               indicate from where the distributions were taken.
+;       IM_WIN:             out, optional, type=object
+;                           If `IM_NAME` is provided, then use this keyword to obtain
+;                               the object reference of the window in which the image
+;                               was created.
+;       NBINS:              in, optional, type=long/lonarr(2), default=75
+;                           Number of bins into which a distribution will be subdivided.
+;                               If a scalar is given, the horizontal and vertical
+;                               components will be split into the same number of bins.
+;                               Provide a 2-element vector to have unequal number of bins.
+;       LAYOUT:             in, optional, type=intarr(2), default=[1,1]
+;                           Specifies the number of columns and rows: [nCols, nRows]; in
+;                               the eMap. There will be nCols*nRows number of distributions
+;                               total.
+;       LOCATION:           in, optional, type=integer, default=5
+;                           Specifies which bin within the eMap is centered on `X` and `Y`.
+;                               Options are::
+;                                   1: Upper-Left
+;                                   2: Upper-Middle
+;                                   3: Upper-Right
+;                                   4: Center-Left
+;                                   5: Center-Middle
+;                                   6: Center-Right
+;                                   7: Bottom-Left
+;                                   8: Bottom-Middle
+;                                   9: Bottom-Right
 ;       SIM_OBJECT:         out, optional, type=object
-;                           The "Sim_Object" (or subclass) reference containing the 
-;                               simulation data and domain information used in
-;                               creating the plot. If not provided, one will be
-;                               created according to the `SIM3D` keyword.
-;       SIM3D:              in, optional, type=boolean, default=0
-;                           If set, and `SIM_OBJECT` is not given, then a 3D
-;                               simulation object will be created. The default is
-;                               to make 2D simulation object.
-;       VCUT_RANGE:         in, optional, type=fltarr(2)
-;                           The verical range, in data coordinates, over which to cut.
-;                               "Vertical" is defined by the `HORIZONTAL` keyword. Data
-;                               coordinates are determined by the "ion_scale" property
-;                               within `SIM_OBJECT`. The default is to take the
-;                               appropriate simulation range.
-;       VX_NAME:            in, optional, type=string, default=''
-;                           Name of the x-component of a data product whose vector
-;                               field is to be overplotted on the image. Must be used
-;                               with `VY_NAME`.
-;       VY_NAME:            in, optional, type=string, default=''
-;                           Name of the y-component of a data product whose vector
-;                               field is to be overplotted on the image. Must be used
-;                               with `VX_NAME`.
+;                           If `THESIM` is the name or number of a simulation, then
+;                               this keyword returns the object reference to the
+;                               corresponding simulation object that is created.
+;       HGAP:               in, optional, type=float, default=0.0
+;                           Vertical space between adjacent distributions.
 ;       _REF_EXTRA:         in, optional, type=structure
-;                           Any keyword accepted Sim_Object::Init(), or any of its
-;                               subclasses is also accepted here. Ignored if
-;                               `SIM_OBJECT` is present.
+;                           Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
+;                               is an object.
 ;
 ; :Uses:
 ;   Uses the following external programs::
@@ -102,8 +103,10 @@
 ;    Modification History::
 ;       2014/09/01  -   Written by Matthew Argall
 ;       2014/09/05  -   Added the IM_WIN keyword. - MRA
+;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
+;                           Repurposed the SIM_OBJECT keyword. - MRA
 ;-
-function MrSim_eMap, type, x, y, dx, dy, $
+function MrSim_eMap, theSim, type, x, y, dx, dy, $
 C_NAME=c_name, $
 HGAP=hGap, $
 IM_NAME=im_name, $
@@ -120,7 +123,7 @@ _REF_EXTRA=extra
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
-        if obj_valid(oSim) && arg_present(oSim) eq 0 then obj_destroy, oSim
+        if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
         if obj_valid(im_win)  then obj_destroy, im_win
         if obj_valid(win2)    then obj_destroy, win2
         if obj_valid(imgTemp) then imgTemp -> Close
@@ -129,9 +132,32 @@ _REF_EXTRA=extra
     endif
 
 ;-------------------------------------------------------
-;Defaults //////////////////////////////////////////////
+; Check Simulation /////////////////////////////////////
 ;-------------------------------------------------------
-    ;Set defaults
+    osim_created = 0B
+    
+    ;Simulation name or number?
+    if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
+        oSim = MrSim_Create(theSim, time, _STRICT_EXTRA=extra)
+        if obj_valid(oSim) eq 0 then return, obj_new()
+        osim_created = 1B
+        
+    ;Object?
+    endif else if MrIsA(theSim, 'OBJREF') then begin
+        if obj_isa(theSim, 'MRSIM') eq 0 $
+            then message, 'THESIM must be a subclass of the MrSim class.' $
+            else oSim = theSim
+            
+    ;Somthing else
+    endif else begin
+        MrSim_Which
+        message, 'THESIM must be a simulation name, number, or object.'
+    endelse
+    sim_class = obj_class(oSim)
+
+;-------------------------------------------------------
+; Defaults /////////////////////////////////////////////
+;-------------------------------------------------------
     if n_elements(nBins)    eq 0 then nBins    = 75
     if n_elements(layout)   eq 0 then layout   = [1,1]
     if n_elements(location) eq 0 then location = 5
@@ -139,16 +165,7 @@ _REF_EXTRA=extra
     if n_elements(im_name)  eq 0 then im_name  = ''
     if n_elements(vGap)     eq 0 then vGap     = 0
     if n_elements(hGap)     eq 0 then hGap     = 0
-
-    ;Create a simulation object
-    if n_elements(oSim) eq 0 then begin
-        oSim = obj_new(sim_class, time, _STRICT_EXTRA=extra)
-        if obj_valid(oSim) eq 0 then return, obj_new()
-    endif else begin
-        if obj_isa(oSim, 'MRSIM') eq 0 then $
-            message, 'SIM_OBJECT must be a subclass of "MrSim"'
-    endelse
-
+    
 ;-------------------------------------------------------
 ; Determine Location of Dist Fns ///////////////////////
 ;-------------------------------------------------------
@@ -200,7 +217,7 @@ _REF_EXTRA=extra
 ;-------------------------------------------------------
     if im_name ne '' then begin
         ;Create the color plot
-        im_win  = MrSim_ColorSlab(im_name, C_NAME=c_name, SIM_OBJECT=oSim)
+        im_win  = MrSim_ColorSlab(oSim, im_name, C_NAME=c_name)
         im_win -> Refresh, /DISABLE
         
         ;Draw boxes where the distribution functions are being taken.
@@ -246,8 +263,7 @@ _REF_EXTRA=extra
         
         ;Create the distribution function
         ;   - Remove the colorbar
-        imgTemp  = MrSim_eDist(type, x_temp, y_temp, dx, dy, NBINS=nBins, $
-                               SIM_OBJECT=oSim, /CURRENT)
+        imgTemp  = MrSim_eDist(oSim, type, x_temp, y_temp, dx, dy, NBINS=nBins, /CURRENT)
         win2    -> Remove, win2['CB: eDist']
 
         ;Number the distribution
@@ -332,6 +348,6 @@ _REF_EXTRA=extra
 
     win2   -> Refresh
     if obj_valid(im_win) then im_win -> Refresh
-    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
     return, win2
 end
