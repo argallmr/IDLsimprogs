@@ -38,31 +38,33 @@
 ;                       Half-height of the bin.
 ;
 ; :Keywords:
-;       C_NAME:             in, optional, type=string, default=''
-;                           Name of the data product whose contours are to be 
-;                               overplotted on the image.
-;       HGAP:               in, optional, type=float, default=0.0
-;                           Horizontal space between adjacent distributions.
-;       IM_NAME:            in, optional, type=string, default=''
-;                           Name of a data product for which a 2D overview plot is to be
-;                               made. White square boxes will be drawn on the image to
-;                               indicate from where the distributions were taken.
-;       IM_WIN:             out, optional, type=object
-;                           If `IM_NAME` is provided, then use this keyword to obtain
-;                               the object reference of the window in which the image
-;                               was created.
-;       NBINS:              in, optional, type=long/lonarr(2), default=75
-;                           Number of bins into which a distribution will be subdivided.
-;                               If a scalar is given, the horizontal and vertical
-;                               components will be split into the same number of bins.
-;                               Provide a 2-element vector to have unequal number of bins.
-;       LAYOUT:             in, optional, type=intarr(2), default=[1,1]
-;                           Specifies the number of columns and rows: [nCols, nRows]; in
-;                               the eMap. There will be nCols*nRows number of distributions
-;                               total.
-;       LOCATION:           in, optional, type=integer, default=5
-;                           Specifies which bin within the eMap is centered on `X` and `Y`.
-;                               Options are::
+;       C_NAME:         in, optional, type=string, default=''
+;                       Name of the data product whose contours are to be 
+;                           overplotted on the image.
+;       CIRCLES:        in, optional, type=boolean, default=0
+;                       If set, concentric cirlces will be drawn at v=0.25 and v=0.5.
+;       HGAP:           in, optional, type=float, default=0.0
+;                       Horizontal space between adjacent distributions.
+;       IM_NAME:        in, optional, type=string, default=''
+;                       Name of a data product for which a 2D overview plot is to be
+;                           made. White square boxes will be drawn on the image to
+;                           indicate from where the distributions were taken.
+;       IM_WIN:         out, optional, type=object
+;                       If `IM_NAME` is provided, then use this keyword to obtain
+;                           the object reference of the window in which the image
+;                           was created.
+;       NBINS:          in, optional, type=long/lonarr(2), default=75
+;                       Number of bins into which a distribution will be subdivided.
+;                           If a scalar is given, the horizontal and vertical
+;                           components will be split into the same number of bins.
+;                           Provide a 2-element vector to have unequal number of bins.
+;       LAYOUT:         in, optional, type=intarr(2), default=[1,1]
+;                       Specifies the number of columns and rows: [nCols, nRows]; in
+;                           the eMap. There will be nCols*nRows number of distributions
+;                           total.
+;       LOCATION:       in, optional, type=integer, default=5
+;                       Specifies which bin within the eMap is centered on `X` and `Y`.
+;                           Options are::
 ;                                   1: Upper-Left
 ;                                   2: Upper-Middle
 ;                                   3: Upper-Right
@@ -72,15 +74,19 @@
 ;                                   7: Bottom-Left
 ;                                   8: Bottom-Middle
 ;                                   9: Bottom-Right
-;       SIM_OBJECT:         out, optional, type=object
-;                           If `THESIM` is the name or number of a simulation, then
-;                               this keyword returns the object reference to the
-;                               corresponding simulation object that is created.
-;       HGAP:               in, optional, type=float, default=0.0
-;                           Vertical space between adjacent distributions.
-;       _REF_EXTRA:         in, optional, type=structure
-;                           Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
-;                               is an object.
+;       SIM_OBJECT:     out, optional, type=object
+;                       If `THESIM` is the name or number of a simulation, then
+;                           this keyword returns the object reference to the
+;                           corresponding simulation object that is created.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, velocity will be normalized to v_A instead of c::
+;                               c / vA = sqrt(mi_me) * f_pe / f_ce.
+;                           so multiplying v/c by the above equation does the trick.
+;       VGAP:           in, optional, type=float, default=0.0
+;                       Vertical space between adjacent distributions.
+;       _REF_EXTRA:     in, optional, type=structure
+;                       Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
+;                           is an object.
 ;
 ; :Uses:
 ;   Uses the following external programs::
@@ -104,10 +110,12 @@
 ;       2014/09/01  -   Written by Matthew Argall
 ;       2014/09/05  -   Added the IM_WIN keyword. - MRA
 ;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
-;                           Repurposed the SIM_OBJECT keyword. - MRA
+;                           Repurposed the SIM_OBJECT keyword. Added the CIRCLES and V_VA
+;                           keyword. - MRA
 ;-
 function MrSim_eMap, theSim, type, x, y, dx, dy, $
 C_NAME=c_name, $
+CIRCLES=circles, $
 HGAP=hGap, $
 IM_NAME=im_name, $
 IM_WIN=im_win, $
@@ -116,6 +124,7 @@ LAYOUT=layout, $
 LOCATION=location, $
 SIM_OBJECT=oSim, $
 VGAP=vGap, $
+V_VA=v_va, $
 _REF_EXTRA=extra
     compile_opt strictarr
     
@@ -201,7 +210,6 @@ _REF_EXTRA=extra
     xoffset = (2*dx + hGap) * rebin(xoffset, 2, layout[0], layout[1])
     yoffset = (2*dy + vGap) * rebin(yoffset, 2, layout[0], layout[1])
         
-    
     ;Data locations of distribution functions
     ;   - Saved as [position, index]
     ;   - Position is the IDL definition of the word
@@ -226,8 +234,8 @@ _REF_EXTRA=extra
             theBin = locations[*,i]
             xpoly  = theBin[[0,2,2,0,0]]
             ypoly  = theBin[[1,1,3,3,1]]
-            !Null = MrPlotS(xpoly, ypoly, TARGET=theIm, NAME='Bin ' + strtrim(i, 2), $
-                            /DATA, COLOR='White', THICK=2.0)
+            !Null  = MrPlotS(xpoly, ypoly, TARGET=theIm, NAME='Bin ' + strtrim(i, 2), $
+                             /DATA, COLOR='White', THICK=2.0)
         endfor
     endif
 
@@ -263,7 +271,8 @@ _REF_EXTRA=extra
         
         ;Create the distribution function
         ;   - Remove the colorbar
-        imgTemp  = MrSim_eDist(oSim, type, x_temp, y_temp, dx, dy, NBINS=nBins, /CURRENT)
+        imgTemp  = MrSim_eDist(oSim, type, x_temp, y_temp, dx, dy, $
+                               NBINS=nBins, CIRCLES=circles, /CURRENT, V_VA=v_va)
         win2    -> Remove, win2['CB: eDist']
 
         ;Number the distribution
@@ -289,6 +298,10 @@ _REF_EXTRA=extra
 ;-------------------------------------------------------
     if tf_xvel eq 0 then xrange = x + [-dx, dx]
     if tf_yvel eq 0 then yrange = y + [-dy, dy]
+    if v_va    eq 0 then begin
+        xtickinterval = 0.5
+        ytickinterval = 0.5
+    endif
 
     ;Determine the aspect ratio of the plots and create positions
     aspect = (yrange[1] - yrange[0]) / (xrange[1] - xrange[0])
@@ -306,7 +319,7 @@ _REF_EXTRA=extra
         if tf_xvel then imgTemp.XRANGE = xrange
         if tf_yvel then imgTemp.YRANGE = yrange
         imgTemp -> SetProperty, POSITION=pos[*,i], RANGE=[0, cmax], $
-                                XTICKINTERVAL=0.5, XMINOR=5, YTICKINTERVAL=0.5, YMINOR=5
+                                XTICKINTERVAL=xtickinterval, XMINOR=5, YTICKINTERVAL=ytickinterval, YMINOR=5
                                 
         ;All Except Left Column
         ;   - Do not label y-axis

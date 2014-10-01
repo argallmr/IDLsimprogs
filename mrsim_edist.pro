@@ -51,7 +51,8 @@
 ;    Modification History::
 ;       2014/09/27  -   Written by Matthew Argall
 ;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
-;                           Repurposed the SIM_OBJECT keyword. - MRA
+;                           Repurposed the SIM_OBJECT keyword. Added the V_VA and CIRCLES
+;                           keywords. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -277,12 +278,16 @@ end
 ;                       Number of bins to use when grouping counts. E.g., for Vx-Vz
 ;                           distrubution, the ranges of Vx and Vz will be broken into
 ;                           this many bins.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, then `E_DATA` is in units of v/v_A instead of v/c (i.e.
+;                           normalized to the alvfen speed instead of the speed of light).
 ;
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
 function MrSim_eDist_x_Vx, e_data, xrange, zrange, $
-NBINS=nBins
+NBINS=nBins, $
+V_VA=v_va
     compile_opt strictarr
     
     ;catch errors
@@ -293,6 +298,9 @@ NBINS=nBins
         void = cgErrorMsg()
         return, obj_new()
     endif
+    
+    ;Units
+    v_va = keyword_set(v_va)
     
     ;Histogram in velocity space
     e_dist = hist_nd(e_data[[0,2], *], NBINS=nBins)
@@ -307,7 +315,7 @@ NBINS=nBins
     
     ;Plotting parameters
     xtitle  = 'x (de)'
-    ytitle  = 'V$\downx$'
+    ytitle  = 'V$\downx$' + (v_va ? '/V$\downA$' : '/c')
     vmax    = max(abs(vxRange))
     yrange  = [-vmax, vmax]
     
@@ -336,12 +344,16 @@ end
 ;                       Number of bins to use when grouping counts. E.g., for Vx-Vz
 ;                           distrubution, the ranges of Vx and Vz will be broken into
 ;                           this many bins.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, then `E_DATA` is in units of v/v_A instead of v/c (i.e.
+;                           normalized to the alvfen speed instead of the speed of light).
 ;
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
 function MrSim_eDist_z_Vz, e_data, xrange, zrange, $
-NBINS=nBins
+NBINS=nBins, $
+V_VA=v_va
     compile_opt strictarr
     
     ;catch errors
@@ -352,6 +364,9 @@ NBINS=nBins
         void = cgErrorMsg()
         return, obj_new()
     endif
+    
+    ;Units
+    v_va = keyword_set(v_va)
     
     ;Histogram in velocity space
     e_dist = hist_nd(e_data[[1,4], *], NBINS=nBins)
@@ -366,7 +381,7 @@ NBINS=nBins
     
     ;Plotting parameters
     xtitle  = 'z (de)'
-    ytitle  = 'V$\downz$'
+    ytitle  = 'V$\downz$' + (v_va ? '/V$\downA$' : '/c')
     vmax    = max(abs(vzRange))
     yrange  = [-vmax, vmax]
     
@@ -395,12 +410,16 @@ end
 ;                       Number of bins to use when grouping counts. E.g., for Vx-Vz
 ;                           distrubution, the ranges of Vx and Vz will be broken into
 ;                           this many bins.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, then `E_DATA` is in units of v/v_A instead of v/c (i.e.
+;                           normalized to the alvfen speed instead of the speed of light).
 ;
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
 function MrSim_eDist_Vx_Vz, e_data, xrange, zrange, $
-NBINS=nBins
+NBINS=nBins, $
+V_VA=v_va
     compile_opt strictarr
     
     ;catch errors
@@ -411,6 +430,9 @@ NBINS=nBins
         void = cgErrorMsg()
         return, obj_new()
     endif
+    
+    ;Units
+    v_va = keyword_set(v_va)
 
     ;Histogram in velocity space
     e_dist  = hist_nd(e_data[[2,4],*], NBINS=nBins)
@@ -425,8 +447,8 @@ NBINS=nBins
     zloc    = linspace(vzRange[0], vzRange[1], dims[1])
     
     ;Plotting parameters
-    xtitle  = 'V$\downx$'
-    ytitle  = 'V$\downz$'
+    xtitle  = 'V$\downx$' + (v_va ? '/V$\downA$' : '/c')
+    ytitle  = 'V$\downz$' + (v_va ? '/V$\downA$' : '/c')
     vmax    = max(abs([vxRange, vzRange]))
     xrange  = [-vmax, vmax]
     yrange  = xrange
@@ -456,12 +478,16 @@ end
 ;                       Number of bins to use when grouping counts. E.g., for Vx-Vz
 ;                           distrubution, the ranges of Vx and Vz will be broken into
 ;                           this many bins.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, then `E_DATA` is in units of v/v_A instead of v/c (i.e.
+;                           normalized to the alvfen speed instead of the speed of light).
 ;
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
 function MrSim_eDist_Vx_Vy, e_data, xrange, zrange, $
-NBINS=nBins
+NBINS=nBins, $
+V_VA=v_va
     compile_opt strictarr
     
     ;catch errors
@@ -472,6 +498,9 @@ NBINS=nBins
         void = cgErrorMsg()
         return, obj_new()
     endif
+    
+    ;Units
+    v_va = keyword_set(v_va)
 
     ;Histogram in velocity space
     e_dist  = hist_nd(e_data[[2,3],*], NBINS=nBins)
@@ -486,8 +515,8 @@ NBINS=nBins
     yloc    = linspace(vyRange[0], vyRange[1], dims[1])
     
     ;Plotting parameters
-    xtitle  = 'V$\downx$'
-    ytitle  = 'V$\downy$'
+    xtitle  = 'V$\downx$' + (v_va ? '/V$\downA$' : '/c')
+    ytitle  = 'V$\downy$' + (v_va ? '/V$\downA$' : '/c')
     vmax    = max(abs([vxRange, vyRange]))
     xrange  = [-vmax, vmax]
     yrange  = xrange
@@ -517,12 +546,16 @@ end
 ;                       Number of bins to use when grouping counts. E.g., for Vx-Vz
 ;                           distrubution, the ranges of Vx and Vz will be broken into
 ;                           this many bins.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, then `E_DATA` is in units of v/v_A instead of v/c (i.e.
+;                           normalized to the alvfen speed instead of the speed of light).
 ;
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
 function MrSim_eDist_Vy_Vz, e_data, xrange, zrange, $
-NBINS=nBins
+NBINS=nBins, $
+V_VA=v_va
     compile_opt strictarr
     
     ;catch errors
@@ -533,6 +566,9 @@ NBINS=nBins
         void = cgErrorMsg()
         return, obj_new()
     endif
+    
+    ;Units
+    v_va = keyword_set(v_va)
 
     ;Histogram in velocity space
     e_dist  = hist_nd(e_data[[3,4],*], NBINS=nBins)
@@ -547,8 +583,8 @@ NBINS=nBins
     yloc    = linspace(vzRange[0], vzRange[1], dims[1])
     
     ;Plotting parameters
-    xtitle  = 'V$\downy$'
-    ytitle  = 'V$\downz$'
+    xtitle  = 'V$\downy$' + (v_va ? '/V$\downA$' : '/c')
+    ytitle  = 'V$\downz$' + (v_va ? '/V$\downA$' : '/c')
     vmax    = max(abs([vyRange, vzRange]))
     xrange  = [-vmax, vmax]
     yrange  = xrange
@@ -560,7 +596,6 @@ NBINS=nBins
     
     return, img
 end
-
 
 
 ;+
@@ -579,12 +614,16 @@ end
 ;                       Number of bins to use when grouping counts. E.g., for Vx-Vz
 ;                           distrubution, the ranges of Vx and Vz will be broken into
 ;                           this many bins.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, then `E_DATA` is in units of v/v_A instead of v/c (i.e.
+;                           normalized to the alvfen speed instead of the speed of light).
 ;
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
 function MrSim_eDist_Vpar_Vperp, e_data, xrange, zrange, sim_object, $
-NBINS=nBins
+NBINS=nBins, $
+V_VA=v_va
     compile_opt strictarr
     
     ;catch errors
@@ -596,6 +635,9 @@ NBINS=nBins
         void = cgErrorMsg()
         return, obj_new()
     endif
+    
+    ;Units
+    v_va = keyword_set(v_va)
     
     ;Get the average magnetic field in the bin
     B_hat = MrSim_eDist_B_hat(xrange, zrange, sim_object)
@@ -623,8 +665,8 @@ NBINS=nBins
     zloc    = linspace(vPerpRange[0], vPerpRange[1], dims[1])
     
     ;Plotting parameters
-    xtitle  = 'V$\downpar$'
-    ytitle  = 'V$\downperp$'
+    xtitle  = 'V$\downpar$'  + (v_va ? '/V$\downA$' : '/c')
+    ytitle  = 'V$\downperp$' + (v_va ? '/V$\downA$' : '/c')
 
     ;Create the distribution function
     img = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
@@ -651,12 +693,16 @@ end
 ;                       Number of bins to use when grouping counts. E.g., for Vx-Vz
 ;                           distrubution, the ranges of Vx and Vz will be broken into
 ;                           this many bins.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, then `E_DATA` is in units of v/v_A instead of v/c (i.e.
+;                           normalized to the alvfen speed instead of the speed of light).
 ;
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
 function MrSim_eDist_Vpar_Vperp1, e_data, xrange, zrange, sim_object, $
-NBINS=nBins
+NBINS=nBins, $
+V_VA=v_va
     compile_opt strictarr
     
     ;catch errors
@@ -668,6 +714,9 @@ NBINS=nBins
         void = cgErrorMsg()
         return, obj_new()
     endif
+    
+    ;Units
+    v_va = keyword_set(v_va)
     
     ;Get the parallel and perp1-directions
     p1_hat = MrSim_eDist_Perp1_hat(xrange, zrange, sim_object, B_HAT=B_hat)
@@ -696,8 +745,8 @@ NBINS=nBins
     zloc    = linspace(vPerp1Range[0], vPerp1Range[1], dims[1])
     
     ;Plotting parameters
-    xtitle  = 'V$\down||$'
-    ytitle  = 'V$\downPerp1$'
+    xtitle  = 'V$\down||$'    + (v_va ? '/V$\downA$' : '/c')
+    ytitle  = 'V$\downPerp1$' + (v_va ? '/V$\downA$' : '/c')
 
     ;Create the distribution function
     img = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
@@ -724,12 +773,16 @@ end
 ;                       Number of bins to use when grouping counts. E.g., for Vx-Vz
 ;                           distrubution, the ranges of Vx and Vz will be broken into
 ;                           this many bins.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, then `E_DATA` is in units of v/v_A instead of v/c (i.e.
+;                           normalized to the alvfen speed instead of the speed of light).
 ;
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
 function MrSim_eDist_Vpar_Vperp2, e_data, xrange, zrange, sim_object, $
-NBINS=nBins
+NBINS=nBins, $
+V_VA=v_va
     compile_opt strictarr
     
     ;catch errors
@@ -741,6 +794,9 @@ NBINS=nBins
         void = cgErrorMsg()
         return, obj_new()
     endif
+    
+    ;Units
+    v_va = keyword_set(v_va)
     
     ;Get the parallel and perp1-directions
     p2_hat = MrSim_eDist_Perp2_hat(xrange, zrange, sim_object, B_HAT=B_hat)
@@ -769,8 +825,8 @@ NBINS=nBins
     zloc    = linspace(vPerp2Range[0], vPerp2Range[1], dims[1])
     
     ;Plotting parameters
-    xtitle  = 'V$\down||$'
-    ytitle  = 'V$\downPerp2$'
+    xtitle  = 'V$\down||$'    + (v_va ? '/V$\downA$' : '/c')
+    ytitle  = 'V$\downPerp2$' + (v_va ? '/V$\downA$' : '/c')
 
     ;Create the distribution function
     img = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
@@ -797,12 +853,16 @@ end
 ;                       Number of bins to use when grouping counts. E.g., for Vx-Vz
 ;                           distrubution, the ranges of Vx and Vz will be broken into
 ;                           this many bins.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, then `E_DATA` is in units of v/v_A instead of v/c (i.e.
+;                           normalized to the alvfen speed instead of the speed of light).
 ;
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
 function MrSim_eDist_Vperp1_Vperp2, e_data, xrange, zrange, sim_object, $
-NBINS=nBins
+NBINS=nBins, $
+V_VA=v_va
     compile_opt strictarr
     
     ;catch errors
@@ -814,6 +874,9 @@ NBINS=nBins
         void = cgErrorMsg()
         return, obj_new()
     endif
+    
+    ;Units
+    v_va = keyword_set(v_va)
     
     ;Get the perp1 and perp2-directions
     p2_hat = MrSim_eDist_Perp2_hat(xrange, zrange, sim_object, P1_HAT=p1_hat)
@@ -842,8 +905,8 @@ NBINS=nBins
     zloc    = linspace(vPerp2Range[0], vPerp2Range[1], dims[1])
     
     ;Plotting parameters
-    xtitle  = 'V$\downperp1$'
-    ytitle  = 'V$\downperp2$'
+    xtitle  = 'V$\downperp1$' + (v_va ? '/V$\downA$' : '/c')
+    ytitle  = 'V$\downperp2$' + (v_va ? '/V$\downA$' : '/c')
 
     ;Create the distribution function
     img = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
@@ -884,6 +947,12 @@ end
 ;                       Half-height of the bin.
 ;
 ; :Keywords:
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, velocity will be normalized to v_A instead of c::
+;                               c / vA = sqrt(mi_me) * f_pe / f_ce.
+;                           so multiplying v/c by c from the above equation does the trick.
+;       CIRCLES:        in, optional, type=boolean, default=0
+;                       If set, concentric cirlces will be drawn at v=0.25 and v=0.5.
 ;       CURRENT:        in, optional, type=boolean, default=0
 ;                       If set, the distribution function will be placed in the current
 ;                           MrWindow graphics window.
@@ -904,6 +973,10 @@ end
 ;                       If `THESIM` is the name or number of a simulation, then
 ;                           this keyword returns the object reference to the
 ;                           corresponding simulation object that is created.
+;       V_VA:           in, optional, type=boolean, default=0
+;                       If set, velocity will be normalized to v_A instead of c::
+;                               c / vA = sqrt(mi_me) * f_pe / f_ce.
+;                           so multiplying v/c by the above equation does the trick.
 ;       _REF_EXTRA:     in, optional, type=structure
 ;                       Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
 ;                           is an object.
@@ -912,12 +985,14 @@ end
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
 function MrSim_eDist, theSim, type, x, z, dx, dz, $
+CIRCLES=circles, $
 CURRENT=current, $
 ENERGY=energy, $
 FILENAME=filename, $
 MOMENTUM=momentum, $
 NBINS=nBins, $
 SIM_OBJECT=oSim, $
+V_VA=v_va, $
 _REF_EXTRA=ref_extra
     compile_opt strictarr
     
@@ -959,9 +1034,11 @@ _REF_EXTRA=ref_extra
 ; Defaults /////////////////////////////////////////////
 ;-------------------------------------------------------
     _type    = strupcase(type)
+    circles  = keyword_set(circles)
     current  = keyword_set(current)
     energy   = keyword_set(energy)
     momentum = keyword_set(momentum)
+    v_va     = keyword_set(v_va)
     if n_elements(type)     eq 0 then type     = 'Vx-Vz'
     if n_elements(dx)       eq 0 then dx       = 1.5
     if n_elements(dz)       eq 0 then dz       = 1.5
@@ -984,6 +1061,14 @@ _REF_EXTRA=ref_extra
     e_data = oSim -> GetElectrons(xrange, zrange, /VELOCITY, FILENAME=filename)
     if n_elements(e_data) eq 0 then return, !Null
     
+    ;Convert to units of v/vA from v/c?
+    if v_va then begin
+        ;oSim -> GetInfo, MI_ME=mi_me, WPE_WCE=wpe_wce
+        mi_me   = 100.0
+        wpe_wce = 2.0
+        e_data[2:4,*] *= sqrt(mi_me) * wpe_wce
+    endif
+    
     ;Count factor
     oSim -> GetInfo, ECOUNTFACTOR=eCountFactor
     
@@ -1003,15 +1088,15 @@ _REF_EXTRA=ref_extra
     ;Make the distribution
     case _type of
         'X-Z':           img = MrSim_eDist_x_z(e_data,   xrange, zrange, NBINS=nBins)
-        'X-VX':          img = MrSim_eDist_x_Vx(e_data,  xrange, zrange, NBINS=nBins)
-        'Z-VZ':          img = MrSim_eDist_z_Vz(e_data,  xrange, zrange, NBINS=nBins)
-        'VX-VZ':         img = MrSim_eDist_Vx_Vz(e_data, xrange, zrange, NBINS=nBins)
-        'VX-VY':         img = MrSim_eDist_Vx_Vy(e_data, xrange, zrange, NBINS=nBins)
-        'VY-VZ':         img = MrSim_eDist_Vy_Vz(e_data, xrange, zrange, NBINS=nBins)
-        'VPAR-VPERP':    img = MrSim_eDist_Vpar_Vperp(e_data,    xrange, zrange, oSim, NBINS=nBins)
-        'VPAR-VPERP1':   img = MrSim_eDist_Vpar_Vperp1(e_data,   xrange, zrange, oSim, NBINS=nBins)
-        'VPAR-VPERP2':   img = MrSim_eDist_Vpar_Vperp2(e_data,   xrange, zrange, oSim, NBINS=nBins)
-        'VPERP1-VPERP2': img = MrSim_eDist_Vperp1_Vperp2(e_data, xrange, zrange, oSim, NBINS=nBins)
+        'X-VX':          img = MrSim_eDist_x_Vx(e_data,  xrange, zrange, NBINS=nBins, V_VA=v_va)
+        'Z-VZ':          img = MrSim_eDist_z_Vz(e_data,  xrange, zrange, NBINS=nBins, V_VA=v_va)
+        'VX-VZ':         img = MrSim_eDist_Vx_Vz(e_data, xrange, zrange, NBINS=nBins, V_VA=v_va)
+        'VX-VY':         img = MrSim_eDist_Vx_Vy(e_data, xrange, zrange, NBINS=nBins, V_VA=v_va)
+        'VY-VZ':         img = MrSim_eDist_Vy_Vz(e_data, xrange, zrange, NBINS=nBins, V_VA=v_va)
+        'VPAR-VPERP':    img = MrSim_eDist_Vpar_Vperp(e_data,    xrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
+        'VPAR-VPERP1':   img = MrSim_eDist_Vpar_Vperp1(e_data,   xrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
+        'VPAR-VPERP2':   img = MrSim_eDist_Vpar_Vperp2(e_data,   xrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
+        'VPERP1-VPERP2': img = MrSim_eDist_Vperp1_Vperp2(e_data, xrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
         else:         message, 'Distribution type "' + type + '" not recognized.'
     endcase
     e_data = !Null
@@ -1030,7 +1115,7 @@ _REF_EXTRA=ref_extra
     title = 'Electron Distribution Function'
     
     ;Add circles
-    if _type ne 'VPAR-VPERP' then begin
+    if circles && _type ne 'VPAR-VPERP' then begin
         !Null = MrCircle([0.25, 0.5], 0, 0, LINESTYLE=0, TARGET=img, NAME='Circles', $
                          /DATA, COLOR='Magenta', FILL_BACKGROUND=0)
     endif

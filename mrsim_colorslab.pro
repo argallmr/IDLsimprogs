@@ -273,8 +273,22 @@ _REF_EXTRA = extra
 ;Add Contours? /////////////////////////////////////////
 ;-------------------------------------------------------
     if c_name ne '' then begin
-        ;Create the contour plot
-        levels = cgConLevels(c_data, NLEVELS=nLevels)
+        ;Attempt to find the separatrix
+        if c_name eq 'Ay' then begin
+            ;The X-point is a saddle point in Ay
+            ;   - Find the minimum along the bottom boundary.
+            ;   - Find the maximum along a vertical cut that passes through min point.
+            void  = min(c_data[*,0], ix)
+            sepAy = max(c_data[ix,*])
+
+            ;Create the contour plot
+            levels = [sepAy, cgConLevels(c_data, NLEVELS=nLevels)]
+            levels = levels[sort(levels)]
+        endif else begin
+            levels = cgConLevels(c_data, NLEVELS=nLevels)
+        endelse
+        
+        ;Create the contour
         colorCo = MrContour(c_data, XSim, ZSim, $
                             XRANGE=[XSim[0],XSim[-1]], $
                             YRANGE=[ZSim[0],ZSim[-1]], $

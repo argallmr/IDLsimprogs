@@ -121,7 +121,7 @@ _REF_EXTRA=extra
     
     ;Check the ::GetProperty method.
     message, '', /INFORMATIONAL
-    print, FORMAT='(%"    DTxWCI          = %0.1f  **hard-coded**")', dtxwci
+    print, FORMAT='(%"    DTxWCI          = %0.2f  **hard-coded**")', dtxwci
 
     ;Determine the number of time steps
     Bx_info = file_info(filepath('Bx.gda', ROOT_DIR=self.directory))

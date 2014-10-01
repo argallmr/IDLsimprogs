@@ -119,15 +119,49 @@ SIM_OBJECT=oSim
         endcase
         'SIM1': begin
             case tIndex of
+                68: begin
+                    v_va       = 1
+                    binary     = 1
+                    bin_center = [839, 0.0]
+                    bin_loc    = 5
+                    bin_layout = [5,5]
+                    bin_hspace = 0.0
+                    bin_vspace = 0.0
+                    xrange     = bin_center[0] + [-25,25]
+                    zrange     = [-7, 7]
+                endcase
                 72: begin
+                    v_va       = 1
                     binary     = 1
                     bin_center = [842, 0.0]
-                    bin_loc    = 4
+                    bin_loc    = 5
                     bin_layout = [5,5]
-                    bin_hspace = 3.0
-                    bin_vspace = 0.25
+                    bin_hspace = 0.0
+                    bin_vspace = 0.0
                     xrange     = [810, 880]
                     zrange     = [-10, 10]
+                endcase
+                80: begin
+                    v_va       = 1
+                    binary     = 1
+                    bin_center = [858, 0.0]
+                    bin_loc    = 5
+                    bin_layout = [5,5]
+                    bin_hspace = 0.0
+                    bin_vspace = 0.0
+                    xrange     = bin_center[0] + [-35,35]
+                    zrange     = [-7, 7]
+                endcase
+                116: begin
+                    v_va       = 1
+                    binary     = 1
+                    bin_center = [900, 0.4]
+                    bin_loc    = 5
+                    bin_layout = [5,5]
+                    bin_hspace = 0.0
+                    bin_vspace = 0.0
+                    xrange     = bin_center[0] + [-25,25]
+                    zrange     = [-10,10]
                 endcase
             endcase
         endcase
@@ -168,6 +202,7 @@ SIM_OBJECT=oSim
             'Vpar-Vperp', 'Vpar-Vperp1', 'Vpar-Vperp2', 'Vperp1-Vperp2']
     bitSet = cgBitGet(eMap)
     iBits   = where(reverse(bitSet), nBits)
+    if nBits eq 0 then message, 'No distributions selected. See keyword list.', /INFORMATIONAL
 
     ;Allocate space for the plotting windows
     ;   - Include an extra element for the overview window.
@@ -181,15 +216,15 @@ SIM_OBJECT=oSim
         if i eq 0 && n_elements(yslice) eq 0 then c_name  = 'Ay' else c_name  = ''
         
         ;Create the desired distribution functions
-        wins[i] = MrSim_eMap(type[index], bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+        wins[i] = MrSim_eMap(oSim, type[index], bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
                              LAYOUT     = bin_layout, $
                              LOCATION   = bin_loc, $
                              HGAP       = bin_hspace, $
                              VGAP       = bin_vspace, $
+                             V_VA       = v_va, $
                              IM_NAME    = im_name, $
                              C_NAME     = c_name, $
                              IM_WIN     = im_win, $
-                             SIM_OBJECT = oSim, $
                              NBINS      = nBins)
         
         ;Store the overview plot as well
@@ -225,118 +260,6 @@ SIM_OBJECT=oSim
     
     ;Return
     return, wins
-end
-
-
-;+
-;   Create the desired figure.
-;
-; Params:
-;       FIGURE:         in, optional, type=string
-;                       Figure number of the figure to be created.
-;-
-function FEN_AsymmScan_By0_Dng_t28, $
-SIM_OBJECT=oSim
-    compile_opt strictarr
-    
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /CANCEL
-        if obj_valid(oSim) && arg_present(oSim) eq 0 then obj_destroy, oSim
-        if obj_valid(win) then obj_destroy, win
-        void = cgErrorMSG()
-        return, !Null
-    endif
-
-    ;Data Range
-    time   = 28
-    xrange = [345, 390]
-    zrange = [-10, 8]
-    
-;-------------------------------------------------------
-; Simulation Object ////////////////////////////////////
-;-------------------------------------------------------
-    ;Create the simulation object
-    if obj_valid(oSim) eq 0 then begin
-        oSim = MrSim_Create('Asymm-Scan/By0', time, XRANGE=xrange, ZRANGE=zrange)
-                                          
-    ;Make sure the parameters are correct
-    endif else begin
-        ;Get the name of the current simulation
-        oSim -> GetProperty, SIMNUM=number
-        MrSim_Which, number, NAME=name
-        
-        ;Switch simulations?
-        if strupcase(simname) ne strupcase(name) then begin
-            obj_destroy, oSim
-            oSim = MrSim_Create(simname, tIndex, XRANGE=xrange, ZRANGE=zrange)
-        endif else begin
-            oSim -> GetProperty, SIMNUM=simnum, TIME=tt, YSLICE=yy, XRANGE=xx, ZRANGE=zz
-            if (tIndex ne tt) || (array_equal(xx, xrange) eq 0) || (array_equal(zz, zrange) eq 0) $
-                then oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
-        endelse
-    endelse
-
-;-------------------------------------------------------
-; Create the Image /////////////////////////////////////
-;-------------------------------------------------------
-    win = MrSim_ColorSlab('Dng_e', C_NAME='Ay', SIM_OBJECT=oSim)
-
-    ;Destroy the simulation object
-    if arg_present(oSim) eq 0 then obj_destroy, oSim
-    
-    return, win
-end
-
-
-;+
-;   Create the desired figure.
-;
-; Params:
-;       FIGURE:         in, optional, type=string
-;                       Figure number of the figure to be created.
-;-
-function FEN_AsymmScan_By1_Dng_t28, $
-SIM_OBJECT=oSim
-    compile_opt strictarr
-    
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /CANCEL
-        if obj_valid(oSim) && arg_present(oSim) eq 0 then obj_destroy, oSim
-        if obj_valid(win) then obj_destroy, win
-        void = cgErrorMSG()
-        return, !Null
-    endif
-
-    ;Data Range
-    time   = 28
-    xrange = [345, 390]
-    zrange = [-10, 8]
-    
-;-------------------------------------------------------
-; Simulation Object ////////////////////////////////////
-;-------------------------------------------------------
-    ;Create the simulation object
-    if obj_valid(oSim) eq 0 then begin
-        oSim = MrSim_Create('Asymm-Scan/By0', time, XRANGE=xrange, ZRANGE=zrange)
-                                          
-    ;Make sure the parameters are correct
-    endif else begin
-        oSim -> GetProperty, TIME=tt, XRANGE=xx, ZRANGE=zz
-        if (time ne tt) || (array_equal(xx, xrange) eq 0) || (array_equal(zz, zrange) eq 0) $
-            then oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
-    endelse
-
-;-------------------------------------------------------
-; Create the Image /////////////////////////////////////
-;-------------------------------------------------------
-    win = MrSim_ColorSlab('Dng_e', C_NAME='Ay', SIM_OBJECT=oSim)
-
-    ;Destroy the simulation object
-    if arg_present(oSim) eq 0 then obj_destroy, oSim
-    
-    return, win
 end
 
 
@@ -600,6 +523,115 @@ end
 ;       FIGURE:         in, optional, type=string
 ;                       Figure number of the figure to be created.
 ;-
+function FEN_Figure1_Dng, $
+SIM_OBJECT=oSim
+    compile_opt strictarr
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(win) then obj_destroy, win
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+;-------------------------------------------------------
+; Create a Window //////////////////////////////////////
+;-------------------------------------------------------
+    win = MrWindow(OXMARGIN=[10,15], YGAP=4, YSIZE=590, NAME='Fig1: Dng Overviews', REFRESH=0)
+    
+;-------------------------------------------------------
+; Sim1 /////////////////////////////////////////////////
+;-------------------------------------------------------
+    ;Data Range
+    simname = 'Sim1'
+    time    = 72
+    xrange  = 842 + [-30, 30]
+    zrange  = [-10, 10]
+    
+    ;Simulation object
+    if obj_valid(oSim) eq 0 then begin
+        oSim = MrSim_Create(simname, time, /BINARY, XRANGE=xrange, ZRANGE=zrange)
+    endif else begin
+        oSim -> SetSim, simname, /BINARY
+        oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+    endelse
+    
+    ;Plot
+    win = MrSim_ColorSlab(oSim, 'Dng_e', C_NAME='Ay', /CURRENT)
+
+    ;SetProperties
+    title = win['Color Dng_e'].TITLE
+    win['Color Dng_e']     -> SetProperty, NAME='Sim1 Dng', XTITLE='', TITLE='Symmetric B$\downy$=0 ' + title
+    win['CB: Color Dng_e'] -> SetProperty, NAME='Sim1 CB'
+    win['Ay Contours']     -> SetProperty, NAME='Sim1 Ay Contours'
+    
+;-------------------------------------------------------
+; Asymm-Scan/By0 ///////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Data Range
+    simname = 'Asymm-Scan/By0'
+    time    = 28
+    xrange  = 367 + [-30, 30]
+    zrange  = [-10, 10]
+    
+    ;Change simulations
+    oSim -> SetSim, simname
+    oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+    
+    ;Plot
+    win = MrSim_ColorSlab(oSim, 'Dng_e', C_NAME='Ay', /CURRENT)
+    
+    ;SetProperties
+    title = win['Color Dng_e'].TITLE
+    win['Color Dng_e']     -> SetProperty, NAME='By0 Dng', XTITLE='', TITLE='Asymmetric B$\downy$=0 ' + title
+    win['CB: Color Dng_e'] -> SetProperty, NAME='By0 CB'
+    win['Ay Contours']     -> SetProperty, NAME='By0 Ay Contours'
+
+    
+;-------------------------------------------------------
+; Asymm-Scan/By1 ///////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Data Range
+    simname = 'Asymm-Scan/By1'
+    time    = 30
+    xrange  = 434 + [-30,30]
+    zrange  = [-10, 10]
+    
+    ;Change simulations
+    oSim -> SetSim, simname
+    oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+    
+    ;Plot
+    win = MrSim_ColorSlab(oSim, 'Dng_e', C_NAME='Ay', /CURRENT)
+    
+    ;SetProperties
+    title = win['Color Dng_e'].TITLE
+    win['Color Dng_e']     -> SetProperty, NAME='By1 Dng', TITLE='Asymmetric B$\downy$=1 ' + title
+    win['CB: Color Dng_e'] -> SetProperty, NAME='By1 CB'
+    win['Ay Contours']     -> SetProperty, NAME='By1 Ay Contours'
+
+;-------------------------------------------------------
+; Create the Image /////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Destroy the simulation object
+    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    
+    win -> Refresh
+    return, win
+end
+
+
+;+
+;   Create the desired figure.
+;
+; Params:
+;       FIGURE:         in, optional, type=string
+;                       Figure number of the figure to be created.
+;-
 function FEN_Sym_Overview_t72, $
 SIM_OBJECT=oSim
     compile_opt strictarr
@@ -691,9 +723,9 @@ VPERP1_VPERP2=vperp1_vperp2
     
     ;Current list of figures
     list_of_figures = [['Figures eNongyrotropy', 'Figures used in my study of nongyrotropy in asymmetric guide field case.'], $
+                       ['Figure1 Dng          ', ''], $
                        ['Asymm-Scan/By0       ', 'Asymm-Scan/By0 simulation figures'], $
                        ['    t28 eMap         ', ''], $
-                       ['    t28 Dng          ', ''], $
                        ['Asymm-Scan/By1       ', 'Asymm-Scan/By1 simulation figures'], $
                        ['    t30 eMap         ', ''], $, $
                        ['3D                   ', 'Asymm-3D simulation figures'], $
@@ -762,7 +794,8 @@ VPERP1_VPERP2=vperp1_vperp2
 
         ;Create the figure    
         case _figure of
-            'ASYMM-SCAN-BY0 T28 DNG': win = FEN_Overview_t06(SIM_OBJECT=oSim)
+            'FIGURE1 DNG': win = FEN_Figure1_Dng()
+            'ASYMM-SCAN/BY1 T30 DNG': win = FEN_AsymmScan_By1_t30_Dng(SIM_OBJECT=oSim)
             'ASYMM-2D-LARGE-NEW T06 OVERVIEW': win = FEN_Overview_t06(SIM_OBJECT=oSim, STRNAME=strname)
             'ASYMM-2D-LARGE-NEW T09 OVERVIEW': win = FEN_Overview_t09(SIM_OBJECT=oSim, STRNAME=strname)
             'ASYMM-2D-LARGE-NEW T13 OVERVIEW': win = FEN_Overview_t13(SIM_OBJECT=oSim, STRNAME=strname)
@@ -793,6 +826,6 @@ VPERP1_VPERP2=vperp1_vperp2
         endelse
     endif
     
-    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    if arg_present(oSim) eq 0 && obj_valid(oSim) then obj_destroy, oSim
     return, win
 end

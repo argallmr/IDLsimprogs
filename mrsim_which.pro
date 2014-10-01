@@ -283,7 +283,29 @@ function MrSim_Which_eRegions, simnum
                                   [290, 590]], $
                          zrange: [[-40,  50], $
                                   [-60,  80]] $
-
+                       }
+         5: eRegions = { tIndex: [52, 68, 72, 76, 80, 84, 88, 92, 104, 116], $
+                         xrange: [[  0,    0], $
+                                  [200, 1400], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0]], $
+                         zrange: [[  0,    0], $
+                                  [-50,   50], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0], $
+                                  [  0,    0]] $
                        }
         10: eRegions = { tIndex: 30, $
                          xrange: [420, 450], $
@@ -315,13 +337,226 @@ function MrSim_Which_fMapDir, simnum
     case simnum of
          2:   fMap_dir = '/home/argall/simulations/Asymm-Large-2D-NEW/'
          3:   fMap_dir = '/home/argall/simulations/Asymm-3D/'
-         5:   fMap_dir = '/home/argall/simulations/Symm-Jason-GRL/'
+         5:   fMap_dir = '/home/argall/simulations/Sim1/'
         10:   fMap_dir = '/home/argall/simulations/Asymm-Scan/By1/'
         11:   fMap_dir = '/home/argall/simulations/Asymm-Scan/By0/'
         else: fMap_dir = !Null
     endcase
     
     return, fMap_dir
+end
+
+
+;+
+;   Return the electron count factor.
+;
+; :Params:
+;       SIMNUM:             in, optional, type=string/integer
+;                           Simulation number for which dtxwci is desired.
+;
+; :Returns:
+;       FMAP_DIR:           Directory in which to find fMaps.
+;-
+function MrSim_Which_AsymmScan_By0, simnum, tIndex, $
+ASCII_INFO=ascii_info, $
+BINARY_INFO=binary_info, $
+DTXWCI=dtxwci, $
+ECOUNTFACTOR=eCountFactor, $
+EFILE=eFile, $
+FMAP_DIR=fMap_dir, $
+    compile_opt strictarr
+    on_error, 2
+
+    if arg_present(directory)    then directory    = '/data2/Asymm-Scan/By0/data/'
+    if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Asymm-Scan/By0/'
+    if arg_present(eCountFactor) then eCountFactor = 1L
+    if arg_present(dtxwci)       then dtxwci       = 2.0
+
+    ;Binary Info File
+    ;   - Stored in the data directory
+    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    
+    ;Ascii Info File
+    ;   - Stored one directory up from the data directory
+    if arg_present(ascii_info) then begin
+        cd, CURRENT=pwd
+        cd, directory
+        cd, '..'
+        cd, CURRENT=ascii_dir
+        cd, pwd
+        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+    endif
+
+    ;Electron files
+    if arg_present(eFile) then begin
+        ;Time information
+        ;   - Time index indicating time-slices in the .gda field and moment files.
+        ;   - t*wci corresponding to those time-slices
+        tStr = strtrim(tIndex, 2)
+        twci = strtrim(long(tIndex * dtxwci), 2)
+
+        ;Filenames
+        case tIndex of
+            28: eFile = '/data2/Asymm-Scan/By0/electrons-twci' + twci + '-it103604.bin'
+            else: message, 'No particle data available for t*wci = ' + twci + '.'
+        endcase
+    endif
+    
+    ;Regions with electrons
+    if arg_present(eRegions) then begin
+        eRegions = !Null ;Unknown
+    endif
+end
+
+
+;+
+;   Return the electron count factor.
+;
+; :Params:
+;       SIMNUM:             in, optional, type=string/integer
+;                           Simulation number for which dtxwci is desired.
+;
+; :Returns:
+;       FMAP_DIR:           Directory in which to find fMaps.
+;-
+function MrSim_Which_AsymmScan_By1, simnum, tIndex, $
+ASCII_INFO=ascii_info, $
+BINARY_INFO=binary_info, $
+DTXWCI=dtxwci, $
+ECOUNTFACTOR=eCountFactor, $
+EFILE=eFile, $
+FMAP_DIR=fMap_dir, $
+    compile_opt strictarr
+    on_error, 2
+
+    if arg_present(directory)    then directory    = '/data2/Asymm-Scan/By1/data/'
+    if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Asymm-Scan/By1/'
+    if arg_present(eCountFactor) then eCountFactor = 1L
+    if arg_present(dtxwci)       then dtxwci       = 2.0
+
+    ;Binary Info File
+    ;   - Stored in the data directory
+    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    
+    ;Ascii Info File
+    ;   - Stored one directory up from the data directory
+    if arg_present(ascii_info) then begin
+        cd, CURRENT=pwd
+        cd, directory
+        cd, '..'
+        cd, CURRENT=ascii_dir
+        cd, pwd
+        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+    endif
+
+    ;Electron files
+    if arg_present(eFile) then begin
+        ;Time information
+        ;   - Time index indicating time-slices in the .gda field and moment files.
+        ;   - t*wci corresponding to those time-slices
+        tStr = strtrim(tIndex, 2)
+        twci = strtrim(long(tIndex * dtxwci), 2)
+        
+        ;File names
+        case tIndex of
+            30: eFile = '/data2/Asymm-Scan/By1/electrons-twci' + twci + '-it70200.bin'
+            else: begin
+                eFile = ''
+                message, 'No particle data available for t*wci = ' + twci + '.', /INFORMATIONAL
+            endelse
+        endcase
+    endif
+
+    ;Regions with electrons
+    if arg_present(eRegions) then begin
+        eRegions = { tIndex: 30, $
+                     xrange: [420, 450], $
+                     zrange: [-10,  10]  $
+                   }
+    endif
+end
+
+
+;+
+;   Return the electron count factor.
+;
+; :Params:
+;       SIMNUM:             in, optional, type=string/integer
+;                           Simulation number for which dtxwci is desired.
+;
+; :Returns:
+;       FMAP_DIR:           Directory in which to find fMaps.
+;-
+function MrSim_Which_Sim1, simnum, tIndex, $
+ASCII_INFO=ascii_info, $
+BINARY_INFO=binary_info, $
+DTXWCI=dtxwci, $
+ECOUNTFACTOR=eCountFactor, $
+EFILE=eFile, $
+FMAP_DIR=fMap_dir, $
+    compile_opt strictarr
+    on_error, 2
+
+    if arg_present(directory)    then directory    = '/data2/sim1/'
+    if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Sim1/'
+    if arg_present(eCountFactor) then eCountFactor = 2L
+    if arg_present(eRegions)     then eRegions     = !Null
+    if arg_present(dtxwci)       then dtxwci       = 0.25
+
+    ;Binary Info File
+    ;   - Stored in the data directory
+    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    
+    ;Ascii Info File
+    ;   - Stored one directory up from the data directory
+    if arg_present(ascii_info) then begin
+        cd, CURRENT=pwd
+        cd, directory
+        cd, '..'
+        cd, CURRENT=ascii_dir
+        cd, pwd
+        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+    endif
+
+    ;Electron files
+    if arg_present(eFile) then begin
+        ;Time information
+        ;   - Time index indicating time-slices in the .gda field and moment files.
+        ;   - t*wci corresponding to those time-slices
+        tStr = strtrim(tIndex, 2)
+        twci = strtrim(long(tIndex * dtxwci), 2)
+
+        ;Filenames
+        eFile = '/data1/sim1/electrons-'  + strtrim(long(tIndex)*1828L, 2) + '.bin'
+    endif
+    
+    ;Regions with electron data
+    ;   - Use MrSim_Create_fMap with the VERBOSE keyword to find out.
+    if arg_present(eRegions) then begin
+        eRegions = { tIndex: [52, 68, 72, 76, 80, 84, 88, 92, 104, 116], $
+                     xrange: [[  0,    0], $
+                              [200, 1400], $
+                              [  0,    0], $
+                              [  0,    0], $
+                              [200, 1400], $
+                              [  0,    0], $
+                              [  0,    0], $
+                              [  0,    0], $
+                              [  0,    0], $
+                              [  0,    0], $
+                              [200, 1400]], $
+                     zrange: [[  0,    0], $
+                              [-50,   50], $
+                              [  0,    0], $
+                              [  0,    0], $
+                              [-50,   50], $
+                              [  0,    0], $
+                              [  0,    0], $
+                              [  0,    0], $
+                              [  0,    0], $
+                              [-50,   50]] $
+                   }
+    endif
 end
 
 
