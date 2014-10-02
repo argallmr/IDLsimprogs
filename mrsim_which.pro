@@ -90,6 +90,7 @@ BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
+EREGIONS=eRegions, $
 FMAP_DIR=fMap_dir
     compile_opt strictarr
     on_error, 2
@@ -130,13 +131,17 @@ FMAP_DIR=fMap_dir
     endif
     
     ;Regions with electrons
+    ;   - Have moment data for   t=108090
+    ;   - Have particle data for t=108108
     if arg_present(eRegions) then begin
-        eRegions = { tIndex: [120816, 120816], $
-                     yslice: [860, 1400], $
-                     xrange: [[285, 585], $
-                              [290, 590]], $
-                     zrange: [[-40,  50], $
-                              [-60,  80]] $
+        eRegions = { tIndex: [108108, 108108, 108108], $
+                     yslice: [650, 905, 1440], $
+                     xrange: [[250, 700], $
+                              [250, 700], $
+                              [250, 700]], $
+                     zrange: [[-80,  80], $
+                              [-80,  80], $
+                              [-80,  80]] $
                    }
     endif
 end
@@ -176,6 +181,7 @@ BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
+EREGIONS=eRegions, $
 FMAP_DIR=fMap_dir
     compile_opt strictarr
     on_error, 2
@@ -247,6 +253,7 @@ BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
+EREGIONS=eRegions, $
 FMAP_DIR=fMap_dir
     compile_opt strictarr
     on_error, 2
@@ -351,6 +358,7 @@ BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
+EREGIONS=eRegions, $
 FMAP_DIR=fMap_dir
     compile_opt strictarr
     on_error, 2
@@ -432,6 +440,7 @@ BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
+EREGIONS=eRegions, $
 FMAP_DIR=fMap_dir
     compile_opt strictarr
     on_error, 2
@@ -519,6 +528,7 @@ BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
+EREGIONS=eRegions, $
 FMAP_DIR=fMap_dir
     compile_opt strictarr
     on_error, 2
