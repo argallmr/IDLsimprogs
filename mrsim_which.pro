@@ -524,7 +524,7 @@ FMAP_DIR=fMap_dir
     on_error, 2
 
     ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
-    directory = '/data2/sim1/'
+    directory = '/data1/sim1/data/'
     dtxwci    = 0.25
     if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Sim1/'
     if arg_present(eCountFactor) then eCountFactor = 2L
@@ -684,7 +684,7 @@ _REF_EXTRA=extra
              2: MrSim_Which_AsymmLarge2D_NEW, tIndex,         _STRICT_EXTRA=extra
              3: MrSim_Which_Asymm3D,          tIndex, yslice, _STRICT_EXTRA=extra
              4: message, 'Information not available for "' + simname + '".'
-             5: MrSim_Which_Sim1,             tIndex,         _STRICT_EXTRA
+             5: MrSim_Which_Sim1,             tIndex,         _STRICT_EXTRA=extra
              6: message, 'Information not available for "' + simname + '".'
              7: message, 'Information not available for "' + simname + '".'
              8: message, 'Information not available for "' + simname + '".'

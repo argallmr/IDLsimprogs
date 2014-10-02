@@ -137,6 +137,7 @@
 ;       2014/09/11  -   Added the RANGE keyword. - MRA
 ;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
 ;                           Repurposed the SIM_OBJECT keyword. - MRA
+;       2014/10/02  -   If C_NAME='Ay', add a contour passing through the X-line. - MRA
 ;-
 function MrSim_ColorSlab, theSim, name, time, $
 C_NAME = c_name, $
@@ -273,15 +274,27 @@ _REF_EXTRA = extra
 ;Add Contours? /////////////////////////////////////////
 ;-------------------------------------------------------
     if c_name ne '' then begin
-        ;Attempt to find the separatrix
-        if c_name eq 'Ay' then begin
-            ;The X-point is a saddle point in Ay
-            ;   - Find the minimum along the bottom boundary.
-            ;   - Find the maximum along a vertical cut that passes through min point.
-            void  = min(c_data[*,0], ix)
-            sepAy = max(c_data[ix,*])
+        ;The X-point is a saddle point in Ay
+        ;   - Find the minimum along the bottom boundary.
+        ;   - Find the maximum along a vertical cut that passes through min point.
+        if strupcase(c_name) eq 'AY' then begin
+            nx = n_elements(XSim)
+            nz = n_elements(ZSim)
+            
+            ;Take the derivative
+            dx = c_data[1:nx-1, *] - c_data[0:nx-2, *]
+            dz = c_data[*, 1:nz-1] - c_data[*, 0:nz-2]
+            
+            ;Find the minimum of Ay along each row
+            ;   - Turn the 1D indices into 2D indices
+            xMin = min(dx, ixMin, DIMENSION=1, /ABSOLUTE)
+            inds = array_indices([nx-1, nz], ixMin, /DIMENSIONS)
+            
+            ;Find the maximum along the path of minimums just found.
+            zMin = min(dz[inds[0,*], inds[1,*]], izMin, DIMENSION=2, /ABSOLUTE)
+            sepAy  = c_data[inds[0, izMin], inds[1, izMin]]
 
-            ;Create the contour plot
+            ;Create the contour levels
             levels = [sepAy, cgConLevels(c_data, NLEVELS=nLevels)]
             levels = levels[sort(levels)]
         endif else begin

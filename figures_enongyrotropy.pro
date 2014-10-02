@@ -742,7 +742,10 @@ VPERP1_VPERP2=vperp1_vperp2
                        ['    t26 Left eMap    ', ''], $
                        ['    t26 Right eMap   ', ''], $
                        ['Sim1                 ', 'Sim1 symmetric simulation figures'], $
-                       ['    t72 eMap         ', '']]
+                       ['    t68 eMap         ', ''], $
+                       ['    t72 eMap         ', ''], $
+                       ['    t80 eMap         ', ''], $
+                       ['   t116 eMap         ', '']]
     
     ;Print the list of figures?
     if keyword_set(show_figs) then begin

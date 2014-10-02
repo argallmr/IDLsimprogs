@@ -68,6 +68,7 @@
 ; :History:
 ;    Modification History::
 ;       2014/06/03  -   Written by Matthew Argall
+;       2014/10/02  -   Remove underscores and hyphens from name. - MRA
 ;-
 function MrSim_Rename, name, coord_system, $
 MVA_FRAME=mva_frame, $
@@ -80,6 +81,9 @@ SUBSCRIPT=subscript
     _coord_system = n_elements(coord_system) eq 0 ? 'SIMULATION' : strupcase(coord_system)
     _mva_frame    = keyword_set(mva_frame)
     _subscript    = keyword_set(subscript)
+
+    ;Remove hyphens and underscores
+    new_name = strjoin(strsplit(name, '-_', /EXTRACT))
 
     case _coord_system of
         'SIMULATION': ;Do nothing

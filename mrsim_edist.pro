@@ -1064,7 +1064,8 @@ _REF_EXTRA=ref_extra
     ;Convert to units of v/vA from v/c?
     if v_va then begin
         ;oSim -> GetInfo, MI_ME=mi_me, WPE_WCE=wpe_wce
-        mi_me   = 100.0
+        message, 'WARNING: mi/mi and wpe/wce have been hard-coded for a special case.', /INFORMATIONAL
+        mi_me   = 200.0
         wpe_wce = 2.0
         e_data[2:4,*] *= sqrt(mi_me) * wpe_wce
     endif
