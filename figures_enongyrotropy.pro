@@ -43,7 +43,11 @@ SIM_OBJECT=oSim
                     case xline of
                         'LEFT': message, 'No particle data for left x-line yet'
                         'RIGHT': begin
-                            bin_center = [435, 2]
+                            v_va       = 1
+                            bin_center = [434.6, 0.4]
+                            bin_hspace = 0.0
+                            bin_vspace = 0.0
+                            bin_loc    = 5
                             xrange     = [420, 450]
                             zrange     = [-10, 10]
                         endcase
@@ -54,9 +58,11 @@ SIM_OBJECT=oSim
         'ASYMM-SCAN/BY0': begin
             case tIndex of
                 28: begin
-                    bin_center = [367, 0.0]
-                    bin_hspace = 3.0
-                    bin_loc    = 4
+                    v_va       = 1
+                    bin_center = [367.6, -0.9]
+                    bin_hspace = 0.0
+                    bin_vspace = 0.0
+                    bin_loc    = 5
                     xrange     = [345, 390]
                     zrange     = [-10, 8]
                 endcase
@@ -67,27 +73,43 @@ SIM_OBJECT=oSim
                 26: begin
                     case xline of
                         'LEFT': begin
+                            v_va       = 1
                             bin_center = [1490, 0]
                             xrange     = bin_center[0] + [-20, 20]
+                            bin_hspace = 0.0
+                            bin_vspace = 0.0
+                            bin_loc    = 5
                             zrange     = [-10, 10]
                         endcase
                         'RIGHT': begin
-                            bin_center = [1781, 2.5]
-                            xrange     = bin_center[0] + [-20,20]
-                            zrange     = [-20,  15]
+                            v_va       = 1
+                            bin_center = [1782.1, 2.4]
+                            bin_hspace = 0.0
+                            bin_vspace = 0.0
+                            bin_loc    = 5
+                            xrange     = [1770, 1795]
+                            zrange     = [-10,10]
                         endcase
                     endcase
                 endcase
                 36: begin
                     case xline of
                         'LEFT': begin
+                            v_va       = 1
                             bin_center = [1517, 2.7]
                             xrange     = bin_center[0] + [-20, 20]
+                            bin_hspace = 0.0
+                            bin_vspace = 0.0
+                            bin_loc    = 5
                             zrange     = [-10, 10]
                         endcase
                         'RIGHT': begin
+                            v_va       = 1
                             bin_center = [2021, 4.6]
                             xrange     = bin_center[0] + [-20, 20]
+                            bin_hspace = 0.0
+                            bin_vspace = 0.0
+                            bin_loc    = 5
                             zrange     = [-10, 15]
                         endcase
                     endcase
@@ -99,19 +121,31 @@ SIM_OBJECT=oSim
                 108090: begin
                     case yslice of
                         650: begin
-                            bin_center = [468, 2]
-                            xrange     = bin_center[0] + [-40,40]
+                            v_va       = 1
+                            bin_center = [471.5, 3.2]
+                            bin_hspace = 0.0
+                            bin_vspace = 0.0
+                            bin_loc    = 5
+                            xrange     = bin_center[0] + [-20,20]
                             zrange     = [-10, 15]
                         endcase
                         905: begin
-                            bin_center = [458, 2]
-                            xrange     = bin_center[0] + [-40,40]
-                            zrange     = [-20, 25]
+                            v_va       = 1
+                            bin_center = [459, 3.1]
+                            bin_hspace = 0.0
+                            bin_vspace = 0.0
+                            bin_loc    = 5
+                            xrange     = bin_center[0] + [-20,20]
+                            zrange     = [-10, 15]
                         endcase
                         1440: begin
-                            bin_center = [437, 8]
-                            xrange     = bin_center[0] + [-40,40]
-                            zrange     = [-10, 20]
+                            v_va       = 1
+                            bin_center = [420, 7]
+                            bin_hspace = 0.0
+                            bin_vspace = 0.0
+                            bin_loc    = 5
+                            xrange     = [400,490]
+                            zrange     = [-10, 15]
                         endcase
                     endcase
                 endcase
@@ -190,6 +224,8 @@ SIM_OBJECT=oSim
             oSim -> GetProperty, SIMNUM=simnum, TIME=tt, YSLICE=yy, XRANGE=xx, ZRANGE=zz
             if (tIndex ne tt) || (array_equal(xx, xrange) eq 0) || (array_equal(zz, zrange) eq 0) $
                 then oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+            if obj_class(oSim) eq 'MRSIM3D' then if yslice ne yy $
+                then oSim -> SetProperty, YSLICE=yslice
         endelse
     endelse
 
@@ -207,7 +243,7 @@ SIM_OBJECT=oSim
     ;Allocate space for the plotting windows
     ;   - Include an extra element for the overview window.
     wins    = objarr(nBits+1)
-    name    = 'Dng_e'
+    name    = 'Jey'
     
     ;Step through each distribution type.
     for i = 0, nBits - 1 do begin
@@ -523,6 +559,166 @@ end
 ;       FIGURE:         in, optional, type=string
 ;                       Figure number of the figure to be created.
 ;-
+function FEN_Figure1_LiJen, $
+SIM_OBJECT=oSim
+    compile_opt strictarr
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(win)     then obj_destroy, win
+        if obj_valid(uexwin)  then obj_destroy, uexWin
+        if obj_valid(winVxVy) then obj_destroy, winVxVy
+        if obj_valid(winVxVz) then obj_destroy, winVxVz
+        if obj_valid(winVyVz) then obj_destroy, winVyVz
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+;-------------------------------------------------------
+; Create a Window & Simulation Object //////////////////
+;-------------------------------------------------------
+    oxmargin = [10, 15]
+    xsize    = 800
+    ysize    = 590
+    win = MrWindow(OXMARGIN=oxmargin, XSIZE=xsize, YSIZE=ysize, NAME='Fig1: LiJen', REFRESH=0)
+    
+    oSim = MrSim_Create('Sim1', 76, $
+                        /BINARY, $
+                        XRANGE=[800, 900], $
+                        ZRANGE=[-20,20])
+                        
+;-------------------------------------------------------
+; Line Cut /////////////////////////////////////////////
+;-------------------------------------------------------
+    !Null = MrSim_LineCut(oSim, 'Uex', 0, /HORIZONTAL, /CURRENT)
+                        
+;-------------------------------------------------------
+; Generate an eMap /////////////////////////////////////
+;-------------------------------------------------------
+    nBins      = 75
+    bin_center = [847.8, 0]
+    bin_layout = [5, 1]
+    bin_hsize  = 0.5
+    bin_vsize  = 0.5
+    bin_hspace = 5
+    location   = 4
+    
+    ;Vx-Vy
+    winVxVy = MrSim_eMap(oSim, 'Vx-Vy', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                         C_NAME   = 'Ay', $
+                         HGAP     = bin_hspace, $
+                         IM_NAME  = 'Uex', $
+                         IM_WIN   = uexWin, $
+                         LAYOUT   = bin_layout, $
+                         LOCATION = location, $
+                         NBINS    = nBins)
+    
+    ;Vx-Vz
+    winVxVz = MrSim_eMap(oSim, 'Vy-Vz', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                         HGAP     = bin_hspace, $
+                         LAYOUT   = bin_layout, $
+                         LOCATION = location, $
+                         NBINS    = nBins)
+    
+    ;Vy-Vz
+    winVyVz = MrSim_eMap(oSim, 'Vy-Vz', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                         HGAP     = bin_hspace, $
+                         LAYOUT   = bin_layout, $
+                         LOCATION = location, $
+                         NBINS    = nBins)
+    
+    ;Turn refresh off
+    winVxVy -> Refresh, /DISABLE
+    winVxVz -> Refresh, /DISABLE
+    winVyVz -> Refresh, /DISABLE
+                        
+;-------------------------------------------------------
+; Move Color and Line Plot into Main Window ////////////
+;-------------------------------------------------------
+    colorPos = [0.25, 0.77, 0.75, 0.95]
+    linePos  = [0.25, 0.70, 0.75, 0.77]
+
+    ;Move Color Uix
+    tempGfx = uexWin -> Get(/ALL)
+    foreach gfx, tempGfx do gfx -> SwitchWindows, win
+    
+    ;Destroy the empty window
+    obj_destroy, uexWin
+
+    ;Reposition the color and line plot
+    win['Color Uex'] -> SetLayout, POSITION=colorPos
+    win['Cut Uex']   -> SetLayout, POSITION=linePos
+                        
+;-------------------------------------------------------
+; Move Distributions into Main Window //////////////////
+;-------------------------------------------------------
+    ;Width and height of the distributions
+    ;   - Make them square
+    height = 0.17
+    width  = height * xsize / ysize
+    
+    ;Positions of the distributions
+    x0 = 0.1 + width*indgen(5)
+    x1 = x0  + width
+    y1 = 0.6 - height*indgen(3)
+    y0 = y1  - height
+
+    ;Move VxVy
+    iDist = 1
+    tempGfx = winVxVy -> Get(/ALL)
+    foreach gfx, tempGfx do begin
+        gfx -> SwitchWindows, win
+        if obj_class(gfx) eq 'MRIMAGE' then begin
+            gfx -> SetLayout, POSITION=[x0[i], y0[0], x1[i], y1[0]]
+            i += 1
+        endif
+    endforeach
+    obj_destroy, winVxVy
+
+    ;Move VxVz
+    iDist = 1
+    tempGfx = winVxVz -> Get(/ALL)
+    foreach gfx, tempGfx do begin
+        gfx -> SwitchWindows, win
+        if obj_class(gfx) eq 'MRIMAGE' then begin
+            gfx -> SetLayout, POSITION=[x0[i], y0[1], x1[i], y1[1]]
+            i += 1
+        endif
+    endforeach
+    obj_destroy, winVxVz
+
+    ;Move VxVz
+    iDist = 1
+    tempGfx = winVyVz -> Get(/ALL)
+    foreach gfx, tempGfx do begin
+        gfx -> SwitchWindows, win
+        if obj_class(gfx) eq 'MRIMAGE' then begin
+            gfx -> SetLayout, POSITION=[x0[i], y0[2], x1[i], y1[2]]
+            i += 1
+        endif
+    endforeach
+    obj_destroy, winVyVz
+
+;-------------------------------------------------------
+; Create the Image /////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Destroy the simulation object
+    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    
+    win -> Refresh
+    return, win
+end
+
+
+;+
+;   Create the desired figure.
+;
+; Params:
+;       FIGURE:         in, optional, type=string
+;                       Figure number of the figure to be created.
+;-
 function FEN_Figure1_Dng, $
 SIM_OBJECT=oSim
     compile_opt strictarr
@@ -724,6 +920,7 @@ VPERP1_VPERP2=vperp1_vperp2
     ;Current list of figures
     list_of_figures = [['Figures eNongyrotropy', 'Figures used in my study of nongyrotropy in asymmetric guide field case.'], $
                        ['Figure1 Dng          ', ''], $
+                       ['Figure1 LiJen        ', ''], $
                        ['Asymm-Scan/By0       ', 'Asymm-Scan/By0 simulation figures'], $
                        ['    t28 eMap         ', ''], $
                        ['Asymm-Scan/By1       ', 'Asymm-Scan/By1 simulation figures'], $
@@ -733,14 +930,15 @@ VPERP1_VPERP2=vperp1_vperp2
                        ['    t108090 y905 eMap  ', ''], $
                        ['    t108090 y1440 eMap ', ''], $
                        ['Large                ', 'Asymm-Large-2D'], $
-                       ['Large-NEW            ', 'Asymm-Large-2D-NEW'], $
+                       ['Asymm-Large-2D-NEW   ', 'Asymm-Large-2D-NEW'], $
                        ['    t06 Overview     ', ''], $
                        ['    t09 Overview     ', ''], $
                        ['    t13 Overview     ', ''], $
                        ['    t18 Overview     ', ''], $
-                       ['    t18 Right eMap   ', ''], $
                        ['    t26 Left eMap    ', ''], $
                        ['    t26 Right eMap   ', ''], $
+                       ['    t36 Left eMap    ', ''], $
+                       ['    t36 Right eMap   ', ''], $
                        ['Sim1                 ', 'Sim1 symmetric simulation figures'], $
                        ['    t68 eMap         ', ''], $
                        ['    t72 eMap         ', ''], $
@@ -797,7 +995,8 @@ VPERP1_VPERP2=vperp1_vperp2
 
         ;Create the figure    
         case _figure of
-            'FIGURE1 DNG': win = FEN_Figure1_Dng()
+            'FIGURE1 DNG':   win = FEN_Figure1_Dng()
+            'FIGURE1 LIJEN': win = FEN_Figure1_LiJen()
             'ASYMM-SCAN/BY1 T30 DNG': win = FEN_AsymmScan_By1_t30_Dng(SIM_OBJECT=oSim)
             'ASYMM-2D-LARGE-NEW T06 OVERVIEW': win = FEN_Overview_t06(SIM_OBJECT=oSim, STRNAME=strname)
             'ASYMM-2D-LARGE-NEW T09 OVERVIEW': win = FEN_Overview_t09(SIM_OBJECT=oSim, STRNAME=strname)

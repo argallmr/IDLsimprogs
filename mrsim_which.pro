@@ -53,6 +53,7 @@
 ;       2014/10/01  -   Replaced property-specific helper functions with simulation-
 ;                           specific helper functions. - MRA
 ;       2014/10/02  -   Forgot the EREGIONS keyword. - MRA
+;       2014/10/03  -   Added the ASCII_VERSION keyword. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -65,6 +66,8 @@
 ;                           Y-slice within a 3D simulation.
 ;
 ; :Keywords:
+;       ASCII_VERSION:      in, optional, type=integer, default=1
+;                           Version of the ASCII info file. .
 ;       ASCII_INFO:         out, optional, type=string
 ;                           ASCII info file containing human readable information about
 ;                               the simlation.
@@ -92,66 +95,300 @@
 ;       FMAP_DIR:           out, optional, type=string
 ;                           Directory in which fMaps are saved.
 ;-
+pro MrSim_Which_mime1836_by00, tIndex, $
+                               ASCII_INFO=ascii_info, $
+ASCII_VERSION=ascii_version, $
+                               BINARY_INFO=binary_info, $
+                               DTXWCI=dtxwci, $
+                               ECOUNTFACTOR=eCountFactor, $
+                               EFILE=eFile, $
+                               EREGIONS=eRegions, $
+                               FMAP_DIR=fMap_dir
+  compile_opt strictarr
+  on_error, 2
+  
+  directory = '/data2/daughton/mime1836/by0.0/data/'
+  
+  dtxwci = 2.0
+  if arg_present(ascii_version) then ascii_version = 2
+  if arg_present(fMap_dir)      then fMap_dir      = '/home/guanlai/pic/by00/'
+  if arg_present(eCountFactor)  then eCountFactor  = 2
+  
+                                ;Binary Info File
+                                ;   - Stored in the data directory
+  if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+  
+                                ;Ascii Info File
+                                ;   - Stored one directory up from the data directory
+  if arg_present(ascii_info) then begin
+     cd, CURRENT=pwd
+     cd, directory
+     cd, '..'
+     cd, CURRENT=ascii_dir
+     cd, pwd
+     ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+  endif
+
+                                ;Electron files
+  if arg_present(eFile) then begin
+                                ;Time information
+                                ;   - Time index indicating time-slices in the .gda field and moment files.
+                                ;   - t*wci corresponding to those time-slices
+     tStr = strtrim(tIndex, 2)
+     twci = strtrim(long(tIndex*1.e5/6.38), 2)
+     
+                                ;Filenames
+     eFile = '/data2/daughton/mime1836/by0.0/electrons-' + twci + '.bin'
+  endif
+  
+                                ;Regions with electrons
+  if arg_present(eRegions) then begin
+     eRegions = { tIndex: [50, 60], $
+                  xrange: [[300, 600], $
+                           [300, 600]], $
+                  zrange: [[-20,  20], $
+                           [-20,  20]] $
+                }
+  endif
+  
+end
+
+pro MrSim_Which_mime1836_by05, tIndex, $
+                               ASCII_INFO=ascii_info, $
+ASCII_VERSION=ascii_version, $
+                               BINARY_INFO=binary_info, $
+                               DTXWCI=dtxwci, $
+                               ECOUNTFACTOR=eCountFactor, $
+                               EFILE=eFile, $
+                               EREGIONS=eRegions, $
+                               FMAP_DIR=fMap_dir
+  compile_opt strictarr
+  on_error, 2
+  
+  directory = '/data2/daughton/mime1836/by0.05/data/'
+  
+  dtxwci = 2.0
+  if arg_present(ascii_version) then ascii_version = 2
+  if arg_present(fMap_dir)     then fMap_dir     = '/home/guanlai/pic/by05/'
+  if arg_present(eCountFactor) then eCountFactor = 2
+  
+                                ;Binary Info File
+                                ;   - Stored in the data directory
+  if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+  
+                                ;Ascii Info File
+                                ;   - Stored one directory up from the data directory
+  if arg_present(ascii_info) then begin
+     cd, CURRENT=pwd
+     cd, directory
+     cd, '..'
+     cd, CURRENT=ascii_dir
+     cd, pwd
+     ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+  endif
+
+                                ;Electron files
+  if arg_present(eFile) then begin
+                                ;Time information
+                                ;   - Time index indicating time-slices in the .gda field and moment files.
+                                ;   - t*wci corresponding to those time-slices
+     tStr = strtrim(tIndex, 2)
+     twci = strtrim(long(tIndex*1.e5/6.38), 2)
+     
+                                ;Filenames
+     eFile = '/data2/daughton/mime1836/by0.05/electrons-' + twci + '.bin'
+  endif
+  
+                                ;Regions with electrons
+  if arg_present(eRegions) then begin
+     eRegions = { tIndex: [50, 60], $
+                  xrange: [[300, 600], $
+                           [300, 600]], $
+                  zrange: [[-20,  20], $
+                           [-20,  20]] $
+                }
+  endif
+  
+end
+
+pro MrSim_Which_mime1836_by10, tIndex, $
+                               ASCII_INFO=ascii_info, $
+ASCII_VERSION=ascii_version, $
+                               BINARY_INFO=binary_info, $
+                               DTXWCI=dtxwci, $
+                               ECOUNTFACTOR=eCountFactor, $
+                               EFILE=eFile, $
+                               EREGIONS=eRegions, $
+                               FMAP_DIR=fMap_dir
+  compile_opt strictarr
+  on_error, 2
+  
+  directory = '/data2/daughton/mime1836/by0.1/data/'
+  
+  dtxwci = 2.0
+  if arg_present(ascii_version) then ascii_version = 2
+  if arg_present(fMap_dir)     then fMap_dir     = '/home/guanlai/pic/by10/'
+  if arg_present(eCountFactor) then eCountFactor = 2
+  
+                                ;Binary Info File
+                                ;   - Stored in the data directory
+  if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+  
+                                ;Ascii Info File
+                                ;   - Stored one directory up from the data directory
+  if arg_present(ascii_info) then begin
+     cd, CURRENT=pwd
+     cd, directory
+     cd, '..'
+     cd, CURRENT=ascii_dir
+     cd, pwd
+     ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+  endif
+
+                                ;Electron files
+  if arg_present(eFile) then begin
+                                ;Time information
+                                ;   - Time index indicating time-slices in the .gda field and moment files.
+                                ;   - t*wci corresponding to those time-slices
+     tStr = strtrim(tIndex, 2)
+     twci = strtrim(long(tIndex*1.e5/6.38), 2)
+     
+                                ;Filenames
+     eFile = '/data2/daughton/mime1836/by0.1/electrons-' + twci + '.bin'
+  endif
+  
+                                ;Regions with electrons
+  if arg_present(eRegions) then begin
+     eRegions = { tIndex: [50, 60], $
+                  xrange: [[300, 600], $
+                           [300, 600]], $
+                  zrange: [[-20,  20], $
+                           [-20,  20]] $
+                }
+  endif
+  
+end
+
+pro MrSim_Which_mime1836_by40, tIndex, $
+                               ASCII_INFO=ascii_info, $
+ASCII_VERSION=ascii_version, $
+                               BINARY_INFO=binary_info, $
+                               DTXWCI=dtxwci, $
+                               ECOUNTFACTOR=eCountFactor, $
+                               EFILE=eFile, $
+                               EREGIONS=eRegions, $
+                               FMAP_DIR=fMap_dir
+  compile_opt strictarr
+  on_error, 2
+  
+  directory = '/data2/daughton/mime1836/by0.4/data/'
+  
+  dtxwci = 2.0
+  if arg_present(ascii_version) then ascii_version = 2
+  if arg_present(fMap_dir)     then fMap_dir     = '/home/guanlai/pic/by40/'
+  if arg_present(eCountFactor) then eCountFactor = 2
+  
+                                ;Binary Info File
+                                ;   - Stored in the data directory
+  if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+  
+                                ;Ascii Info File
+                                ;   - Stored one directory up from the data directory
+  if arg_present(ascii_info) then begin
+     cd, CURRENT=pwd
+     cd, directory
+     cd, '..'
+     cd, CURRENT=ascii_dir
+     cd, pwd
+     ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+  endif
+
+                                ;Electron files
+  if arg_present(eFile) then begin
+                                ;Time information
+                                ;   - Time index indicating time-slices in the .gda field and moment files.
+                                ;   - t*wci corresponding to those time-slices
+     tStr = strtrim(tIndex, 2)
+     twci = strtrim(long(tIndex*1.e5/6.38), 2)
+     
+                                ;Filenames
+     eFile = '/data2/daughton/mime1836/by0.4/electrons-' + twci + '.bin'
+  endif
+  
+                                ;Regions with electrons
+  if arg_present(eRegions) then begin
+     eRegions = { tIndex: [50, 60], $
+                  xrange: [[100, 700], $
+                           [300, 600]], $
+                  zrange: [[-50,  50], $
+                           [-20,  20]] $
+                }
+  endif
+  
+end
+
+
+
 pro MrSim_Which_Asymm3D, tIndex, yslice, $
-ASCII_INFO=ascii_info, $
-BINARY_INFO=binary_info, $
-DTXWCI=dtxwci, $
-ECOUNTFACTOR=eCountFactor, $
-EFILE=eFile, $
-EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
-    compile_opt strictarr
-    on_error, 2
-
-    ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
-    directory = '/Sim2/Asymm-3D/data/'
-    dtxwci    = 8.324609e-04 ;From info file - no t-slices in 3D .gda files
-    if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Asymm-3D/'
-    if arg_present(eCountFactor) then eCountFactor = !Null
-
-    ;Binary Info File
-    ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
-    
-    ;Ascii Info File
-    ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
-        cd, CURRENT=pwd
-        cd, directory
-        cd, '..'
-        cd, CURRENT=ascii_dir
-        cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
-    endif
-
-    ;Electron files
-    if arg_present(eFile) then begin
-        ;Time information
-        ;   - Time index indicating time-slices in the .gda field and moment files.
-        ;   - t*wci corresponding to those time-slices
-        ;   - y-slice
-        tStr = strtrim(tIndex, 2)
-        twci = strtrim(long(tIndex * dtxwci), 2)
-        yStr = strtrim(yslice, 2)
-        
-        ;File name
-        eFile = '/data2/Asymm-3D/data/electrons-y' + yStr + '.bin'
-    endif
-    
-    ;Regions with electrons
-    ;   - Have moment data for   t=108090
-    ;   - Have particle data for t=108108
-    if arg_present(eRegions) then begin
-        eRegions = { tIndex: [108108, 108108, 108108], $
-                     yslice: [650, 905, 1440], $
-                     xrange: [[250, 700], $
-                              [250, 700], $
-                              [250, 700]], $
-                     zrange: [[-80,  80], $
-                              [-80,  80], $
-                              [-80,  80]] $
-                   }
-    endif
+                         ASCII_INFO=ascii_info, $
+                         BINARY_INFO=binary_info, $
+                         DTXWCI=dtxwci, $
+                         ECOUNTFACTOR=eCountFactor, $
+                         EFILE=eFile, $
+                         EREGIONS=eRegions, $
+                         FMAP_DIR=fMap_dir
+  compile_opt strictarr
+  on_error, 2
+  
+                                ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
+  directory = '/Sim2/Asymm-3D/data/'
+  dtxwci    = 8.324609e-04      ;From info file - no t-slices in 3D .gda files
+  if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Asymm-3D/'
+  if arg_present(eCountFactor) then eCountFactor = !Null
+  
+                                ;Binary Info File
+                                ;   - Stored in the data directory
+  if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+  
+                                ;Ascii Info File
+                                ;   - Stored one directory up from the data directory
+  if arg_present(ascii_info) then begin
+     cd, CURRENT=pwd
+     cd, directory
+     cd, '..'
+     cd, CURRENT=ascii_dir
+     cd, pwd
+     ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+  endif
+  
+                                ;Electron files
+  if arg_present(eFile) then begin
+                                ;Time information
+                                ;   - Time index indicating time-slices in the .gda field and moment files.
+                                ;   - t*wci corresponding to those time-slices
+                                ;   - y-slice
+     tStr = strtrim(tIndex, 2)
+     twci = strtrim(long(tIndex * dtxwci), 2)
+     yStr = strtrim(yslice, 2)
+     
+                                ;File name
+     eFile = '/data2/Asymm-3D/data/electrons-y' + yStr + '.bin'
+  endif
+  
+                                ;Regions with electrons
+                                ;   - Have moment data for   t=108090
+                                ;   - Have particle data for t=108108
+  if arg_present(eRegions) then begin
+     eRegions = { tIndex: [108108, 108108, 108108], $
+                  yslice: [650, 905, 1440], $
+                  xrange: [[250, 700], $
+                           [250, 700], $
+                           [250, 700]], $
+                  zrange: [[-80,  80], $
+                           [-80,  80], $
+                           [-80,  80]] $
+                }
+  endif
 end
 
 
@@ -190,46 +427,46 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_AsymmLarge2D, tIndex, $
-ASCII_INFO=ascii_info, $
-BINARY_INFO=binary_info, $
-DTXWCI=dtxwci, $
-ECOUNTFACTOR=eCountFactor, $
-EFILE=eFile, $
-EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
-    compile_opt strictarr
-    on_error, 2
-
-    directory = '/data2/Asymm-Large-2D/data/'
-    dtxwci    = 2.0
-    if arg_present(fMap_dir)     then fMap_dir     = !Null
-    if arg_present(eCountFactor) then eCountFactor = !Null
-
-    ;Binary Info File
-    ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
-    
-    ;Ascii Info File
-    ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
-        cd, CURRENT=pwd
-        cd, directory
-        cd, '..'
-        cd, CURRENT=ascii_dir
-        cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
-    endif
-
-    ;Electron files
-    if arg_present(eFile) then begin
-        message, 'No particle data available for t*wci = ' + twci + '.', /INFORMATIONAL
-        eFile = !Null
-    endif
-    
-    ;Regions with electrons
-    if arg_present(eRegions) then begin
-        eRegions = !Null
-    endif
+                              ASCII_INFO=ascii_info, $
+                              BINARY_INFO=binary_info, $
+                              DTXWCI=dtxwci, $
+                              ECOUNTFACTOR=eCountFactor, $
+                              EFILE=eFile, $
+                              EREGIONS=eRegions, $
+                              FMAP_DIR=fMap_dir
+  compile_opt strictarr
+  on_error, 2
+  
+  directory = '/data2/Asymm-Large-2D/data/'
+  dtxwci    = 2.0
+  if arg_present(fMap_dir)     then fMap_dir     = !Null
+  if arg_present(eCountFactor) then eCountFactor = !Null
+  
+                                ;Binary Info File
+                                ;   - Stored in the data directory
+  if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+  
+                                ;Ascii Info File
+                                ;   - Stored one directory up from the data directory
+  if arg_present(ascii_info) then begin
+     cd, CURRENT=pwd
+     cd, directory
+     cd, '..'
+     cd, CURRENT=ascii_dir
+     cd, pwd
+     ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+  endif
+  
+                                ;Electron files
+  if arg_present(eFile) then begin
+     message, 'No particle data available for t*wci = ' + twci + '.', /INFORMATIONAL
+     eFile = !Null
+  endif
+  
+                                ;Regions with electrons
+  if arg_present(eRegions) then begin
+     eRegions = !Null
+  endif
 end
 
 
@@ -268,79 +505,79 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_AsymmLarge2D_NEW, tIndex, $
-ASCII_INFO=ascii_info, $
-BINARY_INFO=binary_info, $
-DTXWCI=dtxwci, $
-ECOUNTFACTOR=eCountFactor, $
-EFILE=eFile, $
-EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
-    compile_opt strictarr
-    on_error, 2
-
-    ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
-    directory = '/data2/Asymm-Large-2D-NEW/data/'
-    dtxwci    = 5.0
-    if arg_present(fMap_dir) then fMap_dir = '/home/argall/simulations/Asymm-Large-2D-NEW/'
-
-    ;Binary Info File
-    ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
-    
-    ;Ascii Info File
-    ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
-        cd, CURRENT=pwd
-        cd, directory
-        cd, '..'
-        cd, CURRENT=ascii_dir
-        cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
-    endif
-
-    ;Electron files
-    if arg_present(eFile) then begin
-        ;Time information
-        ;   - Time index indicating time-slices in the .gda field and moment files.
-        ;   - t*wci corresponding to those time-slices
-        tStr = strtrim(tIndex, 2)
-        twci = strtrim(long(tIndex * dtxwci), 2)
-
-        ;Filenames
-        eFile = '/data2/Asymm-Large-2D-NEW/electrons-t' + twci + '.bin'
-    endif
-    
-    ;Electron count factor
-    if arg_present(eCountFactor) then begin
-        case tIndex of
-             6: eCountFactor = 2
-             9: eCountFactor = 2
-            13: eCountFactor = 2
-            18: eCountFactor = 2
-            26: eCountFactor = 1
-            36: eCountFactor = 1
-            else: message, 'No particle data for sim # ' + strtrim(simnum,2) + $
-                           ' at tIndex ' + strtrim(tIndex,2), /INFORMATIONAL
-        endcase
-    endif
-    
-    ;Regions with electrons
-    if arg_present(eRegions) then begin
-        eRegions = { tIndex: [30, 45, 65, 90, 130, 180], $
-                     xrange: [[1410, 1700], $
-                              [1250, 1920], $
-                              [ 970, 2230], $
-                              [ 740, 2620], $
-                              [1100, 2100], $
-                              [1100, 2400]], $
-                     zrange: [[ -60,   60], $
-                              [-100,   80], $
-                              [-150,  100], $
-                              [-200,  150], $
-                              [-100,   70], $
-                              [-140,   80]] $
-                   }
-    endif
+                                  ASCII_INFO=ascii_info, $
+                                  BINARY_INFO=binary_info, $
+                                  DTXWCI=dtxwci, $
+                                  ECOUNTFACTOR=eCountFactor, $
+                                  EFILE=eFile, $
+                                  EREGIONS=eRegions, $
+                                  FMAP_DIR=fMap_dir
+  compile_opt strictarr
+  on_error, 2
+  
+                                ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
+  directory = '/data2/Asymm-Large-2D-NEW/data/'
+  dtxwci    = 5.0
+  if arg_present(fMap_dir) then fMap_dir = '/home/argall/simulations/Asymm-Large-2D-NEW/'
+  
+                                ;Binary Info File
+                                ;   - Stored in the data directory
+  if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+  
+                                ;Ascii Info File
+                                ;   - Stored one directory up from the data directory
+  if arg_present(ascii_info) then begin
+     cd, CURRENT=pwd
+     cd, directory
+     cd, '..'
+     cd, CURRENT=ascii_dir
+     cd, pwd
+     ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+  endif
+  
+                                ;Electron files
+  if arg_present(eFile) then begin
+                                ;Time information
+                                ;   - Time index indicating time-slices in the .gda field and moment files.
+                                ;   - t*wci corresponding to those time-slices
+     tStr = strtrim(tIndex, 2)
+     twci = strtrim(long(tIndex * dtxwci), 2)
+     
+                                ;Filenames
+     eFile = '/data2/Asymm-Large-2D-NEW/electrons-t' + twci + '.bin'
+  endif
+  
+                                ;Electron count factor
+  if arg_present(eCountFactor) then begin
+     case tIndex of
+        6: eCountFactor = 2
+        9: eCountFactor = 2
+        13: eCountFactor = 2
+        18: eCountFactor = 2
+        26: eCountFactor = 1
+        36: eCountFactor = 1
+        else: message, 'No particle data for sim # ' + strtrim(simnum,2) + $
+                       ' at tIndex ' + strtrim(tIndex,2), /INFORMATIONAL
+     endcase
+  endif
+  
+                                ;Regions with electrons
+  if arg_present(eRegions) then begin
+     eRegions = { tIndex: [30, 45, 65, 90, 130, 180], $
+                  xrange: [[1410, 1700], $
+                           [1250, 1920], $
+                           [ 970, 2230], $
+                           [ 740, 2620], $
+                           [1100, 2100], $
+                           [1100, 2400]], $
+                  zrange: [[ -60,   60], $
+                           [-100,   80], $
+                           [-150,  100], $
+                           [-200,  150], $
+                           [-100,   70], $
+                           [-140,   80]] $
+                }
+  endif
 end
 
 
@@ -379,56 +616,56 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_AsymmScan_By0, tIndex, $
-ASCII_INFO=ascii_info, $
-BINARY_INFO=binary_info, $
-DTXWCI=dtxwci, $
-ECOUNTFACTOR=eCountFactor, $
-EFILE=eFile, $
-EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
-    compile_opt strictarr
-    on_error, 2
-
-    ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
-    directory = '/data2/Asymm-Scan/By0/data/'
-    dtxwci    = 2.0
-    if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Asymm-Scan/By0/'
-    if arg_present(eCountFactor) then eCountFactor = 1L
-
-    ;Binary Info File
-    ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
-    
-    ;Ascii Info File
-    ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
-        cd, CURRENT=pwd
-        cd, directory
-        cd, '..'
-        cd, CURRENT=ascii_dir
-        cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
-    endif
-
-    ;Electron files
-    if arg_present(eFile) then begin
-        ;Time information
-        ;   - Time index indicating time-slices in the .gda field and moment files.
-        ;   - t*wci corresponding to those time-slices
-        tStr = strtrim(tIndex, 2)
-        twci = strtrim(long(tIndex * dtxwci), 2)
-
-        ;Filenames
-        case tIndex of
-            28: eFile = '/data2/Asymm-Scan/By0/electrons-twci' + twci + '-it103604.bin'
-            else: message, 'No particle data available for t*wci = ' + twci + '.'
-        endcase
-    endif
-    
-    ;Regions with electrons
-    if arg_present(eRegions) then begin
-        eRegions = !Null ;Unknown
-    endif
+                               ASCII_INFO=ascii_info, $
+                               BINARY_INFO=binary_info, $
+                               DTXWCI=dtxwci, $
+                               ECOUNTFACTOR=eCountFactor, $
+                               EFILE=eFile, $
+                               EREGIONS=eRegions, $
+                               FMAP_DIR=fMap_dir
+  compile_opt strictarr
+  on_error, 2
+  
+                                ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
+  directory = '/data2/Asymm-Scan/By0/data/'
+  dtxwci    = 2.0
+  if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Asymm-Scan/By0/'
+  if arg_present(eCountFactor) then eCountFactor = 1L
+  
+                                ;Binary Info File
+                                ;   - Stored in the data directory
+  if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+  
+                                ;Ascii Info File
+                                ;   - Stored one directory up from the data directory
+  if arg_present(ascii_info) then begin
+     cd, CURRENT=pwd
+     cd, directory
+     cd, '..'
+     cd, CURRENT=ascii_dir
+     cd, pwd
+     ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+  endif
+  
+                                ;Electron files
+  if arg_present(eFile) then begin
+                                ;Time information
+                                ;   - Time index indicating time-slices in the .gda field and moment files.
+                                ;   - t*wci corresponding to those time-slices
+     tStr = strtrim(tIndex, 2)
+     twci = strtrim(long(tIndex * dtxwci), 2)
+     
+                                ;Filenames
+     case tIndex of
+        28: eFile = '/data2/Asymm-Scan/By0/electrons-twci' + twci + '-it103604.bin'
+        else: message, 'No particle data available for t*wci = ' + twci + '.'
+     endcase
+  endif
+  
+                                ;Regions with electrons
+  if arg_present(eRegions) then begin
+     eRegions = !Null           ;Unknown
+  endif
 end
 
 
@@ -467,62 +704,62 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_AsymmScan_By1, tIndex, $
-ASCII_INFO=ascii_info, $
-BINARY_INFO=binary_info, $
-DTXWCI=dtxwci, $
-ECOUNTFACTOR=eCountFactor, $
-EFILE=eFile, $
-EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
-    compile_opt strictarr
-    on_error, 2
-
-    ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
-    directory = '/data2/Asymm-Scan/By1/data/'
-    dtxwci    = 2.0
-    if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Asymm-Scan/By1/'
-    if arg_present(eCountFactor) then eCountFactor = 1L
-
-    ;Binary Info File
-    ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
-    
-    ;Ascii Info File
-    ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
-        cd, CURRENT=pwd
-        cd, directory
-        cd, '..'
-        cd, CURRENT=ascii_dir
-        cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
-    endif
-
-    ;Electron files
-    if arg_present(eFile) then begin
-        ;Time information
-        ;   - Time index indicating time-slices in the .gda field and moment files.
-        ;   - t*wci corresponding to those time-slices
-        tStr = strtrim(tIndex, 2)
-        twci = strtrim(long(tIndex * dtxwci), 2)
-        
-        ;File names
-        case tIndex of
-            30: eFile = '/data2/Asymm-Scan/By1/electrons-twci' + twci + '-it70200.bin'
-            else: begin
-                eFile = ''
-                message, 'No particle data available for t*wci = ' + twci + '.', /INFORMATIONAL
-            endelse
-        endcase
-    endif
-
-    ;Regions with electrons
-    if arg_present(eRegions) then begin
-        eRegions = { tIndex: 30, $
-                     xrange: [420, 450], $
-                     zrange: [-10,  10]  $
-                   }
-    endif
+                               ASCII_INFO=ascii_info, $
+                               BINARY_INFO=binary_info, $
+                               DTXWCI=dtxwci, $
+                               ECOUNTFACTOR=eCountFactor, $
+                               EFILE=eFile, $
+                               EREGIONS=eRegions, $
+                               FMAP_DIR=fMap_dir
+  compile_opt strictarr
+  on_error, 2
+  
+                                ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
+  directory = '/data2/Asymm-Scan/By1/data/'
+  dtxwci    = 2.0
+  if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Asymm-Scan/By1/'
+  if arg_present(eCountFactor) then eCountFactor = 1L
+  
+                                ;Binary Info File
+                                ;   - Stored in the data directory
+  if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+  
+                                ;Ascii Info File
+                                ;   - Stored one directory up from the data directory
+  if arg_present(ascii_info) then begin
+     cd, CURRENT=pwd
+     cd, directory
+     cd, '..'
+     cd, CURRENT=ascii_dir
+     cd, pwd
+     ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+  endif
+  
+                                ;Electron files
+  if arg_present(eFile) then begin
+                                ;Time information
+                                ;   - Time index indicating time-slices in the .gda field and moment files.
+                                ;   - t*wci corresponding to those time-slices
+     tStr = strtrim(tIndex, 2)
+     twci = strtrim(long(tIndex * dtxwci), 2)
+     
+                                ;File names
+     case tIndex of
+        30: eFile = '/data2/Asymm-Scan/By1/electrons-twci' + twci + '-it70200.bin'
+        else: begin
+           eFile = ''
+           message, 'No particle data available for t*wci = ' + twci + '.', /INFORMATIONAL
+        endelse
+     endcase
+  endif
+  
+                                ;Regions with electrons
+  if arg_present(eRegions) then begin
+     eRegions = { tIndex: 30, $
+                  xrange: [420, 450], $
+                  zrange: [-10,  10]  $
+                }
+  endif
 end
 
 
@@ -581,7 +818,7 @@ FMAP_DIR=fMap_dir
     ;Binary Info File
     ;   - Stored in the data directory
     if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
-    
+  
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
     if arg_present(ascii_info) then begin
@@ -592,7 +829,7 @@ FMAP_DIR=fMap_dir
         cd, pwd
         ascii_info = filepath('info', ROOT_DIR=ascii_dir)
     endif
-
+  
     ;Electron files
     if arg_present(eFile) then begin
         ;Time information
@@ -604,34 +841,34 @@ FMAP_DIR=fMap_dir
         ;Filenames
         eFile = '/data1/sim1/electrons-'  + strtrim(long(tIndex)*1828L, 2) + '.bin'
     endif
-    
-    ;Regions with electron data
-    ;   - Use MrSim_Create_fMap with the VERBOSE keyword to find out.
-    if arg_present(eRegions) then begin
-        eRegions = { tIndex: [52, 68, 72, 76, 80, 84, 88, 92, 104, 116], $
-                     xrange: [[200, 1400], $
-                              [200, 1400], $
-                              [200, 1400], $
-                              [200, 1400], $
-                              [200, 1400], $
-                              [200, 1400], $
-                              [200, 1400], $
-                              [200, 1400], $
-                              [200, 1400], $
-                              [200, 1400], $
-                              [200, 1400]], $
-                     zrange: [[-50,   50], $
-                              [-50,   50], $
-                              [-50,   50], $
-                              [-50,   50], $
-                              [-50,   50], $
-                              [-50,   50], $
-                              [-50,   50], $
-                              [-50,   50], $
-                              [-50,   50], $
-                              [-50,   50]] $
-                   }
-    endif
+  
+                                ;Regions with electron data
+                                ;   - Use MrSim_Create_fMap with the VERBOSE keyword to find out.
+  if arg_present(eRegions) then begin
+     eRegions = { tIndex: [52, 68, 72, 76, 80, 84, 88, 92, 104, 116], $
+                  xrange: [[200, 1400], $
+                           [200, 1400], $
+                           [200, 1400], $
+                           [200, 1400], $
+                           [200, 1400], $
+                           [200, 1400], $
+                           [200, 1400], $
+                           [200, 1400], $
+                           [200, 1400], $
+                           [200, 1400], $
+                           [200, 1400]], $
+                  zrange: [[-50,   50], $
+                           [-50,   50], $
+                           [-50,   50], $
+                           [-50,   50], $
+                           [-50,   50], $
+                           [-50,   50], $
+                           [-50,   50], $
+                           [-50,   50], $
+                           [-50,   50], $
+                           [-50,   50]] $
+                }
+  endif
 end
 
 
@@ -682,10 +919,10 @@ NUMBER=number, $
 TINDEX=tIndex, $
 YSLICE=yslice, $
 _REF_EXTRA=extra
-    compile_opt strictarr
-    on_error, 2
-    
-    ;Information about each simulation.
+  compile_opt strictarr
+  on_error, 2
+  
+                                ;Information about each simulation.
     simInfo = [['#',  'D',   'Asymmetric', 'Name',                'Directory'], $
                ['1',  '2D',     'yes',     'Asymm-Large-2D',      '/data2/Asymm-Large-2D/data/'], $
                ['2',  '2D',     'yes',     'Asymm-Large-2D-NEW',  '/data2/Asymm-Large-2D-NEW/data/'], $
@@ -697,49 +934,59 @@ _REF_EXTRA=extra
                ['8',  '2D',     'no',      'data-by0.03-OLD',     '/data1/sim1/data-by0.03-OLD/data/'], $
                ['9',  '2D',     'no',      'data-by0.03-NEW',     '/data1/sim1/data-by0.03-NEW/data/'], $
                ['10', '2D',     'yes',     'Asymm-Scan/By1',      '/data2/Asymm-Scan/By1/data/'], $
-               ['11', '2D',     'yes',     'Asymm-Scan/By0',      '/data2/Asymm-Scan/By0/data/']]
-
-    ;Print the info if no input was given.
+               ['11', '2D',     'yes',     'Asymm-Scan/By0',      '/data2/Asymm-Scan/By0/data/'],$
+               ['12', '2D',     'no',      'mime1836/by00',      '/data2/daughton/mime1836/by0.0'],$
+               ['13', '2D',     'no',      'mime1836/by05',     '/data2/daughton/mime1836/by0.05'],$
+               ['14', '2D',     'no',      'mime1836/by10',      '/data2/daughton/mime1836/by0.1'],$
+               ['15', '2D',     'no',      'mime1836/by40',      '/data2/daughton/mime1836/by0.4']]
+    
+    
+    
+                                ;Print the info if no input was given.
     if n_elements(thisSim) eq 0 then begin
-        nameLen = strtrim(max(strlen(simInfo[3,*])), 2)
-        print, simInfo[*,0],   FORMAT='(a2, 4x, a1, 5x, a10, 3x, a-' + nameLen + ', 3x, a0)'
-        print, simInfo[*,1:*], FORMAT='(a2, 4x, a2, 7x, a3, 7x, a-' + nameLen + ', 3x, a0)'
-        return
+       nameLen = strtrim(max(strlen(simInfo[3,*])), 2)
+       print, simInfo[*,0],   FORMAT='(a2, 4x, a1, 5x, a10, 3x, a-' + nameLen + ', 3x, a0)'
+       print, simInfo[*,1:*], FORMAT='(a2, 4x, a2, 7x, a3, 7x, a-' + nameLen + ', 3x, a0)'
+       return
     endif
-
-    ;Which simulation was chosen?
-    ;   - Search by name or number.
+    
+                                ;Which simulation was chosen?
+                                ;   - Search by name or number.
     tname = size(thisSim, /TNAME)
     case 1 of
-        MrIsA(thisSim, 'STRING'): index = where(strupcase(thisSim) eq strupcase(simInfo[3,1:*]), count)
-        MrIsA(thisSim, /INTEGER): index = where(thisSim eq fix(simInfo[0,1:*]), count)
-        else: message, 'THISSIM must be a simulation name or number.'
+       MrIsA(thisSim, 'STRING'): index = where(strupcase(thisSim) eq strupcase(simInfo[3,1:*]), count)
+       MrIsA(thisSim, /INTEGER): index = where(thisSim eq fix(simInfo[0,1:*]), count)
+       else: message, 'THISSIM must be a simulation name or number.'
     endcase
     if count ne 1 then message, 'Simulation not found: ' + string(thisSim) + '.'
     index = index[0] + 1
     
-    ;Extract the information.
+                                ;Extract the information.
     number     = fix(simInfo[0,index])
     dimension  = simInfo[1,index]
     asymmetric = simInfo[2,index] eq 'yes' ? 1 : 0
     name       = simInfo[3,index]
     directory  = simInfo[4,index]
-
-    ;Other simulation-specific parameters.
+    
+                                ;Other simulation-specific parameters.
     if n_elements(extra) gt 0 then begin
-        case number of
-             1: MrSim_Which_AsymmLarge2D,     tIndex,         _STRICT_EXTRA=extra
-             2: MrSim_Which_AsymmLarge2D_NEW, tIndex,         _STRICT_EXTRA=extra
-             3: MrSim_Which_Asymm3D,          tIndex, yslice, _STRICT_EXTRA=extra
-             4: message, 'Information not available for "' + simname + '".'
-             5: MrSim_Which_Sim1,             tIndex,         _STRICT_EXTRA=extra
-             6: message, 'Information not available for "' + simname + '".'
-             7: message, 'Information not available for "' + simname + '".'
-             8: message, 'Information not available for "' + simname + '".'
-             9: message, 'Information not available for "' + simname + '".'
-            10: MrSim_Which_AsymmScan_By1,    tIndex,         _STRICT_EXTRA=extra
-            11: MrSim_Which_AsymmScan_By0,    tIndex,         _STRICT_EXTRA=extra
-            else: ;Do nothing
-        endcase
+       case number of
+          1: MrSim_Which_AsymmLarge2D,     tIndex,         _STRICT_EXTRA=extra
+          2: MrSim_Which_AsymmLarge2D_NEW, tIndex,         _STRICT_EXTRA=extra
+          3: MrSim_Which_Asymm3D,          tIndex, yslice, _STRICT_EXTRA=extra
+          4: message, 'Information not available for "' + simname + '".'
+          5: MrSim_Which_Sim1,             tIndex,         _STRICT_EXTRA=extra
+          6: message, 'Information not available for "' + simname + '".'
+          7: message, 'Information not available for "' + simname + '".'
+          8: message, 'Information not available for "' + simname + '".'
+          9: message, 'Information not available for "' + simname + '".'
+          10: MrSim_Which_AsymmScan_By1,    tIndex,        _STRICT_EXTRA=extra
+          11: MrSim_Which_AsymmScan_By0,    tIndex,        _STRICT_EXTRA=extra
+          12: MrSim_Which_mime1836_by00,    tIndex,        _STRICT_EXTRA=extra
+          13: MrSim_Which_mime1836_by05,    tIndex,        _STRICT_EXTRA=extra
+          14: MrSim_Which_mime1836_by10,    tIndex,        _STRICT_EXTRA=extra
+          15: MrSim_Which_mime1836_by40,    tIndex,        _STRICT_EXTRA=extra
+          else:                 ;Do nothing
+       endcase
     endif
-end
+ end

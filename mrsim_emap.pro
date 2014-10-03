@@ -181,32 +181,61 @@ _REF_EXTRA=extra
     xoffset = indgen(1, layout[0])
     yoffset = indgen(1, 1, layout[1])
 
+    if layout[0] gt 1 then begin
+        case location of
+            1: ;Do nothing
+            2: xoffset -= layout[0] / 2
+            3: xoffset -= layout[0] - 1
+            4: ;Do nothing
+            5: xoffset -= layout[0] / 2
+            6: xoffset  = layout[0] - 1
+            7: ;Do nothing
+            8: xoffset -= layout[0] / 2
+            9: xoffset  = layout[0] - 1
+            else: message, 'LOCATION must be an integer between 1 and 9.'
+        endcase
+    endif
+    if layout[1] gt 1 then begin
+        case location of
+            1: yoffset  = -yoffset 
+            2: yoffset  = -yoffset
+            3: yoffset  = -yoffset
+            4: yoffset  = reverse(yoffset - layout[1]/2, 3)
+            5: yoffset  = reverse(yoffset - layout[1]/2, 3)
+            6: yoffset  = reverse(yoffset - layout[1]/2, 3)
+            7: ;Do nothing
+            8: ;Do nothing
+            9: ;Do nothing
+            else: message, 'LOCATION must be an integer between 1 and 9.'
+        endcase
+    endif
+    
     ;Calculate the location
     ;   - vertical-horizontal
-    case location of
-        1: yoffset   = -yoffset                             ;TOP-LEFT
-        2: begin                                            ;TOP-CENTER
-            xoffset -= layout[0] / 2
-            yoffset  = -yoffset
-        endcase
-        3: begin                                            ;TOP-RIGHT
-            xoffset -= layout[0] - 1
-            yoffset  = -yoffset
-        endcase
-        4: yoffset   = reverse(yoffset - layout[1]/2, 3)    ;MIDDLE-LEFT
-        5: begin                                            ;MIDDLE-CENTER
-            xoffset -= layout[0] / 2
-            yoffset  = reverse(yoffset - layout[1]/2, 3)
-        endcase
-        6: begin                                            ;MIDDLE-RIGHT
-            xoffset  = layout[0] - 1
-            yoffset  = reverse(yoffset - layout[1]/2, 3)
-        endcase
-        7: ;Do nothing                                      ;BOTTOM-LEFT
-        8: xoffset -= layout[0] / 2                         ;BOTTOM-CENTER
-        9: xoffset  = layout[0] - 1                         ;BOTTOM-RIGHT
-        else: message, 'LOCATION must be an integer between 1 and 9.'
-    endcase
+;    case location of
+;        1: yoffset   = -yoffset                             ;TOP-LEFT
+;        2: begin                                            ;TOP-CENTER
+;            xoffset -= layout[0] / 2
+;            yoffset  = -yoffset
+;        endcase
+;        3: begin                                            ;TOP-RIGHT
+;            xoffset -= layout[0] - 1
+;            yoffset  = -yoffset
+;        endcase
+;        4: yoffset   = reverse(yoffset - layout[1]/2, 3)    ;MIDDLE-LEFT
+;        5: begin                                            ;MIDDLE-CENTER
+;            xoffset -= layout[0] / 2
+;            yoffset  = reverse(yoffset - layout[1]/2, 3)
+;        endcase
+;        6: begin                                            ;MIDDLE-RIGHT
+;            xoffset  = layout[0] - 1
+;            yoffset  = reverse(yoffset - layout[1]/2, 3)
+;        endcase
+;        7: ;Do nothing                                      ;BOTTOM-LEFT
+;        8: xoffset -= layout[0] / 2                         ;BOTTOM-CENTER
+;        9: xoffset  = layout[0] - 1                         ;BOTTOM-RIGHT
+;        else: message, 'LOCATION must be an integer between 1 and 9.'
+;    endcase
     xoffset = (2*dx + hGap) * rebin(xoffset, 2, layout[0], layout[1])
     yoffset = (2*dy + vGap) * rebin(yoffset, 2, layout[0], layout[1])
         
