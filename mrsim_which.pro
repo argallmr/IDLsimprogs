@@ -52,6 +52,7 @@
 ;       2014/09/12  -   Written by Matthew Argall
 ;       2014/10/01  -   Replaced property-specific helper functions with simulation-
 ;                           specific helper functions. - MRA
+;       2014/10/02  -   Forgot the EREGIONS keyword. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -81,6 +82,13 @@
 ;       EFILE:              out, optional, type=string
 ;                           File in which electron data is saved. Requires `TINDEX` and,
 ;                               for 3D simulations, `YSLICE`.
+;       EREGIONS:           out, optional, type=structure
+;                           Regions and times for which we have particle data::
+;                               { TINDEX: intarr(N), $          time shown in `EFILE`
+;                                 YSLICE: intarr(N), $          y-slice in the .gda file
+;                                 XRANGE: intarr(2xN), $        [xmin, xmax]
+;                                 ZRANGE: intarr(2xN) $         [zmin, zmax]
+;                               }
 ;       FMAP_DIR:           out, optional, type=string
 ;                           Directory in which fMaps are saved.
 ;-
@@ -172,6 +180,12 @@ end
 ;       EFILE:              out, optional, type=string
 ;                           File in which electron data is saved. Requires `TINDEX` and,
 ;                               for 3D simulations, `YSLICE`.
+;       EREGIONS:           out, optional, type=structure
+;                           Regions and times for which we have particle data::
+;                               { TINDEX: intarr(N), $          time-index into .gda file
+;                                 XRANGE: intarr(2xN), $        [xmin, xmax]
+;                                 ZRANGE: intarr(2xN) $         [zmin, zmax]
+;                               }
 ;       FMAP_DIR:           out, optional, type=string
 ;                           Directory in which fMaps are saved.
 ;-
@@ -188,7 +202,7 @@ FMAP_DIR=fMap_dir
 
     directory = '/data2/Asymm-Large-2D/data/'
     dtxwci    = 2.0
-    if arg_present(fMap_dir)     then fMap_dir     = ''
+    if arg_present(fMap_dir)     then fMap_dir     = !Null
     if arg_present(eCountFactor) then eCountFactor = !Null
 
     ;Binary Info File
@@ -209,7 +223,7 @@ FMAP_DIR=fMap_dir
     ;Electron files
     if arg_present(eFile) then begin
         message, 'No particle data available for t*wci = ' + twci + '.', /INFORMATIONAL
-        eFile = ''
+        eFile = !Null
     endif
     
     ;Regions with electrons
@@ -244,6 +258,12 @@ end
 ;       EFILE:              out, optional, type=string
 ;                           File in which electron data is saved. Requires `TINDEX` and,
 ;                               for 3D simulations, `YSLICE`.
+;       EREGIONS:           out, optional, type=structure
+;                           Regions and times for which we have particle data::
+;                               { TINDEX: intarr(N), $          time-index into .gda file
+;                                 XRANGE: intarr(2xN), $        [xmin, xmax]
+;                                 ZRANGE: intarr(2xN) $         [zmin, zmax]
+;                               }
 ;       FMAP_DIR:           out, optional, type=string
 ;                           Directory in which fMaps are saved.
 ;-
@@ -349,6 +369,12 @@ end
 ;       EFILE:              out, optional, type=string
 ;                           File in which electron data is saved. Requires `TINDEX` and,
 ;                               for 3D simulations, `YSLICE`.
+;       EREGIONS:           out, optional, type=structure
+;                           Regions and times for which we have particle data::
+;                               { TINDEX: intarr(N), $          time-index into .gda file
+;                                 XRANGE: intarr(2xN), $        [xmin, xmax]
+;                                 ZRANGE: intarr(2xN) $         [zmin, zmax]
+;                               }
 ;       FMAP_DIR:           out, optional, type=string
 ;                           Directory in which fMaps are saved.
 ;-
@@ -431,6 +457,12 @@ end
 ;       EFILE:              out, optional, type=string
 ;                           File in which electron data is saved. Requires `TINDEX` and,
 ;                               for 3D simulations, `YSLICE`.
+;       EREGIONS:           out, optional, type=structure
+;                           Regions and times for which we have particle data::
+;                               { TINDEX: intarr(N), $          time-index into .gda file
+;                                 XRANGE: intarr(2xN), $        [xmin, xmax]
+;                                 ZRANGE: intarr(2xN) $         [zmin, zmax]
+;                               }
 ;       FMAP_DIR:           out, optional, type=string
 ;                           Directory in which fMaps are saved.
 ;-
@@ -519,6 +551,12 @@ end
 ;       EFILE:              out, optional, type=string
 ;                           File in which electron data is saved. Requires `TINDEX` and,
 ;                               for 3D simulations, `YSLICE`.
+;       EREGIONS:           out, optional, type=structure
+;                           Regions and times for which we have particle data::
+;                               { TINDEX: intarr(N), $          time-index into .gda file
+;                                 XRANGE: intarr(2xN), $        [xmin, xmax]
+;                                 ZRANGE: intarr(2xN) $         [zmin, zmax]
+;                               }
 ;       FMAP_DIR:           out, optional, type=string
 ;                           Directory in which fMaps are saved.
 ;-
@@ -571,26 +609,26 @@ FMAP_DIR=fMap_dir
     ;   - Use MrSim_Create_fMap with the VERBOSE keyword to find out.
     if arg_present(eRegions) then begin
         eRegions = { tIndex: [52, 68, 72, 76, 80, 84, 88, 92, 104, 116], $
-                     xrange: [[  0,    0], $
+                     xrange: [[200, 1400], $
                               [200, 1400], $
-                              [  0,    0], $
-                              [  0,    0], $
                               [200, 1400], $
-                              [  0,    0], $
-                              [  0,    0], $
-                              [  0,    0], $
-                              [  0,    0], $
-                              [  0,    0], $
+                              [200, 1400], $
+                              [200, 1400], $
+                              [200, 1400], $
+                              [200, 1400], $
+                              [200, 1400], $
+                              [200, 1400], $
+                              [200, 1400], $
                               [200, 1400]], $
-                     zrange: [[  0,    0], $
+                     zrange: [[-50,   50], $
                               [-50,   50], $
-                              [  0,    0], $
-                              [  0,    0], $
                               [-50,   50], $
-                              [  0,    0], $
-                              [  0,    0], $
-                              [  0,    0], $
-                              [  0,    0], $
+                              [-50,   50], $
+                              [-50,   50], $
+                              [-50,   50], $
+                              [-50,   50], $
+                              [-50,   50], $
+                              [-50,   50], $
                               [-50,   50]] $
                    }
     endif
