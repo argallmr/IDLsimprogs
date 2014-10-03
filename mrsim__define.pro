@@ -80,6 +80,7 @@
 ;                           pressures, anisotropy, agyrotropy, and nongyrotropy. - MRA
 ;       2014/09/15  -   Added capacity for calculating total pressure. - MRA
 ;       2014/09/30  -   Added the SetSim method. - MRA.
+;       2014/10/03  -   Added the ASCII_VERSION keyword. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -93,6 +94,9 @@
 ;                           in 2D simulations.
 ;
 ; :Keywords:
+;       ASCII_VERSION:  in, optional, type=integer, default=1
+;                       Version of the info file to read. Ignored if `BINARY`=1.
+;                           See MrSim_Which.pro.
 ;       AXIS_LABELS:    in, optional, type=strarr(3), default="['x', 'y', 'z']"
 ;                       Labels for the axes.
 ;       BINARY:         in, optional, type=boolean, default=0
@@ -108,6 +112,9 @@
 ;                       The ASCII info file containing information about the simulation
 ;                           setup. If `BINARY` is set, the default file will be
 ;                           `DIRECTORY`/info.
+;       INFO_VERSION:   in, optional, type=integer, default=1
+;                       Version of the info file to read. Ignored if `BINARY`=1.
+;                           See MrSim_Which.pro.
 ;       ION_SCALE:      in, optional, type=boolean, default=0
 ;                       Construct the simulation domain in units of "di" instead of "de"
 ;                           (the ion and electron skin depth, respectively).
@@ -135,11 +142,13 @@
 ;                           by `ION_SCALE`.
 ;-
 function MrSim::INIT, theSim, time, yslice, $
+ASCII_VERSION = ascii_version, $
 AXIS_LABELS = axis_labels, $
 BINARY = binary, $
 COORD_SYSTEM = coord_system, $
 DIRECTORY = directory, $
 INFO_FILE = info_file, $
+INFO_VERSION = info_version, $
 ION_SCALE = ion_scale, $
 MVA_FRAME = mva_frame, $
 NSMOOTH = nsmooth, $
@@ -171,12 +180,14 @@ ZRANGE = zrange
 
     ;Get information about the simulation
     MrSim_Which, theSim, NAME=simname, NUMBER=simnum, $
-                 DIRECTORY=_dir, ASCII_INFO=_ascii_info, BINARY_INFO=_bin_info
+                 DIRECTORY=_dir, ASCII_INFO=_ascii_info, BINARY_INFO=_bin_info, $
+                 ASCII_VERSION=vASCII
     
     ;Defaults
     binary = keyword_set(binary)
-    if n_elements(directory) eq 0 then directory = _dir
-    if n_elements(info_file) eq 0 $
+    if n_elements(directory)     eq 0 then directory     = _dir
+    if n_elements(ascii_version) eq 0 then ascii_version = vASCII
+    if n_elements(info_file)     eq 0 $
         then info_file = binary ? _bin_info : _ascii_info
     
     ;Properties
@@ -202,7 +213,7 @@ ZRANGE = zrange
         
     ;Ascii info file
     endif else begin
-        self -> ReadInfo_Ascii, info_file
+        self -> ReadInfo_Ascii, info_file, VERSION=ascii_version
     endelse
 
 ;-------------------------------------------------------
@@ -709,8 +720,13 @@ end
 ; :Params:
 ;       FILENAME:           in, required, type=string
 ;                           Name of the "info" file to be read.
+;
+; :Keywords:
+;       ASCII_VERSION:  in, optional, type=integer, default=1
+;                       Version of the ASCII info file. See MrSim_Which.pro.
 ;-
-pro MrSim::ReadInfo_Ascii, filename
+pro MrSim::ReadInfo_Ascii, filename, $
+VERSION=version
     compile_opt strictarr
     
     ;catch errors
@@ -723,7 +739,7 @@ pro MrSim::ReadInfo_Ascii, filename
     endif
     
     ;Read the simulation info file
-    *self.info = MrSim_ReadInfoAscii(filename)
+    *self.info = MrSim_ReadInfoAscii(filename, VERSION=version)
 end
 
 

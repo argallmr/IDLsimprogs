@@ -50,6 +50,9 @@
 ;                           in 2D simulations.
 ;
 ; :Keywords:
+;       ASCII_VERSION:  in, optional, type=integer, default=1
+;                       Version of the ASCII info file. Ignored if `BINDARY`=1.
+;                           See MrSim_Which.pro.
 ;       AXIS_LABELS:    in, optional, type=strarr(3), default="['x', 'y', 'z']"
 ;                       Labels for the axes.
 ;       BINARY:         in, optional, type=boolean, default=0
@@ -102,8 +105,10 @@
 ; :History:
 ;    Modification History::
 ;       2013/09/12  -   Written by Matthew Argall
+;       2014/10/03  -   Added the ASCII_VERSION keyword. - MRA
 ;-
 function MrSim_Create, thisSim, time, yslice, $
+ASCII_VERSION = ascii_version, $
 AXIS_LABELS = axis_labels, $
 BINARY = binary, $
 COORD_SYSTEM = coord_system, $
@@ -128,19 +133,20 @@ ZRANGE = zrange
 
     ;Create the simulation object
     sim_object = obj_new(class, simnum, time, yslice, $
-                         AXIS_LABELS  = axis_labels, $
-                         BINARY       = binary, $
-                         COORD_SYSTEM = coord_system, $
-                         DIRECTORY    = directory, $
-                         INFO_FILE    = info_file, $
-                         ION_SCALE    = ion_scale, $
-                         MVA_FRAME    = mva_frame, $
-                         NSMOOTH      = nsmooth, $
-                         ORIENTATION  = orientation, $
-                         SIM_INFO     = sim_info, $
-                         XRANGE       = xrange, $
-                         YRANGE       = yrange, $
-                         ZRANGE       = zrange)
+                         ASCII_VERSION = ascii_version, $
+                         AXIS_LABELS   = axis_labels, $
+                         BINARY        = binary, $
+                         COORD_SYSTEM  = coord_system, $
+                         DIRECTORY     = directory, $
+                         INFO_FILE     = info_file, $
+                         ION_SCALE     = ion_scale, $
+                         MVA_FRAME     = mva_frame, $
+                         NSMOOTH       = nsmooth, $
+                         ORIENTATION   = orientation, $
+                         SIM_INFO      = sim_info, $
+                         XRANGE        = xrange, $
+                         YRANGE        = yrange, $
+                         ZRANGE        = zrange)
 
     return, sim_object
 end
