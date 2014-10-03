@@ -104,10 +104,10 @@ FMAP_DIR=fMap_dir
     on_error, 2
 
     ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
-    directory = '/Sim2/Asymm-3D/data/'
+    directory = '/data2/Asymm-3D/data/'
     dtxwci    = 8.324609e-04 ;From info file - no t-slices in 3D .gda files
     if arg_present(fMap_dir)     then fMap_dir     = '/home/argall/simulations/Asymm-3D/'
-    if arg_present(eCountFactor) then eCountFactor = !Null
+    if arg_present(eCountFactor) then eCountFactor = 2.0
 
     ;Binary Info File
     ;   - Stored in the data directory
@@ -142,7 +142,7 @@ FMAP_DIR=fMap_dir
     ;   - Have moment data for   t=108090
     ;   - Have particle data for t=108108
     if arg_present(eRegions) then begin
-        eRegions = { tIndex: [108108, 108108, 108108], $
+        eRegions = { tIndex: [108090, 108090, 108090], $
                      yslice: [650, 905, 1440], $
                      xrange: [[250, 700], $
                               [250, 700], $
@@ -326,7 +326,7 @@ FMAP_DIR=fMap_dir
     
     ;Regions with electrons
     if arg_present(eRegions) then begin
-        eRegions = { tIndex: [30, 45, 65, 90, 130, 180], $
+        eRegions = { tIndex: [6, 9, 13, 18, 26, 36], $
                      xrange: [[1410, 1700], $
                               [1250, 1920], $
                               [ 970, 2230], $

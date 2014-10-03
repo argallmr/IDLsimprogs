@@ -139,7 +139,7 @@
 ;                           Repurposed the SIM_OBJECT keyword. - MRA
 ;       2014/10/02  -   If C_NAME='Ay', add a contour passing through the X-line. - MRA
 ;-
-function MrSim_ColorSlab, theSim, name, time, $
+function MrSim_ColorSlab, theSim, name, time, yslice, $
 C_NAME = c_name, $
 CURRENT = current, $
 FRACTION = fraction, $
@@ -172,7 +172,7 @@ _REF_EXTRA = extra
     
     ;Simulation name or number?
     if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
-        oSim = MrSim_Create(theSim, time, _STRICT_EXTRA=extra)
+        oSim = MrSim_Create(theSim, time, yslice, _STRICT_EXTRA=extra)
         if obj_valid(oSim) eq 0 then return, obj_new()
         osim_created = 1B
         
@@ -224,9 +224,6 @@ _REF_EXTRA = extra
     oSim -> GetProperty, TIME=time, XSIM=XSim, ZSIM=ZSim, AXIS_LABELS=axLabls, $
                          COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
-        
-    ;Destroy the object
-    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
     
     ;Make sure the data exists. Do this /after/ OSIM has a chance to be destroyed
     ;and before the graphic window is created.
@@ -248,6 +245,9 @@ _REF_EXTRA = extra
         oSim -> GetProperty, YSLICE=yslice
         title += '  ' + axLabls[1] + '=' + string(yslice, FORMAT='(f0.1)') + units
     endif
+        
+    ;Destroy the object
+    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
 
 ;-------------------------------------------------------
 ;Make Plots ////////////////////////////////////////////
