@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ; docformat = 'rst'
 ;
 ; NAME:
@@ -481,6 +480,7 @@ end
 ;-
 pro MrSim_Which_Asymm3D, tIndex, yslice, $
 ASCII_INFO=ascii_info, $
+ASCII_VERSION=ascii_version, $
 BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
@@ -581,6 +581,7 @@ end
 ;-
 pro MrSim_Which_AsymmLarge2D, tIndex, $
 ASCII_INFO=ascii_info, $
+ASCII_VERSION=ascii_version, $
 BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
@@ -662,6 +663,7 @@ end
 ;-
 pro MrSim_Which_AsymmLarge2D_NEW, tIndex, $
 ASCII_INFO=ascii_info, $
+ASCII_VERSION=ascii_version, $
 BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
@@ -776,6 +778,7 @@ end
 ;-
 pro MrSim_Which_AsymmScan_By0, tIndex, $
 ASCII_INFO=ascii_info, $
+ASCII_VERSION=ascii_version, $
 BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
@@ -867,6 +870,7 @@ end
 ;-
 pro MrSim_Which_AsymmScan_By1, tIndex, $
 ASCII_INFO=ascii_info, $
+ASCII_VERSION=ascii_version, $
 BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
@@ -964,6 +968,7 @@ end
 ;-
 pro MrSim_Which_Sim1, tIndex, $
 ASCII_INFO=ascii_info, $
+ASCII_VERSION=ascii_version, $
 BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $

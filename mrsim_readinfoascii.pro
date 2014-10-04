@@ -43,7 +43,28 @@
 ;       VERSION:            in, optional, type=integer, default=1
 ;                           Version of the ASCII info file to read. Up until 2014-10-03
 ;                               all simulations have used version 1. The real mass ratio,
-;                               symmetric simulations use a different type.
+;                               symmetric simulations use a different type. Versions are::
+;                                   Version                    File Contents
+;                                      1                            L_di
+;                                                                   L_de
+;                                                                   Ti_Te
+;                                                                   Tbi_Ti
+;                                                                   Tbe_Te
+;                                                                   wpe_wce
+;                                                                   mi_me
+;                                                                   etc.
+;                                                                  -------
+;                                       2                           L_di
+;                                                                   L_de
+;                                                                   rhoi_L
+;                                                                   Ti_Te
+;                                                                   Tbi_Ti
+;                                                                   Tbe_Te
+;                                                                   nb_n0
+;                                                                   wpe_wce
+;                                                                   mi_me
+;                                                                   etc.
+;                                                                  -------
 ;
 ; :Returns:
 ;       DATA:               out, optional, type=structure

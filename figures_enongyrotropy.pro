@@ -576,6 +576,10 @@ SIM_OBJECT=oSim
     endif
     
 ;-------------------------------------------------------
+; Simulation Object ////////////////////////////////////
+;-------------------------------------------------------
+    
+;-------------------------------------------------------
 ; Create a Window & Simulation Object //////////////////
 ;-------------------------------------------------------
     oxmargin = [10, 15]
@@ -583,10 +587,24 @@ SIM_OBJECT=oSim
     ysize    = 590
     win = MrWindow(OXMARGIN=oxmargin, XSIZE=xsize, YSIZE=ysize, NAME='Fig1: LiJen', REFRESH=0)
     
-    oSim = MrSim_Create('Sim1', 76, $
-                        /BINARY, $
-                        XRANGE=[800, 900], $
-                        ZRANGE=[-20,20])
+    
+    tIndex = 76
+    xrange = [800, 900]
+    zrange = [-20,  20]
+
+    ;Create the simulation object
+    if obj_valid(oSim) eq 0 then begin
+        oSim = MrSim_Create('Sim1', tIndex, $
+                            /BINARY, $
+                            XRANGE=xrange, $
+                            ZRANGE=zrange)
+                                          
+    ;Make sure the parameters are correct
+    endif else begin
+        oSim -> GetProperty, TIME=tt, XRANGE=xx, ZRANGE=zz
+        if (tIndex ne tt) || (array_equal(xx, xrange) eq 0) || (array_equal(zz, zrange) eq 0) $
+            then oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+    endelse
                         
 ;-------------------------------------------------------
 ; Line Cut /////////////////////////////////////////////
@@ -615,7 +633,7 @@ SIM_OBJECT=oSim
                          NBINS    = nBins)
     
     ;Vx-Vz
-    winVxVz = MrSim_eMap(oSim, 'Vy-Vz', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+    winVxVz = MrSim_eMap(oSim, 'Vx-Vz', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
                          HGAP     = bin_hspace, $
                          LAYOUT   = bin_layout, $
                          LOCATION = location, $
@@ -655,50 +673,113 @@ SIM_OBJECT=oSim
 ;-------------------------------------------------------
     ;Width and height of the distributions
     ;   - Make them square
-    height = 0.17
-    width  = height * xsize / ysize
+    nCol   = bin_layout[0]
+    nRow   = 3
+    aspect = 1
+    ygap   = 0.025
+    xgap   = 0.03
+    width  = 0.80/5 * xsize
+    height = 0.46/3 * ysize
+    if width gt height $
+        then width  = height $
+        else height = width
+
+    ;Normalize
+    width  /= float(xsize)
+    height /= float(ysize)
     
     ;Positions of the distributions
-    x0 = 0.1 + width*indgen(5)
+    x0 = 0.13 + width*indgen(nCol) + xgap*indgen(nCol)
     x1 = x0  + width
-    y1 = 0.6 - height*indgen(3)
+    y1 = 0.6 - height*indgen(nRow) - ygap*indgen(nRow)
     y0 = y1  - height
+    
+    ;Remember the maximum data ranges
+    eCount = 0
+    xrange = [!values.f_infinity, -!values.f_infinity]
+    yrange = [!values.f_infinity, -!values.f_infinity]
 
-    ;Move VxVy
-    iDist = 1
-    tempGfx = winVxVy -> Get(/ALL)
+    ;Step through each distribution-type    
+    for i = 0, 2 do begin
+        case i of
+            0: theWin = winVxVy
+            1: theWin = winVxVz
+            2: theWin = winVyVz
+        endcase
+        
+        j = 0
+        tempGfx = theWin -> Get(/ALL)
+        foreach gfx, tempGfx do begin
+            objClass = obj_class(gfx)
+            
+            ;Do not keep the title or colorbar
+            if objClass eq 'WECOLORBAR' then continue
+            if objClass eq 'MRTEXT' && gfx.NAME eq 'eMap Title' then continue
+    
+            ;Switch to the primary window
+            gfx -> SwitchWindows, win
+        
+            ;Reposition the distribution functions
+            if objClass eq 'MRIMAGE' then begin
+                ;Set the position
+                gfx -> SetLayout, POSITION=[x0[j], y0[i], x1[j], y1[i]]
+            
+                ;Determine the ranges
+                gfx -> GetProperty, XRANGE=xr, YRANGE=yr, RANGE=r
+                eCount >= r
+                xrange[0] <= xr[0]
+                xrange[1] >= xr[1]
+                yrange[0] <= yr[0]
+                yrange[1] >= yr[1]
+            
+                ;Next image
+                j += 1
+            endif
+        endforeach
+        obj_destroy, theWin
+    endfor
+
+;-------------------------------------------------------
+; Make Pretty //////////////////////////////////////////
+;-------------------------------------------------------
+    win['Cut Uex'] -> SetProperty, YTICKS=2, YTICKV=[-0.3, 0.0, 0.3], YMINOR=3
+
+    ;Step through each image
+    tempGfx = win -> Get(/ALL, ISA='MRIMAGE')
     foreach gfx, tempGfx do begin
-        gfx -> SwitchWindows, win
-        if obj_class(gfx) eq 'MRIMAGE' then begin
-            gfx -> SetLayout, POSITION=[x0[i], y0[0], x1[i], y1[0]]
-            i += 1
+        name = strupcase(gfx.name)
+        
+        ;2D Color Plot
+        if name eq 'COLOR UEX' then begin
+            gfx -> SetProperty, XRANGE=[800,900], XTITLE='', XTICKFORMAT='(a1)', YRANGE=zrange
+        
+        ;Distribution functions
+        endif else if strpos(name, 'EDIST') ne -1 then begin
+            ;Set the ranges.
+            gfx -> SetProperty, XRANGE=[-1,1], YRANGE=[-1,1], RANGE=range
+            
+            ;All except bottom row
+            ;   - Remove x-axis annotations
+            if strpos(name, 'VY-VZ') eq -1 $
+                then gfx -> SetProperty, XTICKFORMAT='(a1)', XTITLE='' $
+                else gfx -> SetProperty, XTICKS=2, XTICKINTERVAL=0, XTICKFORMAT='(f0.1)'
+                
+            ;All except the left column
+            ;   - Remove y-axis annontations
+            if strpos(name, '00') eq -1 $
+                then gfx -> SetProperty, YTICKFORMAT='(a1)', YTITLE=''
         endif
     endforeach
-    obj_destroy, winVxVy
-
-    ;Move VxVz
-    iDist = 1
-    tempGfx = winVxVz -> Get(/ALL)
-    foreach gfx, tempGfx do begin
-        gfx -> SwitchWindows, win
-        if obj_class(gfx) eq 'MRIMAGE' then begin
-            gfx -> SetLayout, POSITION=[x0[i], y0[1], x1[i], y1[1]]
-            i += 1
-        endif
-    endforeach
-    obj_destroy, winVxVz
-
-    ;Move VxVz
-    iDist = 1
-    tempGfx = winVyVz -> Get(/ALL)
-    foreach gfx, tempGfx do begin
-        gfx -> SwitchWindows, win
-        if obj_class(gfx) eq 'MRIMAGE' then begin
-            gfx -> SetLayout, POSITION=[x0[i], y0[2], x1[i], y1[2]]
-            i += 1
-        endif
-    endforeach
-    obj_destroy, winVyVz
+    
+    ;Add a colorbar for the distribution functions
+    !NULL = MrColorbar(/CURRENT, $
+                       CTINDEX=13, $
+                       NAME='CB: e- Counts', $
+                       POSITION=[0.92, min(y0), 0.94, max(y1)], $
+                       RANGE=range, $
+                       TITLE='e- Counts', $
+                       TLOCATION='Right', $
+                       /VERTICAL)
 
 ;-------------------------------------------------------
 ; Create the Image /////////////////////////////////////
@@ -996,7 +1077,7 @@ VPERP1_VPERP2=vperp1_vperp2
         ;Create the figure    
         case _figure of
             'FIGURE1 DNG':   win = FEN_Figure1_Dng()
-            'FIGURE1 LIJEN': win = FEN_Figure1_LiJen()
+            'FIGURE1 LIJEN': win = FEN_Figure1_LiJen(SIM_OBJECT=oSim)
             'ASYMM-SCAN/BY1 T30 DNG': win = FEN_AsymmScan_By1_t30_Dng(SIM_OBJECT=oSim)
             'ASYMM-2D-LARGE-NEW T06 OVERVIEW': win = FEN_Overview_t06(SIM_OBJECT=oSim, STRNAME=strname)
             'ASYMM-2D-LARGE-NEW T09 OVERVIEW': win = FEN_Overview_t09(SIM_OBJECT=oSim, STRNAME=strname)

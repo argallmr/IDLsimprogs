@@ -181,6 +181,7 @@ _REF_EXTRA=extra
     xoffset = indgen(1, layout[0])
     yoffset = indgen(1, 1, layout[1])
 
+    ;XOFFSET
     if layout[0] gt 1 then begin
         case location of
             1: ;Do nothing
@@ -195,6 +196,10 @@ _REF_EXTRA=extra
             else: message, 'LOCATION must be an integer between 1 and 9.'
         endcase
     endif
+    
+    ;If layout[1] = 1
+    ;   - YOFFSET will have only one dimension.
+    ;   - The call to Reverse below will fail.
     if layout[1] gt 1 then begin
         case location of
             1: yoffset  = -yoffset 
@@ -209,33 +214,6 @@ _REF_EXTRA=extra
             else: message, 'LOCATION must be an integer between 1 and 9.'
         endcase
     endif
-    
-    ;Calculate the location
-    ;   - vertical-horizontal
-;    case location of
-;        1: yoffset   = -yoffset                             ;TOP-LEFT
-;        2: begin                                            ;TOP-CENTER
-;            xoffset -= layout[0] / 2
-;            yoffset  = -yoffset
-;        endcase
-;        3: begin                                            ;TOP-RIGHT
-;            xoffset -= layout[0] - 1
-;            yoffset  = -yoffset
-;        endcase
-;        4: yoffset   = reverse(yoffset - layout[1]/2, 3)    ;MIDDLE-LEFT
-;        5: begin                                            ;MIDDLE-CENTER
-;            xoffset -= layout[0] / 2
-;            yoffset  = reverse(yoffset - layout[1]/2, 3)
-;        endcase
-;        6: begin                                            ;MIDDLE-RIGHT
-;            xoffset  = layout[0] - 1
-;            yoffset  = reverse(yoffset - layout[1]/2, 3)
-;        endcase
-;        7: ;Do nothing                                      ;BOTTOM-LEFT
-;        8: xoffset -= layout[0] / 2                         ;BOTTOM-CENTER
-;        9: xoffset  = layout[0] - 1                         ;BOTTOM-RIGHT
-;        else: message, 'LOCATION must be an integer between 1 and 9.'
-;    endcase
     xoffset = (2*dx + hGap) * rebin(xoffset, 2, layout[0], layout[1])
     yoffset = (2*dy + vGap) * rebin(yoffset, 2, layout[0], layout[1])
         
@@ -302,15 +280,15 @@ _REF_EXTRA=extra
         ;   - Remove the colorbar
         imgTemp  = MrSim_eDist(oSim, type, x_temp, y_temp, dx, dy, $
                                NBINS=nBins, CIRCLES=circles, /CURRENT, V_VA=v_va)
-        win2    -> Remove, win2['CB: eDist']
+        win2    -> Remove, win2['CB: eDist'], /DESTROY
 
         ;Number the distribution
         distNo               = string(i, FORMAT='(i02)')
-        imgTemp.NAME         = 'eDist '   + distNo
-        win2['BinX'].NAME    = 'BinX '    + distNo
-        win2['BinZ'].NAME    = 'BinZ '    + distNo
+        imgTemp.NAME         = 'eDist ' + type + ' ' + distNo
+        win2['BinX'].NAME    = 'BinX '  + type + ' ' + distNo
+        win2['BinZ'].NAME    = 'BinZ '  + type + ' ' + distNo
 ;        win2['Circles'].NAME = 'Circles ' + distNo
-        
+
         ;Get maximum data range
         ;   - [xy]ranges are only applicable to velocity-space
         ;   - [xy]-space is handled below
