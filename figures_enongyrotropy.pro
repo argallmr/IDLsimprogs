@@ -614,13 +614,14 @@ SIM_OBJECT=oSim
 ;-------------------------------------------------------
 ; Generate an eMap /////////////////////////////////////
 ;-------------------------------------------------------
-    nBins      = 75
+    nBins      = [150, 75]
     bin_center = [847.8, 0]
     bin_layout = [5, 1]
-    bin_hsize  = 0.5
+    bin_hsize  = 1.0
     bin_vsize  = 0.5
     bin_hspace = 5
     location   = 4
+    v_va       = 1
     
     ;Vx-Vy
     winVxVy = MrSim_eMap(oSim, 'Vx-Vy', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
@@ -630,21 +631,24 @@ SIM_OBJECT=oSim
                          IM_WIN   = uexWin, $
                          LAYOUT   = bin_layout, $
                          LOCATION = location, $
-                         NBINS    = nBins)
+                         NBINS    = nBins, $
+                         V_VA     = v_va)
     
     ;Vx-Vz
     winVxVz = MrSim_eMap(oSim, 'Vx-Vz', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
                          HGAP     = bin_hspace, $
                          LAYOUT   = bin_layout, $
                          LOCATION = location, $
-                         NBINS    = nBins)
+                         NBINS    = nBins, $
+                         V_VA     = v_va)
     
     ;Vy-Vz
     winVyVz = MrSim_eMap(oSim, 'Vy-Vz', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
                          HGAP     = bin_hspace, $
                          LAYOUT   = bin_layout, $
                          LOCATION = location, $
-                         NBINS    = nBins)
+                         NBINS    = nBins, $
+                         V_VA     = v_va)
     
     ;Turn refresh off
     winVxVy -> Refresh, /DISABLE
@@ -690,9 +694,9 @@ SIM_OBJECT=oSim
     
     ;Positions of the distributions
     x0 = 0.13 + width*indgen(nCol) + xgap*indgen(nCol)
-    x1 = x0  + width
-    y1 = 0.6 - height*indgen(nRow) - ygap*indgen(nRow)
-    y0 = y1  - height
+    x1 = x0   + width
+    y1 = 0.6  - height*indgen(nRow) - ygap*indgen(nRow)
+    y0 = y1   - height
     
     ;Remember the maximum data ranges
     eCount = 0
@@ -743,6 +747,19 @@ SIM_OBJECT=oSim
 ; Make Pretty //////////////////////////////////////////
 ;-------------------------------------------------------
     win['Cut Uex'] -> SetProperty, YTICKS=2, YTICKV=[-0.3, 0.0, 0.3], YMINOR=3
+    
+    if v_va eq 0 then begin
+        xrange = [-1, 1]
+        yrange = [-1, 1]
+        xticks = 2
+        xminor = 5
+    endif else begin
+        xrange = [-25, 25]
+        yrange = [-25, 25]
+        xticks = 2
+        xtickv = [-20, 0, 20]
+        xminor = 4
+    endelse
 
     ;Step through each image
     tempGfx = win -> Get(/ALL, ISA='MRIMAGE')
@@ -756,13 +773,14 @@ SIM_OBJECT=oSim
         ;Distribution functions
         endif else if strpos(name, 'EDIST') ne -1 then begin
             ;Set the ranges.
-            gfx -> SetProperty, XRANGE=[-1,1], YRANGE=[-1,1], RANGE=range
+            gfx -> SetProperty, XRANGE=xrange, YRANGE=yrange, RANGE=range
             
             ;All except bottom row
             ;   - Remove x-axis annotations
             if strpos(name, 'VY-VZ') eq -1 $
                 then gfx -> SetProperty, XTICKFORMAT='(a1)', XTITLE='' $
-                else gfx -> SetProperty, XTICKS=2, XTICKINTERVAL=0, XTICKFORMAT='(f0.1)'
+                else gfx -> SetProperty, XMINOR=xminor, XTICKV=xtickv, XTICKS=xticks, $
+                                         XTICKINTERVAL=0, XTICKFORMAT='(i0)'
                 
             ;All except the left column
             ;   - Remove y-axis annontations
@@ -780,6 +798,12 @@ SIM_OBJECT=oSim
                        TITLE='e- Counts', $
                        TLOCATION='Right', $
                        /VERTICAL)
+    
+    ;Draw a line
+    line = MrPlotS([0.0, 1.0], [0.5, 0.5], $
+                   /RELATIVE, $
+                   COLOR  = 'white', $
+                   TARGET = win['Color Uex'])
 
 ;-------------------------------------------------------
 ; Create the Image /////////////////////////////////////
