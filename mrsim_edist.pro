@@ -1066,13 +1066,13 @@ _REF_EXTRA=ref_extra
         oSim -> GetInfo, MI_ME=mi_me, WPE_WCE=wpe_wce
 
         if n_elements(mi_me) eq 0 then begin
-;            message, 'mi_me unknown. Make sure ASCII info file exists. Setting V_VA=0', /INFORMATIONAL
-;            v_va = 0
+            message, 'mi_me unknown. Make sure ASCII info file exists. Setting V_VA=0', /INFORMATIONAL
+            v_va = 0
 
             ;Special case for Sim1
-            mi_me   = 200.0
-            wpe_wce = 2.0
-            e_data[2:4,*] *= sqrt(mi_me) * wpe_wce
+;            mi_me   = 200.0
+;            wpe_wce = 2.0
+;            e_data[2:4,*] *= sqrt(mi_me) * wpe_wce
         endif else begin
             e_data[2:4,*] *= sqrt(mi_me) * wpe_wce
         endelse

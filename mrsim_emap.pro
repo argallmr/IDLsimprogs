@@ -319,7 +319,7 @@ _REF_EXTRA=extra
     foreach imgTemp, allIm do begin
         ;Determine location in layout.
         name = imgTemp.NAME
-        i = stregex(name, 'eDist ([0-9]+)', /SUBEXP, /EXTRACT)
+        i = stregex(name, 'eDist .+ ([0-9]+)', /SUBEXP, /EXTRACT)
         i = fix(i[1])
         
         ;Change the position, axis ranges, and tickmarks
@@ -338,7 +338,7 @@ _REF_EXTRA=extra
         if (layout[1] ne 1) && (i+1 le (layout[0]-1)*layout[1]) $
             then imgTemp -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
     endforeach
-    
+
     if layout[0] gt 3 then begin
         charsize = 1.0
         allText  = win2 -> Get(/ALL, ISA='MrText')
