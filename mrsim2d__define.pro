@@ -418,6 +418,7 @@ NSMOOTH=nSmooth
     ;Check if the file exists. If not, throw an error.
     f_name = filepath(_name + '.gda', ROOT_DIR=self.directory)
     if file_test(f_name) eq 0 then begin
+        message, 'Data not found: Choose a file. "' + f_name + '"', /INFORMATIONAL
         f_name = cgPickFile(TITLE='Choose .gda Field or Moment File.', /READ)
         if f_name eq '' then return, !Null
     endif

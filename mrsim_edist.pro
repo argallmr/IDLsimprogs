@@ -255,7 +255,7 @@ NBINS=nBins
 
     ;Create the distribution function
     img    = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, $
+                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
                      NAME='eDist: x-z', XRANGE=xrange, YRANGE=yrange)
     
     return, img
@@ -321,7 +321,7 @@ V_VA=v_va
     
     ;Create the distribution function
     img    = MrImage(e_dist, xloc, yloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, $
+                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
                      NAME='eDist: x-Vx', XRANGE=xrange, YRANGE=yrange)
     
     return, img
@@ -387,7 +387,7 @@ V_VA=v_va
     
     ;Create the distribution function
     img    = MrImage(e_dist, xloc, yloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, $
+                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
                      NAME='eDist: z-Vz', XRANGE=xrange, YRANGE=yrange)
     
     return, img
@@ -455,7 +455,7 @@ V_VA=v_va
     
     ;Create the distribution function
     img    = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, $
+                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
                      NAME='eDist: Vx-Vz', POSITION=pos, XRANGE=xrange, YRANGE=yrange)
     
     return, img
@@ -523,7 +523,7 @@ V_VA=v_va
     
     ;Create the distribution function
     img    = MrImage(e_dist, xloc, yloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, $
+                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
                      NAME='eDist: Vx-Vy', POSITION=pos, XRANGE=xrange, YRANGE=yrange)
     
     return, img
@@ -591,7 +591,7 @@ V_VA=v_va
     
     ;Create the distribution function
     img    = MrImage(e_dist, xloc, yloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, $
+                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
                      NAME='eDist: Vy-Vz', POSITION=pos, XRANGE=xrange, YRANGE=yrange)
     
     return, img
@@ -670,7 +670,7 @@ V_VA=v_va
 
     ;Create the distribution function
     img = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                  XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, $
+                  XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
                   NAME='eDist: Vpar-Vperp', POSITION=pos, XRANGE=vParRange, YRANGE=vPerpRange)
     
     return, img
@@ -750,7 +750,7 @@ V_VA=v_va
 
     ;Create the distribution function
     img = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                  XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, $
+                  XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
                   NAME='eDist: Vpar-Vperp1', POSITION=pos, XRANGE=vParRange, YRANGE=vPerp1Range)
     
     return, img
@@ -830,7 +830,7 @@ V_VA=v_va
 
     ;Create the distribution function
     img = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                  XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, $
+                  XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
                   NAME='eDist: Vpar-Vperp2', POSITION=pos, XRANGE=vParRange, YRANGE=vPerp2Range)
     
     return, img
@@ -910,7 +910,7 @@ V_VA=v_va
 
     ;Create the distribution function
     img = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                  XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, $
+                  XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
                   NAME='eDist: Vperp1-Vperp2', POSITION=pos, XRANGE=vPerp1Range, YRANGE=vPerp2Range)
     
     return, img

@@ -730,7 +730,7 @@ SIM_OBJECT=oSim
             
                 ;Determine the ranges
                 gfx -> GetProperty, XRANGE=xr, YRANGE=yr, RANGE=r
-                eCount >= r
+                eCount >= r[1]
                 xrange[0] <= xr[0]
                 xrange[1] >= xr[1]
                 yrange[0] <= yr[0]
@@ -760,6 +760,7 @@ SIM_OBJECT=oSim
         xtickv = [-20, 0, 20]
         xminor = 4
     endelse
+    range = [0, eCount]
 
     ;Step through each image
     tempGfx = win -> Get(/ALL, ISA='MRIMAGE')
@@ -791,13 +792,13 @@ SIM_OBJECT=oSim
     
     ;Add a colorbar for the distribution functions
     !NULL = MrColorbar(/CURRENT, $
+                       /VERTICAL, $
                        CTINDEX=13, $
-                       NAME='CB: e- Counts', $
-                       POSITION=[0.92, min(y0), 0.94, max(y1)], $
-                       RANGE=range, $
-                       TITLE='e- Counts', $
-                       TLOCATION='Right', $
-                       /VERTICAL)
+                       NAME      = 'CB: e- Counts', $
+                       POSITION  = [0.92, min(y0), 0.94, max(y1)], $
+                       RANGE     = range, $
+                       TITLE     = 'e- Counts', $
+                       TLOCATION = 'Right')
     
     ;Draw a line
     line = MrPlotS([0.0, 1.0], [0.5, 0.5], $

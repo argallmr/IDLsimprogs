@@ -136,7 +136,11 @@ on_error, 2
         twci = strtrim(long(tIndex*1.e5/6.38), 2)
 
         ;Filenames
-        eFile = '/data2/daughton/mime1836/by0.0/electrons-' + twci + '.bin'
+        case tIndex of
+            50: eFile = '/data2/daughton/mime1836/by0.0/electrons-783450.bin'
+            60: eFile = '/data2/daughton/mime1836/by0.0/electrons-940140.bin'
+            else: message, 'No electron file for time index ' + strtrim(tIndex) + '.'
+        endcase
     endif
 
     ;Regions with electrons
@@ -1106,10 +1110,10 @@ _REF_EXTRA=extra
                ['9',  '2D',     'no',      'data-by0.03-NEW',     '/data1/sim1/data-by0.03-NEW/data/'], $
                ['10', '2D',     'yes',     'Asymm-Scan/By1',      '/data2/Asymm-Scan/By1/data/'], $
                ['11', '2D',     'yes',     'Asymm-Scan/By0',      '/data2/Asymm-Scan/By0/data/'],$
-               ['12', '2D',     'no',      'mime1836/by00',       '/data2/daughton/mime1836/by0.0'],$
-               ['13', '2D',     'no',      'mime1836/by05',       '/data2/daughton/mime1836/by0.05'],$
-               ['14', '2D',     'no',      'mime1836/by10',       '/data2/daughton/mime1836/by0.1'],$
-               ['15', '2D',     'no',      'mime1836/by40',       '/data2/daughton/mime1836/by0.4']]
+               ['12', '2D',     'no',      'mime1836/by00',       '/data2/daughton/mime1836/by0.0/data/'],$
+               ['13', '2D',     'no',      'mime1836/by05',       '/data2/daughton/mime1836/by0.05/data/'],$
+               ['14', '2D',     'no',      'mime1836/by10',       '/data2/daughton/mime1836/by0.1/data/'],$
+               ['15', '2D',     'no',      'mime1836/by40',       '/data2/daughton/mime1836/by0.4/data/']]
     
     ;Print the info if no input was given.
     if n_elements(thisSim) eq 0 then begin
