@@ -826,7 +826,8 @@ end
 ;                       Figure number of the figure to be created.
 ;-
 function FEN_Figure1_Dng, $
-SIM_OBJECT=oSim
+SIM_OBJECT=oSim, $
+STRNAME=strname
     compile_opt strictarr
     
     catch, the_error
@@ -919,10 +920,310 @@ SIM_OBJECT=oSim
 ; Create the Image /////////////////////////////////////
 ;-------------------------------------------------------
 
+    ;Filename
+    strname = 'figure1_Sim1-By0-By1_Dng.png'
+
     ;Destroy the simulation object
     if arg_present(oSim) eq 0 then obj_destroy, oSim
     
     win -> Refresh
+    return, win
+end
+
+
+;+
+;   Create the desired figure.
+;
+; :Keywords::
+;       OSIM:           in, out, optional, type=string
+;                       A simulation object to be used when making plots. If not provided,
+;                           one will be generated and passed as an output for future use.
+;-
+function FEN_Figure2_eMap_Sim1, $
+SIM_OBJECT=oSim, $
+STRNAME=strname
+    compile_opt strictarr
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(win) then obj_destroy, win
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+;-------------------------------------------------------
+; Sim1 Object //////////////////////////////////////////
+;-------------------------------------------------------
+    ;Data Range
+    simname = 'Sim1'
+    time    = 72
+    xrange  = 842 + [-30, 30]
+    zrange  = [-10, 10]
+    
+    ;Simulation object
+    if obj_valid(oSim) eq 0 then begin
+        oSim = MrSim_Create(simname, time, /BINARY, XRANGE=xrange, ZRANGE=zrange)
+    endif else begin
+        oSim -> GetProperty, SIMNAME=name, TIME=t, XRANGE=xr, ZRANGE=zr
+        if strupcase(name) ne strupcase(simname) then oSim -> SetSim, simname, /BINARY
+        if time ne t || ~array_equal(xrange, xr) || ~array_equal(zrange, zr) $
+            then oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+    endelse
+
+;-------------------------------------------------------
+; eMap /////////////////////////////////////////////////
+;-------------------------------------------------------
+    
+    nBins      = 75
+    bin_center = [842.0, 1.32]
+    bin_layout = [5,2]
+    bin_hsize  = 0.5
+    bin_vsize  = 0.5
+    bin_hspace = 3
+    bin_vspace = 1.4
+    location   = 1
+    v_va       = 0
+    
+    ;Vx-Vy
+    winVxVy = MrSim_eMap(oSim, 'Vx-Vy', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                         C_NAME   = 'Ay', $
+                         HGAP     = bin_hspace, $
+                         IM_NAME  = 'Dng_e', $
+                         IM_WIN   = DngWin, $
+                         LAYOUT   = bin_layout, $
+                         LOCATION = location, $
+                         NBINS    = nBins, $
+                         V_VA     = v_va, $
+                         VGAP     = bin_vspace)
+    
+    ;Vpar-Vperp1
+    winVpVr1 = MrSim_eMap(oSim, 'Vpar-Vperp1', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                          HGAP     = bin_hspace, $
+                          LAYOUT   = bin_layout, $
+                          LOCATION = location, $
+                          NBINS    = nBins, $
+                          V_VA     = v_va, $
+                          VGAP     = bin_vspace)
+    
+    ;Vpar-Vperp2
+    winVpVr2 = MrSim_eMap(oSim, 'Vpar-Vperp2', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                          HGAP     = bin_hspace, $
+                          LAYOUT   = bin_layout, $
+                          LOCATION = location, $
+                          NBINS    = nBins, $
+                          V_VA     = v_va, $
+                          VGAP     = bin_vspace)
+
+    win = [winVxVy, winVpVr1, winVpVr2, DngWin]
+;-------------------------------------------------------
+; Create the Image /////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Names of figures
+    strname = 'figure2_Sim1_' + ['Vx-Vy', 'Vpar-Vperp1', 'Vpar-Vperp2', 'Dng'] + '.png'
+
+    ;Destroy the simulation object
+    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    
+    return, win
+end
+
+
+;+
+;   Create the desired figure.
+;
+; :Keywords::
+;       OSIM:           in, out, optional, type=string
+;                       A simulation object to be used when making plots. If not provided,
+;                           one will be generated and passed as an output for future use.
+;-
+function FEN_Figure3_eMap_By0, $
+SIM_OBJECT=oSim, $
+STRNAME=strname
+    compile_opt strictarr
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(win) then obj_destroy, win
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+;-------------------------------------------------------
+; Sim1 Object //////////////////////////////////////////
+;-------------------------------------------------------
+    ;Data Range
+    simname = 'Asymm-Scan/By0'
+    time    = 28
+    xrange  = [345, 390]
+    zrange  = [-10, 8]
+    
+    ;Simulation object
+    if obj_valid(oSim) eq 0 then begin
+        oSim = MrSim_Create(simname, time, /BINARY, XRANGE=xrange, ZRANGE=zrange)
+    endif else begin
+        oSim -> GetProperty, SIMNAME=name, TIME=t, XRANGE=xr, ZRANGE=zr
+        if strupcase(name) ne strupcase(simname) then oSim -> SetSim, simname, /BINARY
+        if time ne t || ~array_equal(xrange, xr) || ~array_equal(zrange, zr) $
+            then oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+    endelse
+
+;-------------------------------------------------------
+; eMap /////////////////////////////////////////////////
+;-------------------------------------------------------
+    
+    nBins      = 75
+    bin_center = [367.6, 1.6]
+    bin_layout = [5,2]
+    bin_hsize  = 0.5
+    bin_vsize  = 0.5
+    bin_hspace = 1
+    bin_vspace = 2.0
+    location   = 1
+    v_va       = 0
+    
+    ;Vx-Vy
+    winVxVy = MrSim_eMap(oSim, 'Vx-Vy', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                         C_NAME   = 'Ay', $
+                         HGAP     = bin_hspace, $
+                         IM_NAME  = 'Dng_e', $
+                         IM_WIN   = DngWin, $
+                         LAYOUT   = bin_layout, $
+                         LOCATION = location, $
+                         NBINS    = nBins, $
+                         V_VA     = v_va, $
+                         VGAP     = bin_vspace)
+    
+    ;Vpar-Vperp1
+    winVpVr1 = MrSim_eMap(oSim, 'Vpar-Vperp1', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                          HGAP     = bin_hspace, $
+                          LAYOUT   = bin_layout, $
+                          LOCATION = location, $
+                          NBINS    = nBins, $
+                          V_VA     = v_va, $
+                          VGAP     = bin_vspace)
+    
+    ;Vpar-Vperp2
+    winVpVr2 = MrSim_eMap(oSim, 'Vpar-Vperp2', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                          HGAP     = bin_hspace, $
+                          LAYOUT   = bin_layout, $
+                          LOCATION = location, $
+                          NBINS    = nBins, $
+                          V_VA     = v_va, $
+                          VGAP     = bin_vspace)
+
+    win = [winVxVy, winVpVr1, winVpVr2, DngWin]
+;-------------------------------------------------------
+; Create the Image /////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Names of figures
+    strname = 'figure3_Asymm-Scan-By0_' + ['Vx-Vy', 'Vpar-Vperp1', 'Vpar-Vperp2', 'Dng'] + '.png'
+    
+    ;Destroy the simulation object
+    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    
+    return, win
+end
+
+
+;+
+;   Create the desired figure.
+;
+; :Keywords::
+;       OSIM:           in, out, optional, type=string
+;                       A simulation object to be used when making plots. If not provided,
+;                           one will be generated and passed as an output for future use.
+;-
+function FEN_Figure4_eMap_By1, $
+SIM_OBJECT=oSim, $
+STRNAME=strname
+    compile_opt strictarr
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(win) then obj_destroy, win
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+;-------------------------------------------------------
+; Sim1 Object //////////////////////////////////////////
+;-------------------------------------------------------
+    ;Data Range
+    simname = 'Asymm-Scan/By1'
+    time    = 30
+    xrange  = [420, 450]
+    zrange  = [-10, 10]
+    
+    ;Simulation object
+    if obj_valid(oSim) eq 0 then begin
+        oSim = MrSim_Create(simname, time, /BINARY, XRANGE=xrange, ZRANGE=zrange)
+    endif else begin
+        oSim -> GetProperty, SIMNAME=name, TIME=t, XRANGE=xr, ZRANGE=zr
+        if strupcase(name) ne strupcase(simname) then oSim -> SetSim, simname, /BINARY
+        if time ne t || ~array_equal(xrange, xr) || ~array_equal(zrange, zr) $
+            then oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+    endelse
+
+;-------------------------------------------------------
+; eMap /////////////////////////////////////////////////
+;-------------------------------------------------------
+    
+    nBins      = 75
+    bin_center = [434.6, 1.8]
+    bin_layout = [5,2]
+    bin_hsize  = 0.5
+    bin_vsize  = 0.5
+    bin_hspace = 0
+    bin_vspace = 0.2
+    location   = 1
+    v_va       = 0
+    
+    ;Vx-Vy
+    winVxVy = MrSim_eMap(oSim, 'Vx-Vy', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                         C_NAME   = 'Ay', $
+                         HGAP     = bin_hspace, $
+                         IM_NAME  = 'Dng_e', $
+                         IM_WIN   = DngWin, $
+                         LAYOUT   = bin_layout, $
+                         LOCATION = location, $
+                         NBINS    = nBins, $
+                         V_VA     = v_va, $
+                         VGAP     = bin_vspace)
+    
+    ;Vpar-Vperp1
+    winVpVr1 = MrSim_eMap(oSim, 'Vpar-Vperp1', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                          HGAP     = bin_hspace, $
+                          LAYOUT   = bin_layout, $
+                          LOCATION = location, $
+                          NBINS    = nBins, $
+                          V_VA     = v_va, $
+                          VGAP     = bin_vspace)
+    
+    ;Vpar-Vperp2
+    winVpVr2 = MrSim_eMap(oSim, 'Vpar-Vperp2', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                          HGAP     = bin_hspace, $
+                          LAYOUT   = bin_layout, $
+                          LOCATION = location, $
+                          NBINS    = nBins, $
+                          V_VA     = v_va, $
+                          VGAP     = bin_vspace)
+
+    win = [winVxVy, winVpVr1, winVpVr2, DngWin]
+;-------------------------------------------------------
+; Create the Image /////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Names of figures
+    strname = 'figure4_Asymm-Scan-By1_' + ['Vx-Vy', 'Vpar-Vperp1', 'Vpar-Vperp2', 'Dng'] + '.png'
+
+    ;Destroy the simulation object
+    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    
     return, win
 end
 
@@ -1026,6 +1327,9 @@ VPERP1_VPERP2=vperp1_vperp2
     ;Current list of figures
     list_of_figures = [['Figures eNongyrotropy', 'Figures used in my study of nongyrotropy in asymmetric guide field case.'], $
                        ['Figure1 Dng          ', ''], $
+                       ['Figure2 Map Sim1     ', ''], $
+                       ['Figure3 Map By0      ', ''], $
+                       ['Figure4 Map By1      ', ''], $
                        ['Figure1 LiJen        ', ''], $
                        ['Asymm-Scan/By0       ', 'Asymm-Scan/By0 simulation figures'], $
                        ['    t28 eMap         ', ''], $
@@ -1063,13 +1367,13 @@ VPERP1_VPERP2=vperp1_vperp2
 ; Create Figure //////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
     eMap    = 0L
-    eMap    =     keyword_set(x_z) + $
-              2 * keyword_set(x_vx) + $
-              4 * keyword_set(z_vz) + $
-              8 * keyword_set(vx_vy) + $
-             16 * keyword_set(vx_vz) + $
-             32 * keyword_set(vy_vz) + $
-             64 * keyword_set(vpar_vperp) + $
+    eMap    =     keyword_set(x_z)         + $
+              2 * keyword_set(x_vx)        + $
+              4 * keyword_set(z_vz)        + $
+              8 * keyword_set(vx_vy)       + $
+             16 * keyword_set(vx_vz)       + $
+             32 * keyword_set(vy_vz)       + $
+             64 * keyword_set(vpar_vperp)  + $
             128 * keyword_set(vpar_vperp1) + $
             256 * keyword_set(vpar_vperp2) + $
             512 * keyword_set(vperp1_vperp2) 
@@ -1101,8 +1405,11 @@ VPERP1_VPERP2=vperp1_vperp2
 
         ;Create the figure    
         case _figure of
-            'FIGURE1 DNG':   win = FEN_Figure1_Dng()
-            'FIGURE1 LIJEN': win = FEN_Figure1_LiJen(SIM_OBJECT=oSim)
+            'FIGURE1 DNG':      win = FEN_Figure1_Dng(STRNAME=strname)
+            'FIGURE2 MAP SIM1': win = FEN_Figure2_eMap_Sim1(SIM_OBJECT=oSim, STRNAME=strname)
+            'FIGURE3 MAP BY0':  win = FEN_Figure3_eMap_By0(SIM_OBJECT=oSim,  STRNAME=strname)
+            'FIGURE4 MAP BY1':  win = FEN_Figure4_eMap_By1(SIM_OBJECT=oSim,  STRNAME=strname)
+            'FIGURE1 LIJEN':    win = FEN_Figure1_LiJen(SIM_OBJECT=oSim)
             'ASYMM-SCAN/BY1 T30 DNG': win = FEN_AsymmScan_By1_t30_Dng(SIM_OBJECT=oSim)
             'ASYMM-2D-LARGE-NEW T06 OVERVIEW': win = FEN_Overview_t06(SIM_OBJECT=oSim, STRNAME=strname)
             'ASYMM-2D-LARGE-NEW T09 OVERVIEW': win = FEN_Overview_t09(SIM_OBJECT=oSim, STRNAME=strname)
@@ -1115,21 +1422,26 @@ VPERP1_VPERP2=vperp1_vperp2
 
     ;Save the plots?
     if tf_save then begin
+;        simname = oSim.SIMNAME
+;        if n_elements(strname) eq 0 then strname = strjoin(strsplit(strlowcase(_figure), ' ', /EXTRACT), '_')
+;        if strpos(simname, '/') ne -1 $
+;            then fbase = strlowcase(strjoin(strsplit(simname, '/', /EXTRACT), '-')) + '_' + strname $
+;            else fbase = strlowcase(simname) + '_' + strname
+        
         froot = '/home/argall/figures/'
-        fbase = strlowcase(strjoin(strsplit(simname, '/', /EXTRACT), '-')) + '_' + strname
-        fname = filepath(fbase, ROOT_DIR=froot)
+        fname = filepath(strname, ROOT_DIR=froot)
 
         nWins = n_elements(strname)
         if nWins eq 1 then begin
             ;Do not use ImageMagick
             win.saveas -> SetProperty, IM_RASTER=0
-            win -> Save, fname + '.png'
+            win -> Save, fname
         endif else begin
             ;Save each plot        
             for i = 0, nWins - 1 do begin
                 ;Do not use ImageMagick
                 win[i].saveas -> SetProperty, IM_RASTER=0
-                win[i] -> Save, fname[i] + '.png'
+                win[i] -> Save, fname[i]
             endfor
         endelse
     endif

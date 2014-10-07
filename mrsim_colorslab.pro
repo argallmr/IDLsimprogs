@@ -280,7 +280,7 @@ _REF_EXTRA = extra
         if strupcase(c_name) eq 'AY' then begin
             nx = n_elements(XSim)
             nz = n_elements(ZSim)
-            
+
             ;Take the derivative
             dx = c_data[1:nx-1, *] - c_data[0:nx-2, *]
             dz = c_data[*, 1:nz-1] - c_data[*, 0:nz-2]

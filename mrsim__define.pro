@@ -1570,7 +1570,7 @@ pro MrSim::MakeSimDomain
     endif
 
     ;Set the simulation domain    
-    case self.coord_system of
+    case strupcase(self.coord_system) of
         'SIMULATION': begin
             *self.XSim = linspace(0, xsize, nx)
             *self.YSim = linspace(0, ysize, ny)
@@ -1589,7 +1589,7 @@ pro MrSim::MakeSimDomain
             *self.ZSim =  linspace(0, zsize, nz) - zsize/2.0
         endcase
         
-        else: ;Nothing
+        else: message, 'Coordinate system unknown: "' + self.coord_system + '".'
     endcase
 end
 
@@ -1809,20 +1809,20 @@ ION_SCALE=ion_scale
         self.ion_scale = 0
         return
     endif
-    
+
     ;Convert to "di" units
     if ion_scale then begin
         self -> MakeSimDomain
-        self.xrange /= mi_me
-        self.yrange /= mi_me
-        self.zrange /= mi_me
+        self.xrange /= sqrt(mi_me)
+        self.yrange /= sqrt(mi_me)
+        self.zrange /= sqrt(mi_me)
         
     ;Convert to "de" units
     endif else begin
         self -> MakeSimDomain
-        self.xrange *= mi_me
-        self.yrange *= mi_me
-        self.zrange *= mi_me
+        self.xrange *= sqrt(mi_me)
+        self.yrange *= sqrt(mi_me)
+        self.zrange *= sqrt(mi_me)
     endelse
 end
 
@@ -1890,14 +1890,63 @@ ZRANGE = zrange
             then self.orientation = orientation $
             else message, 'Orientation "' + orientation + '" not recognized.', /INFORMATIONAL
     endif
-    
+
     ;COORDINATE SYSTEM
     if n_elements(coord_system) gt 0 then begin
         _coord_system = strupcase(coord_system)
-        systems = ['SIMULATION', 'MAGNETPAUSE', 'MAGNETOTAIL']
-        if max(_coord_system eq systems) $
-            then self.coord_system = _coord_system $
-            else message, 'Coordinate system "' + coord_system + '" not recognized.', /INFORMATIONAL
+        old_sys       = strupcase(self.coord_system)
+
+        ;Translate range from current system to new system
+        case old_sys of
+            'SIMULATION': begin
+                case _coord_system of
+                    'SIMULATION':   ;Do nothing
+                    'MAGNETOPAUSE': begin
+                        xrange = reverse(self.zrange)
+                        zrange = self.xrange
+                    endcase
+                    'MAGNETOTAIL': begin
+                        xrange = -self.xrange
+                        zrange =  self.zrange
+                    endcase
+                endcase
+            endcase
+            
+            'MAGNETOPAUSE': begin
+                case _coord_system of
+                    'SIMULATION': begin
+                        xrange = self.zrange
+                        zrange = reverse(self.xrange)
+                    endcase
+                    'MAGNETOPAUSE': ;Do nothing
+                    'MAGNETOTAIL': begin
+                        xrange = -self.zrange
+                        zrange = reverse(self.xrange)
+                    endcase
+                endcase
+            endcase
+            
+            'MAGNETOTAIL': begin
+                case _coord_system of
+                    'SIMULATION': begin
+                        xrange = -self.xrange
+                        zrange =  self.zrange
+                    endcase
+                    'MAGNETOPAUSE': begin
+                        xrange = reverse(self.zrange)
+                        zrange = -self.xrange
+                    endcase
+                    'MAGNETOTAIL': ;Do nothing
+                endcase
+            endcase
+            
+            else: message, 'Coordinate system not recognized:"' + coord_system + '".'
+        endcase
+        
+        ;Set object properties
+        self.xrange       = xrange
+        self.zrange       = zrange
+        self.coord_system = coord_system
         
         ;Remake the simulation domain
         self -> MakeSimDomain

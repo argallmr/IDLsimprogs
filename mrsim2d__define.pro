@@ -429,12 +429,12 @@ NSMOOTH=nSmooth
     ;Get the index range of data to read
     ixrange = getIndexRange(*self.XSim, xrange, STRIDE=xstride)
     izrange = getIndexRange(*self.ZSim, zrange, STRIDE=zstride)
-    
+
     ;Subset of data to read
     ;   - Data is still in SIMULATION coordinates.
     ;   - Ranges are in COORD_SYSTEM coordinates.
     ;   - Must traslate from COORD_SYSTEM to SIMULATION.
-    case self.coord_system of
+    case strupcase(self.coord_system) of
         'SIMULATION': ;Do nothing
         
         ;Interchange indices
@@ -477,7 +477,7 @@ NSMOOTH=nSmooth
         izMin = izrange[1]
         izMax = izrange[0]
     endelse
-    
+
     ;Allocate memory to output array
     data = fltarr(ixMax-ixMin+1, izMax-izMin+1)
     temp = fltarr(ixMax-ixMin+1)
@@ -505,7 +505,7 @@ NSMOOTH=nSmooth
 ; Change from SIMULATION Coordinates? //////////////////
 ;-------------------------------------------------------
     ;Change coordinate Systems?
-    case self.coord_system of
+    case strupcase(self.coord_system) of
         'SIMULATION': ;Do nothing
         
         'MAGNETOPAUSE': begin
@@ -546,9 +546,17 @@ NSMOOTH=nSmooth
         'MAGNETOTAIL': begin
             ;Re-orient the axes
             ;   - x and z are the same orientation as simulation coordinates
-            ;   - Ordering bottom axis as [+x, -x] requires two steps.
+            ;   - Ordering bottom axis as [max, min] requires two steps.
             ;       * Negate all data products with a single "x" in them (below).
-            ;       * Reverse the x-axis itself (::MakeSimDomain method).
+            ;       * Negate the x-axis itself (::MakeSimDomain method).
+            ;
+            ;
+            ;          North                      North
+            ; +z  *--------------|        +z *--------------|
+            ;     |              |  ===>     |              |
+            ; -z  |--------------+        -z |--------------+
+            ;     +x   South   ++x          -x    South    --x
+            ;
             case self.orientation of
                 'XY': ;Do nothing
                 'XZ': ;Do nothing
@@ -556,8 +564,7 @@ NSMOOTH=nSmooth
             endcase
 
             ;Now reverse the x-axes
-            ;   single negate Pe-xy, Pe-xz, etc.
-            ;   double negate Pe-xx
+            ;   Single negate Bx, Uix, Pe-xz, Pe-xy, etc.
             case 1 of
                 stregex(_name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
                 stregex(_name, '-(y|z)[x]$',      /BOOLEAN): data = -data

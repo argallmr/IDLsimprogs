@@ -327,15 +327,15 @@ _REF_EXTRA=extra
         if tf_yvel then imgTemp.YRANGE = yrange
         imgTemp -> SetProperty, POSITION=pos[*,i], RANGE=[0, cmax], $
                                 XTICKINTERVAL=xtickinterval, XMINOR=5, YTICKINTERVAL=ytickinterval, YMINOR=5
-                                
+
         ;All Except Left Column
         ;   - Do not label y-axis
         if i mod layout[0] ne 0 $
             then imgTemp -> SetProperty, YTITLE='', YTICKFORMAT='(a1)'
-        
+
         ;All Except Bottom Row
         ;   - Do not label x-axis
-        if (layout[1] ne 1) && (i+1 le (layout[0]-1)*layout[1]) $
+        if (layout[1] ne 1) && (i/layout[0] ne layout[1]-1) $
             then imgTemp -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
     endforeach
 
