@@ -221,8 +221,9 @@ _REF_EXTRA = extra
     endif
 
     ;Get the simulation size and time
-    oSim -> GetProperty, TIME=time, XSIM=XSim, ZSIM=ZSim, AXIS_LABELS=axLabls, $
-                         COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame
+    oSim -> GetProperty, TIME=time, XSIM=XSim, YSIM=YSim, ZSIM=ZSim, AXIS_LABELS=axLabls, $
+                         COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame, $
+                         ORIENTATION=orientation
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
     
     ;Make sure the data exists. Do this /after/ OSIM has a chance to be destroyed
@@ -236,15 +237,46 @@ _REF_EXTRA = extra
     _name = MrSim_Rename(name, coord_system, MVA_FRAME=mva_frame, /SUBSCRIPT)
     units = MrSim_Rename(units, /SUBSCRIPT)
     
-    ;Time is inverse gyro-time?
+    ;Time interval in wci given?
+    ;   - Display time in terms of t*wci.
+    ;   - Display the time index.
     if n_elements(dtxwci) gt 0 $
         then title = 't$\Omega$$\downci$=' + string(time*dtxwci, FORMAT='(f0.1)') $
         else title = 't$\downindex$=' + string(time, FORMAT='(i0)')
 
-    if sim_class eq 'MRSIM3D' then begin
-        oSim -> GetProperty, YSLICE=yslice
-        title += '  ' + axLabls[1] + '=' + string(yslice, FORMAT='(f0.1)') + units
-    endif
+    ;If a 3D simulation was given, several orientations are possible
+    case orientation of
+        'XY': begin
+            x = temporary(xSim)
+            y = temporary(ySim)
+            xtitle  = axLabls[0] + ' (' + units + ')'
+            ytitle  = axLabls[1] + ' (' + units + ')'
+            
+            oSim -> GetProperty, ZRANGE=zrange
+            title  += '  ' + axLabls[2] + '=' + string(zrange[0], FORMAT='(f0.1)') + units
+        endcase
+    
+        'XZ': begin
+            x = temporary(xSim)
+            y = temporary(zSim)
+            xtitle = axLabls[0] + ' (' + units + ')'
+            ytitle = axLabls[2] + ' (' + units + ')'
+            
+            if sim_class eq 'MRSIM3D' then begin
+                oSim -> GetProperty, YRANGE=yrange
+                title += '  ' + axLabls[1] + '=' + string(yrange[0], FORMAT='(f0.1)') + units
+            endif
+        endcase
+    
+        'YZ': begin
+            x = temporary(ySim)
+            y = temporary(zSim)
+            xtitle = axLabls[1] + ' (' + units + ')'
+            ytitle = axLabls[2] + ' (' + units + ')'
+        endcase
+    
+        else: message, 'Orientation unknown: "' + orientation + '".'
+    endcase
         
     ;Destroy the object
     if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
@@ -259,12 +291,16 @@ _REF_EXTRA = extra
         else colorWin = MrWindow(XSIZE=600, YSIZE=300, BUFFER=buffer, OXMARGIN=[10,14], REFRESH=0)
 
     ;Create a Color Plot of the named variable
-    colorIm = MrImage(data, XSim, ZSim, $
-                      TITLE=title, RANGE=range, $
-                      XTITLE=axLabls[0] + ' (' + units + ')', XRANGE=[XSim[0],XSim[-1]], XSTYLE=1, $
-                      YTITLE=axLabls[2] + ' (' + units + ')', YRANGE=[ZSim[0],ZSim[-1]], YSTYLE=1, $
-                      /AXES, /SCALE, CTINDEX=13, NAME='Color ' + name, /CURRENT)
-                                
+    colorIm = MrImage(data, x, y, $
+                      /AXES, /CURRENT, /SCALE, $
+                      CTINDEX = 13, $
+                      NAME    = 'Color ' + name, $
+                      RANGE   = range, $
+                      TITLE   = title, $
+                      XTITLE  = xtitle, $
+                      YTITLE  = ytitle)
+
+    ;Create a color bar
     colorCB = MrColorbar(TARGET=colorIm, NAME='CB: Color ' + name, TITLE=_name)
 
     ;Bind the colorbar to the image.
@@ -278,8 +314,8 @@ _REF_EXTRA = extra
         ;   - Find the minimum along the bottom boundary.
         ;   - Find the maximum along a vertical cut that passes through min point.
         if strupcase(c_name) eq 'AY' then begin
-            nx = n_elements(XSim)
-            nz = n_elements(ZSim)
+            nx = n_elements(x)
+            ny = n_elements(y)
 
             ;Take the derivative
             dx = c_data[1:nx-1, *] - c_data[0:nx-2, *]
@@ -302,11 +338,12 @@ _REF_EXTRA = extra
         endelse
         
         ;Create the contour
-        colorCo = MrContour(c_data, XSim, ZSim, $
-                            XRANGE=[XSim[0],XSim[-1]], $
-                            YRANGE=[ZSim[0],ZSim[-1]], $
-                            LEVELS=levels, NAME=c_name + ' Contours', C_LABELS=0, $
-                            OVERPLOT=colorIm, /CURRENT)
+        colorCo = MrContour(c_data, x, y, $
+                            /CURRENT, $
+                            C_LABELS = 0, $
+                            LEVELS   = levels, $
+                            NAME     = c_name + ' Contours', $
+                            OVERPLOT = colorIm)
                             
         ;Bind the contours to the image
         colorWin -> Bind, [colorIm, colorCo], /XAXIS

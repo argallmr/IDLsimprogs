@@ -248,7 +248,7 @@ ZRANGE = zrange
     
     if max(coord_system eq ['SIMULATION', 'MAGNETOPAUSE', 'MAGNETOTAIL']) eq 0 then $
         message, 'Coordinate system "' + coord_system + '" not recognized.'
-    if max(_orientation eq ['XY', 'XZ']) eq 0 then $
+    if max(_orientation eq ['XY', 'XZ', 'YZ']) eq 0 then $
         message, 'Orienatation "' + _orientation + '" not recognized.'
     
     ;MVA Frame?
@@ -259,7 +259,7 @@ ZRANGE = zrange
             else:           ;Do nothing
         endcase
     endif
-    
+
     ;Set Properties
     self.axis_labels  = _axis_labels
     self.coord_system = coord_system
@@ -1885,10 +1885,12 @@ ZRANGE = zrange
     ;ORIENTATION
     if n_elements(orientation) gt 0 then begin
         _orientation = strupcase(orientation)
-        planes = ['XY', 'XZ']
-        if max(_orientation eq planes) $
-            then self.orientation = orientation $
-            else message, 'Orientation "' + orientation + '" not recognized.', /INFORMATIONAL
+        planes = ['XY', 'XZ', 'YZ']
+        if max(_orientation eq planes) eq 0 $
+            then message, 'Orientation "' + orientation + '" not recognized.', /INFORMATIONAL
+        
+        ;Set the orientation    
+        self.orientation = orientation
     endif
 
     ;COORDINATE SYSTEM

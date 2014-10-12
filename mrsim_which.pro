@@ -1101,7 +1101,7 @@ _REF_EXTRA=extra
     simInfo = [['#',  'D',   'Asymmetric', 'Name',                'Directory'], $
                ['1',  '2D',     'yes',     'Asymm-Large-2D',      '/data2/Asymm-Large-2D/data/'], $
                ['2',  '2D',     'yes',     'Asymm-Large-2D-NEW',  '/data2/Asymm-Large-2D-NEW/data/'], $
-               ['3',  '3D',     'yes',     'Asymm-3D',            '/data2/Asymm-3D/data/'], $
+               ['3',  '3D',     'yes',     'Asymm-3D',            '/home/daughton/Asymm-3D/data/'], $
                ['4',  '2D',     'yes',     'Asymm-2D',            '/data2/Asymm-2D/data/'], $
                ['5',  '2D',     'no',      'sim1',                '/data1/sim1/data/'], $
                ['6',  '2D',     'no',      'mime400',             '/data1/sim1/mime400/data/'], $

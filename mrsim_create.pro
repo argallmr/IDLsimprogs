@@ -106,12 +106,14 @@
 ;    Modification History::
 ;       2013/09/12  -   Written by Matthew Argall
 ;       2014/10/03  -   Added the ASCII_VERSION keyword. - MRA
+;       2014/10/11  -   Forgot the DIRECTORY keyword. Fixed. - MRA
 ;-
 function MrSim_Create, thisSim, time, yslice, $
 ASCII_VERSION = ascii_version, $
 AXIS_LABELS = axis_labels, $
 BINARY = binary, $
 COORD_SYSTEM = coord_system, $
+DIRECTORY = directory, $
 INFO_FILE = info_file, $
 ION_SCALE = ion_scale, $
 MVA_FRAME = mva_frame, $

@@ -55,6 +55,7 @@
 ;       2014/02/16  -   Moved the YSLICE property into the superclass. - MRA
 ;       2014/03/29  -   Added the divPe_y, divPi_y, gradPe, gradPi, Pe, and Pi methods. - MRA
 ;       2014/04/08  -   Added the D_DY and divPi_y methods. - MRA
+;       2014/10/11  -   Oranization, comments, and flow to ::ReadMoments improved. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -270,8 +271,17 @@ end
 ; :Params:
 ;       NAME:           in, required, type=string
 ;                       Name of the data product to be read.
+;
 ;-
-function MrSim3D::ReadMoment, name, tIndex, xrange, yslice, zrange
+function MrSim3D::ReadMoment, name, tIndex, $
+COORD_SYSTEM=coord_system, $
+DIRECTORY=directory, $
+NSMOOTH=nSmooth, $
+ORIENTATION=orientation, $
+SIM_OBJECT=oSim, $
+XRANGE=xrange, $
+YRANGE=yrange, $
+ZRANGE=zrange
     compile_opt strictarr
     
     ;Error handling
@@ -283,50 +293,93 @@ function MrSim3D::ReadMoment, name, tIndex, xrange, yslice, zrange
         return, !Null
     endif
 
-    ;Defaults
-    if n_elements(nSmooth) eq 0 then nSmooth = self.nSmooth
-    if n_elements(tindex)  eq 0 then tindex  = self.time
-    if n_elements(xrange)  eq 0 then xrange  = self.xrange
-    if n_elements(yslice)  eq 0 then yslice  = self.yslice
-    if n_elements(zrange)  eq 0 then zrange  = self.zrange
+;-------------------------------------------------------
+; Defaults /////////////////////////////////////////////
+;-------------------------------------------------------
+    if n_elements(directory)   eq 0 then directory   = self.directory
+    if n_elements(nSmooth)     eq 0 then nSmooth     = self.nSmooth
+    if n_elements(orientation) eq 0 then orientation = self.orientation
+    if n_elements(tindex)      eq 0 then tindex      = self.time
+    if n_elements(xrange)      eq 0 then xrange      = self.xrange
+    if n_elements(yrange)      eq 0 then yrange      = self.yrange
+    if n_elements(zrange)      eq 0 then zrange      = self.zrange
+    coord_system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
 
     ;Create file name and test for the file
-    file = filepath(name + '_' + string(tindex, FORMAT='(i0)') + '.gda', ROOT_DIR=self.directory)
+    file = filepath(name + '_' + string(tindex, FORMAT='(i0)') + '.gda', ROOT_DIR=directory)
     if file_test(file) eq 0 then begin
         file = cgPickFile(TITLE='Choose .gda Field or Moment File.', /READ)
         if file eq '' then return, !Null
     endif
 
 ;-------------------------------------------------------
+; Index Range into Data ////////////////////////////////
+;-------------------------------------------------------
+    ;Get the index range into the simulation data arrays
+    ixRange = getIndexRange(*self.xSim, xrange)
+    iyRange = getIndexRange(*self.ySim, yrange)
+    izRange = getIndexRange(*self.zSim, zrange)
+    
+    ;xRange: min & max
+    if ixRange[0] lt ixRange[1] then begin
+        ixMin = ixRange[0]
+        ixMax = ixRange[1]
+    endif else begin
+        ixMin = ixRange[1]
+        ixMax = ixRange[0]
+    endelse
+    
+    ;yRange: min & max
+    if iyRange[0] lt iyRange[1] then begin
+        iyMin = iyRange[0]
+        iyMax = iyRange[1]
+    endif else begin
+        iyMin = iyRange[1]
+        iyMax = iyRange[0]
+    endelse
+    
+    ;zRange: min & max
+    if izRange[0] lt izRange[1] then begin
+        izMin = izRange[0]
+        izMax = izRange[1]
+    endif else begin
+        izMin = izRange[1]
+        izMax = izRange[0]
+    endelse
+
+;-------------------------------------------------------
 ; Coordinate System -> Simulation Coordinates //////////
 ;-------------------------------------------------------
     ;Subset of data to read
     ;   - Data is still in SIMULATION coordinates.
-    ;   - Must recalculate the indices in simulation coordinates.
-    case self.coord_system of
-        'SIMULATION':   self -> GetProperty, IXRANGE=ixrange, IYRANGE=iyrange, IZRANGE=izrange
+    ;   - Ranges are in COORD_SYSTEM coordinates.
+    ;   - Must traslate from COORD_SYSTEM to SIMULATION.
+    case strupcase(coord_system) of
+        'SIMULATION': ;Do nothing
         
         ;Interchange indices
-        ;   x -> -z
-        ;   y -> -y
+        ;   x -> -z (negation occurs below)
+        ;   y -> +y
         ;   z -> +x
+        ;
+        ;           MSP                         MSP
+        ; +z  *--------------|       ++x *--------------|
+        ;     |              |  ==>      |              |
+        ; -z  |--------------+        +x |--------------+
+        ;     +x    MSH    ++x           -z            +z
+        ;
         'MAGNETOPAUSE': begin
             ;Interchange x and z
-            self -> GetProperty, IXRANGE=izrange, IYRANGE=iyrange, IZRANGE=ixrange
-            xDim = n_elements(*self.ZSim)
-            yDim = n_elements(*self.YSim)
-            zDim = n_elements(*self.XSim)
-            
-            ;Negate by picking from the opposite end of the simulation
-            iyrange = yDim - iyrange - 1
-            izrange = zDim - izrange - 1
-            
-            ;Order [min, max]
-            iyrange = iyrange[sort(iyrange)]
-            izrange = izrange[sort(izrange)]
+            iTemp   = ixRange
+            ixRange = izRange
+            izRange = temporary(iTemp)
         endcase
         
-        else: ;Nothing
+        ;Interchange indices
+        ;   x -> -x (negation occurs below)
+        'MAGNETOTAIL': ;Do nothing
+        
+        else: message, 'Coordinate system not recognized: "' + coord_system + '".'
     endcase
 
 ;-------------------------------------------------------
@@ -336,47 +389,25 @@ function MrSim3D::ReadMoment, name, tIndex, xrange, yslice, zrange
     ;Now loop through the 3D array in the data file and read only the
     ;needed y-slice of the data file - assume array is in FORTRAN ordering
     ;
+    
+    ;Size of simulation/data in file
     self -> GetInfo, NX=nx, NY=ny, NZ=nz
-    
-    if izrange[0] lt izrange[1] then begin
-        izMin = izrange[0]
-        izMax = izrange[1]
-    endif else begin
-        izMin = izrange[1]
-        izMax = izrange[0]
-    endelse
-    
-    if ixrange[0] lt ixrange[1] then begin
-        ixMin = ixrange[0]
-        ixMax = ixrange[1]
-    endif else begin
-        ixMin = ixrange[1]
-        ixMax = ixrange[0]
-    endelse
-    
-;    if iyrange[0] lt iyrange[1] then begin
-;        iyMin = iyrange[0]
-;        iyMax = iyrange[1]
-;    endif else begin
-;        iyMin = iyrange[1]
-;        iyMax = iyrange[0]
-;    endelse
 
     ;Open File and read data
     openr, lun, file, /GET_LUN
 
     ;Read x-z slice at constant y
-    case self.orientation of
+    case orientation of
         'XZ': begin
             ;Declare output array for data
-            slice = fltarr(ixMax-ixMin+1, izMax-izMin+1)
+            data = fltarr(ixMax-ixMin+1, izMax-izMin+1)
 
             ;Read this many elements from a row.
             temp = fltarr(ixMax-ixMin+1)
 
             ;Read the data
             ix = ulong64(ixMin)
-            iy = ulong64(self.yslice)
+            iy = ulong64(iyMin)
             for iz = ulong64(izMin), izMax do begin
                 ;Offset to first record.
                 ;   ix       = column offset
@@ -388,14 +419,14 @@ function MrSim3D::ReadMoment, name, tIndex, xrange, yslice, zrange
                 ;Read and save the records.
                 point_lun, lun, offset
                 readu, lun, temp
-                slice[*,iz-izMin] = temp
+                data[*,iz-izMin] = temp
             endfor
         endcase
         
         'XY': begin
             ;Declare array for data
-            slice = fltarr(ixMax-ixMin+1, iyMax-iyMin+1)
-            temp  = fltarr(ixMax-ixMin+1)
+            data = fltarr(ixMax-ixMin+1, iyMax-iyMin+1)
+            temp = fltarr(ixMax-ixMin+1)
             
             ;Here, we must pick out single values of X within different rows.
             ;   - Jump to the proper z-slice
@@ -409,19 +440,19 @@ function MrSim3D::ReadMoment, name, tIndex, xrange, yslice, zrange
             for iy = ulong64(iyMin), iyMax do begin
                 point_lun, lun, zOffset + 4ULL*(ix + iy*nx)
                 readu, lun, temp
-                slice[*,iy] = temp
+                data[*,iy] = temp
             endfor
         endcase
         
         'YZ': begin
             ;Declare array for data
-            slice = fltarr(iyMax-iyMin+1, izMax-izMin+1)
+            data = fltarr(iyMax-iyMin+1, izMax-izMin+1)
             temp  = fltarr(1)
-            
+
             ;Here, we must pick out single values of X within different rows.
             ix     = ulong64(ixMin)
-            for iz = ulong64(izMin), izMin+izMax-1 do begin
-                for iy = ulong64(iyMin), iyMin+iyMax-1 do begin
+            for iz = ulong64(izMin), izMax do begin
+                for iy = ulong64(iyMin), iyMax do begin
                     ;Offset to first record.
                     ;   ix       = column offset
                     ;   iy*ny    = row offset
@@ -432,12 +463,12 @@ function MrSim3D::ReadMoment, name, tIndex, xrange, yslice, zrange
                     ;Read and save the records.
                     point_lun, lun, offset
                     readu, lun, temp
-                    slice[iy-iyMin, iz-izMin] = temp
+                    data[iy-iyMin, iz-izMin] = temp
                 endfor
             endfor
         endcase
     
-        else: ;Nothing
+        else: message, 'Orientation not recognized: "' + orientation + '".'
     endcase  
 
     ;Close file
@@ -446,35 +477,83 @@ function MrSim3D::ReadMoment, name, tIndex, xrange, yslice, zrange
 ;-------------------------------------------------------
 ; Change from SIMULATION Coordinates? //////////////////
 ;-------------------------------------------------------
-    case self.coord_system of
-        'SIMULATION':   ;Do nothing
+    case strupcase(coord_system) of
+        'SIMULATION': ;Do nothing
         
         'MAGNETOPAUSE': begin
             ;Re-orient the axes
-            case self.orientation of
+            ;   - x and z have been switch from SIMULATION coordinates arleady (above).
+            ;   - IDL draws the bottom row of the image first: img[*,0]
+            ;       * When transpose, the bottom row becomes the left-most column.
+            ;   - Ordering bottom axis as [+x, -x] requires two steps.
+            ;       * Negate all data products with a single "z" in them (below).
+            ;       * Reverse the x-axis itself (::MakeSimDomain method).
+            ;
+            ;                            ++z +--------|
+            ;                                |        |
+            ;           MSP                  |        |
+            ; +x  *--------------|         M |        | M
+            ;     |              |   ===>  S |        | S
+            ; -x  |--------------+         H |        | P
+            ;     +z    MSH    ++z           |        |
+            ;                                |        |
+            ;                             +z |--------*
+            ;                               -x       +x
+            ;
+            case orientation of
                 'XY': ;Do nothing
-                'XZ': slice = transpose(slice)
-                else: message, 'Orienatation "' + self.orientation + '" not recognized.'
+                'XZ': data = transpose(data)
+                else: message, 'Orienatation "' + orientation + '" not recognized.'
             endcase
-            
-            ;Now reverse the  z-axes
-            ;   single negate Pe-xz, Pe-yz, etc.
-            ;   double negate Pe-zz, etc.
+
+            ;Now reverse the z-axes
+            ;   Single negate Bz, Uiz, Pe-xz, Pe-yz, etc.
             case 1 of
-                stregex(name, '[A-Z][a-z]*z$',   /BOOLEAN): slice = -slice
-                stregex(name, '-(z[yx]|[xy]z)$', /BOOLEAN): slice = -slice
+                stregex(_name, '[A-Z][a-z]*z$',   /BOOLEAN): data = -data
+                stregex(_name, '-(z[yx]|[xy]z)$', /BOOLEAN): data = -data
                 else: ;Do nothing
             endcase
         end
         
-        else: ;Nothing
+        'MAGNETOTAIL': begin
+            ;Re-orient the axes
+            ;   - x and z are the same orientation as simulation coordinates
+            ;   - Ordering bottom axis as [max, min] requires two steps.
+            ;       * Negate all data products with a single "x" in them (below).
+            ;       * Negate the x-axis itself (::MakeSimDomain method).
+            ;
+            ;
+            ;          North                      North
+            ; +z  *--------------|        +z *--------------|
+            ;     |              |  ===>     |              |
+            ; -z  |--------------+        -z |--------------+
+            ;     +x   South   ++x          -x    South    --x
+            ;
+            case orientation of
+                'XY': ;Do nothing
+                'XZ': ;Do nothing
+                else: message, 'Orienatation "' + orientation + '" not recognized.'
+            endcase
+
+            ;Now reverse the x-axes
+            ;   Single negate Bx, Uix, Pe-xz, Pe-xy, etc.
+            case 1 of
+                stregex(_name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
+                stregex(_name, '-(y|z)[x]$',      /BOOLEAN): data = -data
+                stregex(_name, '-[x](y|z)$',      /BOOLEAN): data = -data
+                else: ;Do nothing
+            endcase
+        end
     endcase
-    
+
+;-------------------------------------------------------
+; Cleanup //////////////////////////////////////////////
+;-------------------------------------------------------
     ;Smooth data 
-    if self.nSmooth gt 0 then slice = smooth(slice, self.nSmooth, /EDGE_TRUNCATE)  
+    if nSmooth gt 0 then data = smooth(data, nSmooth, /EDGE_TRUNCATE)  
 
     ;Store the data so that it does not have to be read again.
-    return, slice
+    return, data
 end
 
 
@@ -1126,7 +1205,6 @@ end
 ;-
 function MrSim3D::Init, theSim, time, yslice, $
 BINARY=binary, $
-ORIENTATION=orientation, $
 _REF_EXTRA=extra
     compile_opt strictarr
     
