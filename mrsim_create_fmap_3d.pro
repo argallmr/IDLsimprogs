@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    MrSim_Create_fMap
+;    MrSim_Create_fMap_3D
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2014, Matthew Argall                                                   ;
@@ -40,7 +40,7 @@
 ;
 ;           This is just raw binary (using 4 byte reals)
 ;
-;               x, z, ux, uy, uz
+;               x, y, z, ux, uy, uz
 ;
 ;           for each particle. This just repeats for all the particles in the file.
 ;           Whatever tool you are using, just declare single precision (4 byte) real
@@ -48,7 +48,7 @@
 ;
 ; :Examples:
 ;   See the main level program at the end of this document::
-;       IDL> .r MrSim_Create_fMap
+;       IDL> .r MrSim_Create_fMap_3D
 ;
 ;   For an example of how to use the fMap, see MrSim_ReadParticles.pro
 ;
@@ -84,9 +84,9 @@
 ;
 ; :History:
 ;    Modification History::
-;       2014/09/05  -   Written by Matthew Argall
+;       2014/10/13  -   Written by Matthew Argall
 ;-
-pro MrSim_Create_fMap, filename, $
+pro MrSim_Create_fMap_3D, filename, $
 N_RECS_PER_CHUNK=n_rec_per_chunk, $
 RANGE1=range1, $
 RANGE2=range2, $
@@ -107,7 +107,7 @@ VERBOSE=verbose
     ;   - There are five 4-byte numbers associated with each particle.
     verbose = keyword_set(verbose)
     if n_elements(n_recs_per_chunk) eq 0 then n_recs_per_chunk = 1000000ULL
-    if n_elements(rec_sample)       eq 0 then rec_sample       = fltarr(5)
+    if n_elements(rec_sample)       eq 0 then rec_sample       = fltarr(6)
     if n_elements(save_dir)         eq 0 then void             = cgRootName(filename, DIRECTORY=save_dir)
     
     ;Make sure the file exists
@@ -170,7 +170,8 @@ VERBOSE=verbose
     map_entry = { pos:      0ULL, $
                   nRecs:    0ULL, $
                   d1_range: fltarr(2), $
-                  d2_range: fltarr(2) $
+                  d2_range: fltarr(2), $
+                  d3_range: fltarr(2) $
                 }
     map_entry = replicate(map_entry, n_chunks)
     data      = make_array(n_per_rec, n_recs_per_chunk, TYPE=type)
@@ -181,12 +182,14 @@ VERBOSE=verbose
     ;Save the maximum ranges
     range1 = [!values.f_infinity, -!values.f_infinity]
     range2 = [!values.f_infinity, -!values.f_infinity]
+    range3 = [!values.f_infinity, -!values.f_infinity]
     
     ;Loop through each data chunk
-    ;   - Read data in chunks so that all 9GB are not in memory at once.
+    ;   - Read data in chunks so that all xxGB are not in memory at once.
     n_recs_read = 0ULL
     for i = 0ULL, n_chunks - 1ULL do begin
-        ;Record the chunk size
+        ;The last chunk might not be a complete chunk.
+        ;   - Allocate the correct amount of memory.
         if i eq n_chunks - 1 && n_recs_last gt 0 then begin
             n_recs_per_chunk = n_recs_last
             data = make_array(n_per_rec, n_recs_last, TYPE=type)
@@ -206,18 +209,22 @@ VERBOSE=verbose
 
         ;Read the data
         readu, lun, data
-        
+
         ;Get the minimum and maximum values in the two spacial dimensions
         d1_min = min(data[0,*], MAX=d1_max)
         d2_min = min(data[1,*], MAX=d2_max)
+        d3_min = min(data[2,*], MAX=d3_max)
         map_entry[i].d1_range = [d1_min, d1_max]
         map_entry[i].d2_range = [d2_min, d2_max]
+        map_entry[i].d3_range = [d3_min, d3_max]
         
         ;Record the domain being read
         range1[0] <= d1_min
         range1[1] >= d1_max
         range2[0] <= d2_min
         range2[1] >= d2_max
+        range3[0] <= d3_min
+        range3[1] >= d3_max
     endfor
 
     ;Close the file
@@ -225,12 +232,13 @@ VERBOSE=verbose
     
     ;Create the output filename
     fbase    = cgRootName(filename)
-    file_out = filepath(fbase + '_mrfMap.sav', ROOT_DIR=save_dir)
+    file_out = filepath(fbase + '_mrfMap3d.sav', ROOT_DIR=save_dir)
 
     ;Display the range
     if verbose then begin
         print, FORMAT='(%"Range1 = [%f, %f]")', range1
         print, FORMAT='(%"Range2 = [%f, %f]")', range2
+        print, FORMAT='(%"Range3 = [%f, %f]")', range3
     endif
 
     ;Save data
@@ -244,11 +252,11 @@ end
 ; Main-Level Example Program: IDL> .r MrSim_Create_fMap //////////////
 ;---------------------------------------------------------------------
 ;Files and directories
-filename = '/home/daughton/Asymm-3D/electrons-y905.bin'
+filename = '/data2/Asymm-3D/electrons-y905.bin'
 save_dir = '/home/argall/Work/AssymectricSim/fmaps/'
 
 ;Read the particle data
-MrSim_Create_fMap, filename, SAVE_DIR=save_dir, /VERBOSE
+MrSim_Create_fMap_3D, filename, SAVE_DIR=save_dir, /VERBOSE
 
 
 end

@@ -53,6 +53,8 @@
 ;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
 ;                           Repurposed the SIM_OBJECT keyword. Added the V_VA and CIRCLES
 ;                           keywords. - MRA
+;       2014/10/14  -   Electrons are now read from the file. With fmaps, the method is
+;                           faster than the previous method. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -961,7 +963,10 @@ end
 ;                           The default is velocity space.
 ;       FILENAME:       in, optional, type=string, default=simulation specific
 ;                       Name of the binary file containing electron distribution functions
-;                           data.
+;                           data. The default comes from MrSim_Which.pro
+;       FMAP_DIR:       in, optional, type=string
+;                       Directory in which to find fMap save files. The default is
+;                           determined by MrSim_Which.
 ;       MOMENTUM:       in, optional, type=boolean, default=0
 ;                       If set, the distribution function will be plotted in momentum
 ;                           space. The default is velocity space.
@@ -988,6 +993,7 @@ function MrSim_eDist, theSim, type, x, z, dx, dz, $
 CIRCLES=circles, $
 CURRENT=current, $
 ENERGY=energy, $
+FMAP_DIR=fmap_dir, $
 FILENAME=filename, $
 MOMENTUM=momentum, $
 NBINS=nBins, $
@@ -1058,7 +1064,8 @@ _REF_EXTRA=ref_extra
 ;-------------------------------------------------------
 
     ;Pick out the data
-    e_data = oSim -> GetElectrons(xrange, zrange, /VELOCITY, FILENAME=filename)
+    e_data = oSim -> ReadElectrons(filename, FMAP_DIR=fmap_dir, /VELOCITY, $
+                                             XRANGE=xrange, ZRANGE=zrange)
     if n_elements(e_data) eq 0 then return, !Null
     
     ;Convert to units of v/vA from v/c?

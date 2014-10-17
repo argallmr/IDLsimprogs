@@ -93,6 +93,8 @@
 ;                           superclass. - MRA
 ;       2014/08/13  -   ReadData method was not orienting/selecting the data properly in
 ;                           MAGNETOPAUSE mode. Fixed. - MRA.
+;       2014/10/14  -   ::ReadElectrons is now a function. File checking delegated
+;                           elsewhere. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -310,45 +312,61 @@ end
 ; :Private:
 ;
 ; :Params:
-;       FILENAME:           in, optional, type=string, default='electrons-t' [time index] + '.gda'
-;                           Name of the "info" file to be read.
+;       FILENAME:           in, required, type=string
+;                           Name of the file containing particle data.
+;
+; :Keywords:
+;       ENERGY:             in, optional, type=boolean, default=0
+;                           If set, momentum will be converted to energy.
+;       FMAP_DIR:           in, optional, type=string, default=pwd
+;                           Directory in which to find an fMap. See MrSim_Create_fMap.pro.
+;       VELOCITY:           in, optional, type=boolean, default=0
+;                           If set, momentum will be converted to velocity.
+;       VERBOSE:            in, optional, type=boolean, default=0
+;                           If set, information about particle will be printed data to
+;                               the command window.
+;       XRANGE:             in, required, type=fltarr(2)
+;                           X-range (in de) over which particle data is to be kept.
+;       ZRANGE:             in, required, type=fltarr(2)
+;                           Z-range (in de) over which particle data is to be kept.
+;
+; :Returns:
+;       DATA:               Electron particle data.
 ;-
-pro MrSim2D::ReadElectrons, filename
+function MrSim2D::ReadElectrons, filename, $
+ENERGY=energy, $
+FMAP_DIR=fmap_dir, $
+VELOCITY=velocity, $
+VERBOSE=verbose, $
+XRANGE=xrange, $
+ZRANGE=zrange
     compile_opt strictarr
     
     ;catch errors
     catch, the_error
     if the_error ne 0 then begin
         catch, /CANCEL
-        if n_elements(pwd) gt 0 then cd, pwd
         void = cgErrorMsg()
-        return
+        return, !Null
     endif
 
-;---------------------------------------------------------------------
-; Create a File Name /////////////////////////////////////////////////
-;---------------------------------------------------------------------
-    if n_elements(filename) eq 0 || filename eq '' then begin
-        MrSim_Which, self.simnum, EFILE=filename, FMAP_DIR=fMap_dir, TINDEX=self.time
-        if n_elements(filename) eq !Null then filename = ''
-        if n_elements(fMap_dir) eq !Null then fMap_dir = ''
-
-        ;Pick a file if the guessed file is not valid.
-        if file_test(filename) eq 0 then filename = ''
-        if filename eq '' then filename = dialog_pickfile(/READ, TITLE='Pick electron file.')
-        if fmap_dir eq '' then fmap_dir = dialog_pickfile(/READ, TITLE='Pick fMap directory.', /DIRECTORY)
+    ;Create defaults    
+    MrSim_Which, self.simname, EFILE=filename, FMAP_DIR=fMap_dir, TINDEX=self.time
     
-    ;Ensure the file exists.
-    endif else begin
-        if file_test(filename) eq 0 then $
-            message, 'File does not exist: "' + filename + '".'
-    endelse
-
-;---------------------------------------------------------------------
-; Read Electron Data /////////////////////////////////////////////////
-;---------------------------------------------------------------------
-    *self.electrons = MrSim_ReadParticles(filename, self.xrange, self.zrange, $
-                                          FMAP_DIR=fMap_dir, /VERBOSE)
+    ;Set defaults
+    if n_elements(filename) eq 0 then filename = eFile
+    if n_elements(fmap_dir) eq 0 then fmap_dir = fmap
+    if n_elements(xrange)   eq 0 then xrange   = self.xrange
+    if n_elements(zrange)   eq 0 then zrange   = self.zrange
+    
+    ;Read the simulation info file
+    data = MrSim_ReadParticles(filename, xrange, zrange, $
+                               ENERGY           = energy, $
+                               FMAP_DIR         = fMap_dir, $
+                               VELOCITY         = velocity, $
+                               VERBOSE          = verbose)
+    
+    return, data
 end
 
 

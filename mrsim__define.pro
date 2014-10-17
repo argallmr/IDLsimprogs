@@ -81,6 +81,7 @@
 ;       2014/09/15  -   Added capacity for calculating total pressure. - MRA
 ;       2014/09/30  -   Added the SetSim method. - MRA.
 ;       2014/10/03  -   Added the ASCII_VERSION keyword. - MRA
+;       2014/10/14  -   Added the GetSlice keyword. Y=0 now occurs at the center grid-cell. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -692,9 +693,43 @@ end
 ;
 ; :Params:
 ;       FILENAME:           in, required, type=string
-;                           Name of the electron data file to be read.
+;                           Name of the file containing particle data.
+;
+; :Keywords:
+;       ENERGY:             in, optional, type=boolean, default=0
+;                           If set, momentum will be converted to energy.
+;       FMAP_DIR:           in, optional, type=string, default=pwd
+;                           Directory in which to find an fMap. See MrSim_Create_fMap.pro.
+;       N_RECS_PER_CHUNK:   in, optional, type=ulong64, default=1000000ULL
+;                           Number of records per data chunk.
+;       REC_SAMPLE:         in, optional, type=any, default=fltarr(5)
+;                           An example of how records are to be read. The default assumes
+;                               one record consists of five 4-byte (16-bit) floating point
+;                               data values of the form [x, z, ux, uy, uz], where x and
+;                               z are two spatial locations and u[xyz] are the three
+;                               components of the momentum.
+;       VELOCITY:           in, optional, type=boolean, default=0
+;                           If set, momentum will be converted to velocity.
+;       VERBOSE:            in, optional, type=boolean, default=0
+;                           If set, information about particle will be printed data to
+;                               the command window.
+;       XRANGE:             in, required, type=fltarr(2)
+;                           X-range (in de) over which particle data is to be kept.
+;       ZRANGE:             in, required, type=fltarr(2)
+;                           Z-range (in de) over which particle data is to be kept.
+;
+; :Returns:
+;       DATA:               Electron particle data.
 ;-
-pro MrSim::ReadElectrons, filename
+function MrSim::ReadElectrons, filename, $
+ENERGY=energy, $
+FMAP_DIR=fmap_dir, $
+N_RECS_PER_CHUNK=n_recs_per_chunk, $
+REC_SAMPLE=rec_sample, $
+VELOCITY=velocity, $
+VERBOSE=verbose, $
+XRANGE=xrange, $
+ZRANGE=zrange
     compile_opt strictarr
     
     ;catch errors
@@ -703,11 +738,28 @@ pro MrSim::ReadElectrons, filename
         catch, /CANCEL
         if n_elements(pwd) gt 0 then cd, pwd
         void = cgErrorMsg()
-        return
+        return, !Null
     endif
-
+    
+    ;Get defaults
+    MrSim_Which, self.simname, FMAP_DIR=fmap, EFILE=eFile, TINDEX=self.time
+    
+    ;Set defaults
+    if n_elements(filename) eq 0 then filename = eFile
+    if n_elements(fmap_dir) eq 0 then fmap_dir = fmap
+    if n_elements(xrange)   eq 0 then xrange   = self.xrange
+    if n_elements(zrange)   eq 0 then zrange   = self.zrange
+    
     ;Read the simulation info file
-    *self.electrons = MrSim_ReadParticles(filename, self.xrange, self.zrange)
+    data = MrSim_ReadParticles(filename, xrange, zrange, $
+                               ENERGY           = energy, $
+                               FMAP_DIR         = fMap_dir, $
+                               N_RECS_PER_CHUNK = n_rec_per_chunk, $
+                               REC_SAMPLE       = rec_sample, $
+                               VELOCITY         = velocity, $
+                               VERBOSE          = verbose)
+    
+    return, data
 end
 
 
@@ -916,13 +968,13 @@ VELOCITY=velocity
     energy   = keyword_set(energy)
     velocity = keyword_set(velocity)
     if energy + velocity gt 1 then $
-        message, 'Keywords ENERGY and MOMENTUM are mutually exclutive.'
+        message, 'Keywords ENERGY and VELOCITY are mutually exclutive.'
     if n_elements(filename) eq 0 then filename = ''
 
     ;Make sure electrons are saved.
     if n_elements(*self.electrons) eq 0 then begin
         message, 'Reading electron particle data...', /INFORMATIONAL
-        self -> ReadElectrons, filename
+        self -> ReadElectrons, filename, ENERGY=energy, VELOCITY=velocity
         if n_elements(*self.electrons) eq 0 then return, !Null
     endif
     
@@ -936,17 +988,6 @@ VELOCITY=velocity
     if nDist eq 0 $
         then message, 'No particles in the spacial range given.' $
         else e_data = (*self.electrons)[*, temporary(iDist)]
-
-    ;Convert to velocity
-    if velocity then begin
-        e_gamma = sqrt(1.0 + total(e_data[2:4, *]^2, 1))
-        e_data[2:4, *] /= rebin(reform(temporary(e_gamma), 1, nDist), 3, nDist)
-    endif
-    
-    ;Convert to energy
-    if energy then begin
-        message, 'Converting to energy not implemented.'
-    endif
     
     return, e_data
 end
@@ -1474,6 +1515,101 @@ end
 
 
 ;+
+;   Given a particular slice/index, determine the location in units of de (di if
+;   the ION_SCALE property is set).
+;
+; :Params:
+;       CELL:           in, required, type=integer
+;                       Index (or grid-cell) at which the location in "de" is to be
+;                           returned.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, `CELL` reference to a grid-cell along the x-dimension.
+;                           This is the default if no keywords are set.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, `CELL` reference to a grid-cell along the y-dimension
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, `CELL` reference to a grid-cell along the z-dimension
+;
+; :Returns:
+;       COORD:          Location in de (di if the ION_SCALE property is set) of the
+;                           given grid cell along the chosen dimension.
+;-
+function MrSim::GetCoord, cell, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Defaults
+    x = keyword_set(x)
+    y = keyword_set(y)
+    z = keyword_set(z)
+    if x + y + z eq 0 then x = 1
+    if x + y + z gt 1 then message, 'X, Y, and Z are mutually exclusive.'
+    
+    ;Get the location
+    case 1 of
+        x: coord = (*self.xSim)[cell]
+        y: coord = (*self.ySim)[cell]
+        z: coord = (*self.zSim)[cell]
+    endcase
+    
+    return, coord
+end
+
+
+;+
+;   Given a particular location units of de (di of the ION_SCALE property is set) determine
+;   the equivalent grid cell. For a grid cell spanning [min, max] de, the provided
+;   location is rounded down and matched to min.
+;
+; :Params:
+;       COORD:          in, required, type=integer
+;                       Location at which the grid cell is to be determined. Units are
+;                           de unless ION_SCALE is specified.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, `COORD` is an x-coordinate.
+;                           This is the default if no keywords are set.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, `COORD` is an y-coordinate
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, `COORD` is an z-coordinate
+;
+; :Returns:
+;       CELL:           Grid cell/index corresponding to the given location along the
+;                           desired dimension.
+;-
+function MrSim::GetCell, coord, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Defaults
+    x = keyword_set(x)
+    y = keyword_set(y)
+    z = keyword_set(z)
+    if x + y + z eq 0 then x = 1
+    if x + y + z gt 1 then message, 'X, Y, and Z are mutually exclusive.'
+    
+    ;Get the location
+    case 1 of
+        x: cell = value_locate(*self.xSim, coord)
+        y: cell = value_locate(*self.ySim, coord)
+        z: cell = value_locate(*self.zSim, coord)
+    endcase
+    
+    return, cell
+end
+
+
+;+
 ;   The purpose of this program is to read data from a ".gda" file produced by 
 ;   one of Bill Daughton's simulation runs.
 ;
@@ -1573,19 +1709,19 @@ pro MrSim::MakeSimDomain
     case strupcase(self.coord_system) of
         'SIMULATION': begin
             *self.XSim = linspace(0, xsize, nx)
-            *self.YSim = linspace(0, ysize, ny)
+            *self.YSim = linspace(0, ysize, ny) - ysize/2.0
             *self.ZSim = linspace(0, zsize, nz) - zsize/2.0
         endcase
         
         'MAGNETOPAUSE': begin
             *self.ZSim =   linspace(0, xsize, nx)
-            *self.YSim =   linspace(0, ysize, ny)
+            *self.YSim =   linspace(0, ysize, ny) - ysize/2.0
             *self.XSim = -(linspace(0, zsize, nz) - zsize/2.0)
         endcase
         
         'MAGNETOTAIL': begin
             *self.XSim = -linspace(0, xsize, nx)
-            *self.YSim =  linspace(0, ysize, ny)
+            *self.YSim =  linspace(0, ysize, ny) - ysize/2.0
             *self.ZSim =  linspace(0, zsize, nz) - zsize/2.0
         endcase
         

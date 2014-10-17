@@ -159,6 +159,821 @@ pro MrSim2_Data::CLEANUP
 end
 
 
+
+;+
+;   Take the cross product of two quantities.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be crossed into `V2`.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be crossed with `V1`.
+;
+; :Keywords:
+;       MAGNITUDE:      in, optional, type=boolean, default=0
+;                       If set, the magnitude will be returned.
+;       X:              in, optional, type=boolean, default=0
+;                       If set, the x-component will be returned.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, the y-component will be returned.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, the z-component will be returned.
+;
+; :Returns:
+;       V1XV2:          Cross product of `V1` and `V2`. If no keywords are set, an
+;                           NxMx3 array will be retured, where the last demension
+;                           corresponds to the x-, y-, and z-components.
+;-
+function MrSim2::CrossProduct, v1, v2, $
+MAGNITUDE=magnitude, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_v1) then ptr_free, _v1
+        if ptr_valid(_v2) then ptr_free, _v2
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _v1 = ptr_new(self -> GetData(v1)) $
+        else _v1 = ptr_new(v1)
+        
+    if MrIsA(v2, 'STRING') $
+        then _v2 = ptr_new(self -> GetData(v2)) $
+        else _v2 = ptr_new(v2)
+        
+    ;Compute the cross product
+    v1xv2 = [[[(*_v1)[*,*,1] * (*_v2)[*,*,2] - (*_v1)[*,*,2] * (*_v2)[*,*,1]]], $
+             [[(*_v1)[*,*,2] * (*_v2)[*,*,0] - (*_v1)[*,*,0] * (*_v2)[*,*,2]]], $
+             [[(*_v1)[*,*,0] * (*_v2)[*,*,1] - (*_v1)[*,*,1] * (*_v2)[*,*,0]]]]
+    
+    ;Free the pointers
+    ptr_free, _v1
+    ptr_free, _v2
+    
+    ;return
+    case 1 of
+        x:         return, v1xv2[*,*,0]
+        y:         return, v1xv2[*,*,1]
+        z:         return, v1xv2[*,*,2]
+        magnitude: return, sqrt(total(v1xv2^2, 3))
+        else:      return, v1xv2
+    endcase
+end
+
+
+;+
+;   Take the dot product of two quantities.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be dotted into `V2`.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be dotted with `V1`.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, only the x-components will be used.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, only the y-components will be used.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, only the z-components will be used.
+;
+; :Returns:
+;       V1DOTV2:        Dot product of `V1` and `V2`.
+;-
+function MrSim2::DotProduct, v1, v2, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_v1) then ptr_free, _v1
+        if ptr_valid(_v2) then ptr_free, _v2
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _v1 = ptr_new(self -> GetData(v1)) $
+        else _v1 = ptr_new(v1)
+        
+    if MrIsA(v2, 'STRING') $
+        then _v2 = ptr_new(self -> GetData(v2)) $
+        else _v2 = ptr_new(v2)
+    
+    ;return
+    case 1 of
+        x:    v1dotv2 =   (*_v1)[*,*,0] * (*_v2)[*,*,0]
+        y:    v1dotv2 =   (*_v1)[*,*,1] * (*_v2)[*,*,1]
+        z:    v1dotv2 =   (*_v1)[*,*,2] * (*_v2)[*,*,2]
+        else: v1dotv2 = ( (*_v1)[*,*,0] * (*_v2)[*,*,0] + $
+                          (*_v1)[*,*,1] * (*_v2)[*,*,1] + $
+                          (*_v1)[*,*,2] * (*_v2)[*,*,2] )
+    endcase
+        
+    ;Free the pointers
+    ptr_free, _v1
+    ptr_free, _v2
+    
+    return, v1dotv2
+end
+
+
+;+
+;   Compute the x-derivative of a data array.
+;
+; :Params:
+;       DATA:           in, required, type=string/NxM float
+;                       A string naming the data product or the actual data of which
+;                           the derivative is to be taken.
+;
+; :Returns:
+;       D_DX:           The derivative of `DATA` with respect to X
+;-
+function MrSim2::D_DX, data
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_data) then ptr_free, _data
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get the data
+    ;   - Avoid copying the data by creating a pointer
+    if size(data, /TNAME) eq 'STRING' $
+        then _data = ptr_new(self -> GetData(data)) $
+        else _data = ptr_new(data)
+    
+    ;Get the x-size of the simulation in electron skin depths
+    self -> GetInfo, DX_DE=dx_de
+    dims = size(data, /DIMENSIONS)
+    if n_elements(dims) ne 2 then $
+        message, 'Data must be 2D in order to take the derivative.'
+    
+    ;Determine the orientation
+    ;   'XY' -> data[X,Y]
+    ;   'XZ' -> data[X,Z]
+    ;   etc.
+    xaxis = strmid(self.orientation, 0, 1)
+    yaxis = strmid(self.orientation, 1, 2)        
+    
+    ;Allocate memory
+    d_dx = fltarr(dims)
+
+    ;Take the centered difference.
+    case 'X' of
+        xaxis: d_dx[1:dims[0]-2,*] = ((*_data)[2:dims[0]-1,*] - (*_data)[0:dims[0]-3,*]) / (2.0 * dx_de)
+        yaxis: d_dx[*,1:dims[1]-2] = ((*_data)[*,2:dims[1]-1] - (*_data)[*,0:dims[1]-3]) / (2.0 * dx_de)
+        else:  message, 'Orientation "' + self.orientation + '" does not allow the derivative with respect to x.'
+    endcase
+    
+    ptr_free, _data
+    return, d_dx
+end
+
+
+;+
+;   Compute the y-derivative of a data array.
+;
+; :Params:
+;       DATA:           in, required, type=string/NxM float
+;                       A string naming the data product or the actual data of which
+;                           the derivative is to be taken.
+;
+; :Returns:
+;       D_DY:           The derivative of `DATA` with respect to Y.
+;-
+function MrSim2::D_DY, data
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_data) then ptr_free, _data
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get the data
+    ;   - Avoid copying the data by creating a pointer
+    if size(data, /TNAME) eq 'STRING' $
+        then _data = ptr_new(self -> GetData(data)) $
+        else _data = ptr_new(data)
+    
+    ;Get the x-size of the simulation in electron skin depths
+    self -> GetInfo, DY_DE=dy_de
+    dims = size(data, /DIMENSIONS)
+    if n_elements(dims) ne 2 then $
+        message, 'Data must be 2D in order to take the derivative.'
+    
+    ;Determine the orientation
+    ;   'YZ' -> data[Y,Z]
+    ;   'XY' -> data[X,Y]
+    ;   etc.
+    xaxis = strmid(self.orientation, 0, 1)
+    yaxis = strmid(self.orientation, 1, 2)        
+    
+    ;Allocate memory
+    d_dy = fltarr(dims)
+
+    ;Take the centered difference.
+    case 'Y' of
+        xaxis: d_dy[1:dims[0]-2,*] = ((*_data)[2:dims[0]-1,*] - (*_data)[0:dims[0]-3,*]) / (2.0 * dy_de)
+        yaxis: d_dy[*,1:dims[1]-2] = ((*_data)[*,2:dims[1]-1] - (*_data)[*,0:dims[1]-3]) / (2.0 * dy_de)
+        else:  message, 'Orientation "' + self.orientation + '" does not allow the derivative with respect to x.'
+    endcase
+    
+    ptr_free, _data
+    return, d_dy
+end
+
+
+;+
+;   Compute the z-derivative of a data array.
+;
+; :Params:
+;       DATA:           in, required, type=string/NxM float
+;                       A string naming the data product or the actual data of which
+;                           the derivative is to be taken.
+;
+; :Returns:
+;       D_DZ:           The derivative of `DATA` with respect to Z.
+;-
+function MrSim2::D_DZ, data
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_data) then ptr_free, _data
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get the data
+    ;   - Avoid copying the data by creating a pointer
+    if size(data, /TNAME) eq 'STRING' $
+        then _data = ptr_new(self -> GetData(data)) $
+        else _data = ptr_new(data)
+    
+    ;Get the x-size of the simulation in electron skin depths
+    self -> GetInfo, DZ_DE=dz_de
+    dims = size(data, /DIMENSIONS)
+    if n_elements(dims) ne 2 then $
+        message, 'Data must be 2D in order to take the derivative.'
+    
+    ;Determine the orientation
+    ;   'YZ' -> data[Y,Z]
+    ;   'XZ' -> data[X,Z]
+    ;   etc.
+    xaxis = strmid(self.orientation, 0, 1)
+    yaxis = strmid(self.orientation, 1, 2)        
+    
+    ;Allocate memory
+    d_dz = fltarr(dims)
+
+    ;Take the centered difference.
+    case 'Z' of
+        xaxis: d_dz[1:dims[0]-2,*] = ((*_data)[2:dims[0]-1,*] - (*_data)[0:dims[0]-3,*]) / (2.0 * dz_de)
+        yaxis: d_dz[*,1:dims[1]-2] = ((*_data)[*,2:dims[1]-1] - (*_data)[*,0:dims[1]-3]) / (2.0 * dz_de)
+        else:  message, 'Orientation "' + self.orientation + '" does not allow the derivative with respect to x.'
+    endcase
+    
+    ptr_free, _data
+    return, d_dz
+end
+
+
+;+
+;   The purpose of this program is to read data from a ".gda" file produced by 
+;   one of Bill Daughton's simulation runs.
+;
+; :Params:
+;       DATA_PRODUCT:       in, required, type=string, default=
+;                           The name of the data product to be read. For a list of
+;                               available data product, call mr_readSIM without any
+;                               arguments.
+;
+; :Keywords:
+;       DX:                 in, optional, type=boolean, default=0
+;                           If set, the derivative of `DATA_PRODUCT` with respect to X
+;                               will be taken.
+;       DZ:                 in, optional, type=boolean, default=0
+;                           If set, the derivative of `DATA_PRODUCT` with respect to Z
+;                               will be taken.
+;
+; :Returns:
+;       DATA:               The requested data. If the data product does not exist,
+;                               then !Null will be returned.
+;-
+function MrSim2::GetData, name, $
+DX=dx, $
+DY=dy, $
+DZ=dz, $
+CROSS=cross, $
+DOT=dot, $
+MAGNITUDE=magnitude, $
+PARALLEL=parallel, $
+PERPENDICULAR=perpendicular, $
+TENSOR=tensor, $
+TXX=txx, $
+TXY=txy, $
+TXZ=Txz, $
+TYY=Tyy, $
+TYZ=Tyz, $
+TZZ=Tzz, $
+VECTOR=vec, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ;If no parameters were given, print a list of available data products.
+    if n_params() eq 0 then begin
+        MrSim2 -> listProducts
+        return, !Null
+    endif
+
+    ;Defaults
+    d_dx         = keyword_set(d_dx)
+    d_dy         = keyword_set(d_dy)
+    d_dz         = keyword_set(d_dz)
+    magnitude    = keyword_set(magnitude)
+    parallel     = keyword_set(parallel)
+    perpendicuar = keyword_set(perpendicular)
+    pointer      = keyword_set(pointer)
+    Txx          = keyword_set(Txx)
+    Txy          = keyword_set(Txy)
+    Txz          = keyword_set(Txz)
+    Tyy          = keyword_set(Tyy)
+    Tyz          = keyword_set(Tyz)
+    Tzz          = keyword_set(Tzz)
+    x            = keyword_set(x)
+    y            = keyword_set(y)
+    z            = keyword_set(z)
+    if (magnitude + x + y + z)             gt 1 then message, 'MAGNITUDE, X, Y, Z are mutually exclusive.'
+    if (parallel + perpendicular)          gt 1 then message, 'PARALLEL and PERPENDICULAR are mutually exclusive.'
+    if (d_dx + d_dz)                       gt 1 then message, 'D_DX and D_DZ are mutually exclusive.'
+    if (Txx + Txy + Txz + Tyy + Tyz + Tzz) gt 1 then message, 'TXX, TXY, TXZ, TYY, TYZ, and TZZ are mutually exclusive.'
+
+;-------------------------------------------------------
+; Parse the NAME String ////////////////////////////////
+;-------------------------------------------------------
+    ;Operations are separated by spaces
+    parts = strsplit(name, ' ', /EXTRACT, COUNT=nParts)
+    _name = strupcase(parts[0])
+    
+    ;Perform an operation on the data?
+    if nParts eq 3 then begin
+        case strupcase(parts[1]) of
+            'DOT':           data = self -> DotProduct(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            'CROSS':         data = self -> CrossProduct(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            'X':             data = self -> CrossProduct(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            '||':            data = self -> Parallel(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            'PAR':           data = self -> Parallel(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            'PARALLEL':      data = self -> Parallel(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            'PERP':          data = self -> Perpendicular(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            'PERPENDICULAR': data = self -> Perpendicular(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            else: message, 'Operation not recognized: "' + parts[1] + '".'
+        endcase
+        
+        return, data
+    endif
+
+
+;-------------------------------------------------------
+;Had Data been Read? ///////////////////////////////////
+;-------------------------------------------------------
+    
+    ;If the data has not been read, then try to read it from a file.
+    if self -> HasData(name) eq 0 then self -> ReadData, name
+    
+    ;Check to see if the data has already been read first.
+    case strupcase(data_product) of
+        'AY':     data = self -> A(/Y)
+        'BX':     data = self -> B(/X)
+        'BY':     data = self -> B(/Y)
+        'BZ':     data = self -> B(/Z)
+        'EX':     data = self -> E(/X)
+        'EY':     data = self -> E(/Y)
+        'EZ':     data = self -> E(/Z)
+        'NE':     data = self -> n_e()
+        'NI':     data = self -> n_i()
+        'PE-XX':  data = self -> Pe(/TXX)
+        'PE-XY':  data = self -> Pe(/TXY)
+        'PE-XZ':  data = self -> Pe(/TXZ)
+        'PE-YX':  data = self -> Pe(/TXY)
+        'PE-YY':  data = self -> Pe(/TYY)
+        'PE-YZ':  data = self -> Pe(/TYZ)
+        'PE-ZX':  data = self -> Pe(/TXZ)
+        'PE-ZY':  data = self -> Pe(/TYZ)
+        'PE-ZZ':  data = self -> Pe(/TZZ)
+        'PI-XX':  data = self -> Pi(/TXX)
+        'PI-XY':  data = self -> Pi(/TXY)
+        'PI-XZ':  data = self -> Pi(/TXZ)
+        'PI-YX':  data = self -> Pi(/TXY)
+        'PI-YY':  data = self -> Pi(/TYY)
+        'PI-YZ':  data = self -> Pi(/TYZ)
+        'PI-ZX':  data = self -> Pi(/TXZ)
+        'PI-ZY':  data = self -> Pi(/TYZ)
+        'PI-ZZ':  data = self -> Pi(/TZZ)
+        'UEX':    data = self -> Ue(/X)
+        'UEY':    data = self -> Ue(/Y)
+        'UEZ':    data = self -> Ue(/Z)
+        'UIX':    data = self -> Ui(/X)
+        'UIY':    data = self -> Ui(/Y)
+        'UIZ':    data = self -> Ui(/Z)
+        
+        ;Custom Data Products
+        'B':     data = self ->  B(X=x, Y=y, Z=z, MAG=magnitude, PAR=parallel, PERP=perpendicular)
+        'E':     data = self ->  E(X=x, Y=y, Z=z, MAG=magnitude, PAR=parallel, PERP=perpendicular)
+        'UE':    data = self -> Ue(X=x, Y=y, Z=z, MAG=magnitude, PAR=parallel, PERP=perpendicular)
+        'UI':    data = self -> Ui(X=x, Y=y, Z=z, MAG=magnitude, PAR=parallel, PERP=perpendicular)
+        'PE':    data = self -> Pe(TXX=Txx, TXY=Txy, TXZ=Txz, TYY=Tyy, TYZ=Tyz, TZZ=Tzz, MAG=magnitude, PAR=parallel, PERP=perpendicular)
+        'PI':    data = self -> Pi(TXX=Txx, TXY=Txy, TXZ=Txz, TYY=Tyy, TYZ=Tyz, TZZ=Tzz, MAG=magnitude, PAR=parallel, PERP=perpendicular)
+        'DNG_E': data = self -> Dng_e()
+        else: message, 'Data product not available: "' + data_product + '".'
+    endcase
+    
+    ;Take the derivative?
+    if dx then data = self -> D_DX(data)
+    if dy then data = self -> D_DY(data)
+    if dz then data = self -> D_DZ(data)
+    
+    return, data
+end
+
+
+;+
+;   The purpose of this program is to read data from a ".gda" file produced by 
+;   one of Bill Daughton's simulation runs.
+;
+; :Private:
+;
+; :Params:
+;       DATA_PRODUCT:           in, required, type=string, default=
+;                               The name of the data product to be read. For a list of
+;                                   available data product, call mr_readSIM without any
+;                                   arguments.
+;
+; :Returns:
+;       TF_HAS:                  Returns 1 (true) if the requested data product has
+;                                   already been read, and 0 (false) otherwise. If the
+;                                   data product does not exist as a '.gda' data file,
+;                                   then -1 is returned.
+;-
+function MrSim2::HasData, data_product
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+;-------------------------------------------------------
+;Had Data been Read? ///////////////////////////////////
+;-------------------------------------------------------
+    tf_has = 0B
+    
+    ;Check to see if the data has already been read first.
+    case strupcase(data_product) of
+        'AY':    if n_elements(*self.Ay)        gt 0 then tf_has = 1B
+        'BX':    if n_elements(*self.Bx)        gt 0 then tf_has = 1B
+        'BY':    if n_elements(*self.By)        gt 0 then tf_has = 1B
+        'BZ':    if n_elements(*self.Bz)        gt 0 then tf_has = 1B
+        'E-':    if n_elements(*self.electrons) gt 0 then tf_has = 1B
+        'EX':    if n_elements(*self.Ex)        gt 0 then tf_has = 1B
+        'EY':    if n_elements(*self.Ey)        gt 0 then tf_has = 1B
+        'EZ':    if n_elements(*self.Ez)        gt 0 then tf_has = 1B
+        'NE':    if n_elements(*self.n_e)       gt 0 then tf_has = 1B
+        'NI':    if n_elements(*self.n_i)       gt 0 then tf_has = 1B
+        'PE-XX': if n_elements(*self.Pe_xx)     gt 0 then tf_has = 1B
+        'PE-XY': if n_elements(*self.Pe_xy)     gt 0 then tf_has = 1B
+        'PE-XZ': if n_elements(*self.Pe_xz)     gt 0 then tf_has = 1B
+        'PE-YX': if n_elements(*self.Pe_yx)     gt 0 then tf_has = 1B
+        'PE-YY': if n_elements(*self.Pe_yy)     gt 0 then tf_has = 1B
+        'PE-YZ': if n_elements(*self.Pe_yz)     gt 0 then tf_has = 1B
+        'PE-ZX': if n_elements(*self.Pe_zx)     gt 0 then tf_has = 1B
+        'PE-ZY': if n_elements(*self.Pe_zy)     gt 0 then tf_has = 1B
+        'PE-ZZ': if n_elements(*self.Pe_zz)     gt 0 then tf_has = 1B
+        'PI-XX': if n_elements(*self.Pi_xx)     gt 0 then tf_has = 1B
+        'PI-XY': if n_elements(*self.Pi_xy)     gt 0 then tf_has = 1B
+        'PI-XZ': if n_elements(*self.Pi_xz)     gt 0 then tf_has = 1B
+        'PI-YX': if n_elements(*self.Pi_yx)     gt 0 then tf_has = 1B
+        'PI-YY': if n_elements(*self.Pi_yy)     gt 0 then tf_has = 1B
+        'PI-YZ': if n_elements(*self.Pi_yz)     gt 0 then tf_has = 1B
+        'PI-ZX': if n_elements(*self.Pi_zx)     gt 0 then tf_has = 1B
+        'PI-ZY': if n_elements(*self.Pi_zy)     gt 0 then tf_has = 1B
+        'PI-ZZ': if n_elements(*self.Pi_zz)     gt 0 then tf_has = 1B
+        'UEX':   if n_elements(*self.Uex)       gt 0 then tf_has = 1B
+        'UEY':   if n_elements(*self.Uey)       gt 0 then tf_has = 1B
+        'UEZ':   if n_elements(*self.Uez)       gt 0 then tf_has = 1B
+        'UIX':   if n_elements(*self.Uix)       gt 0 then tf_has = 1B
+        'UIY':   if n_elements(*self.Uiy)       gt 0 then tf_has = 1B
+        'UIZ':   if n_elements(*self.Uiz)       gt 0 then tf_has = 1B
+        else: tf_has = -1
+    endcase
+    
+    return, tf_has
+end
+
+
+;+
+;   Compute the magnitude of a vector.
+;
+;   Calling Sequence:
+;       data = oSim -> Magnitude('E')
+;       data = oSim -> Magnitude(Ex, Ey, Ez)
+;
+; :Params:
+;       VX:             in, required, type=string,fltarr(N\,M)
+;                       Either the name or x-component of a vector quantity for which
+;                           the magnitude is to be found.
+;       VY:             in, optional, type=fltarr(N\,M)
+;                       If `VX` is an array, then VY represents the y-component of the
+;                           vector quantity for which the magnitude is to be computed.
+;       VZ:             in, optional, type=fltarr(N\,M)
+;                       If `VX` is an array, then VZ represents the z-component of the
+;                           vector quantity for which the magnitude is to be computed.
+;
+; :Returns:
+;       VMAG:           Magnitude of the vector quantity.
+;-
+function MrSim2::Magnitude, vx, vy, vz
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Was a name or data given?
+    if MrIsA(vx, 'STRING') then begin
+        names = vx
+    
+        ;Get the data
+        _vx = self -> GetData(name, /X)
+        vy  = self -> GetData(name, /Y)
+        vz  = self -> GetData(name, /Z)
+    endif else begin
+        _vx = vx
+    endelse
+    
+    ;Compute the magnitude
+    vmag = sqrt(_vx^2 + vy^2 + vz^2)
+    
+    return, vmag
+end
+
+
+;+
+;   Compute the component of a vector parallel to another vector.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           for which the component parallel to `V2` is to be determined.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity indicating
+;                           the parallel direction.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, only the x-components will be used.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, only the y-components will be used.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, only the z-components will be used.
+;
+; :Returns:
+;       V1_PAR:         The component of `V1` parallel to `V2`.
+;-
+function MrSim2::Parallel, v1, v2, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_v1) then ptr_free, _v1
+        if ptr_valid(_v2) then ptr_free, _v2
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _v1 = ptr_new(self -> GetData(v1)) $
+        else _v1 = ptr_new(v1)
+        
+    if MrIsA(v2, 'STRING') $
+        then _v2 = ptr_new(self -> GetData(v2)) $
+        else _v2 = ptr_new(v2)
+    
+    ;Get Data
+    v2_mag = sqrt(total(*_v2^2, 3))
+    
+    ;Components
+    ;   par_x = vx * fx_hat
+    ;   par_y = vy * fy_hat
+    ;   par_z = vz * fz_hat
+    case 1 of
+        x:    v_par =   (*_v1)[*,*,0] * (*_v2)[*,*,0] / temporary(v2_mag))
+        y:    v_par =   (*_v1)[*,*,1] * (*_v2)[*,*,1] / temporary(v2_mag))
+        z:    v_par =   (*_v1)[*,*,2] * (*_v2)[*,*,2] / temporary(v2_mag))
+        else: v_par = ( (*_v1)[*,*,0] * (*_v2)[*,*,0] + $
+                        (*_v1)[*,*,1] * (*_v2)[*,*,1] + $
+                        (*_v1)[*,*,2] * (*_v2)[*,*,2] ) / temporary(v2_mag)
+    endcase
+    
+    ;Free the pointers
+    ptr_free, _v1
+    ptr_free, _v2
+    
+    return, v_par
+end
+
+
+;+
+;   Compute the component of a vector perpendicular to another vector.
+;
+; :Params:
+;       DATA:               in, required, type=NxM float
+;                           The data of which the derivative will be taken.
+;
+; :Keywords:
+;       OVERWRITE:          in, optional, type=boolean, default=0
+;                           If set, the derivative will overwrite `DATA` and avoids
+;                               having an extra copy in memory.
+;
+; :Returns:
+;       DERIVATIVE:         The derivative of `DATA` with respect to X
+;-
+function MrSim2::Perpendicular, v1, v2, $
+FIELD=field
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_v1) then ptr_free, _v1
+        if ptr_valid(_v2) then ptr_free, _v2
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Compute the parallel component
+    v1_par  = self -> Parallel(v1, v2)
+    
+    ;Get the data
+    ;   - Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _v1 = ptr_new(self -> GetData(v1)) $
+        else _v1 = ptr_new(v1)
+        
+    if MrIsA(v2, 'STRING') $
+        then _v2 = ptr_new(self -> GetData(v2)) $
+        else _v2 = ptr_new(v2)
+        
+    ;Find the perpendicular component
+    v1_mag2 = total(*_v1^2, 3)
+    v1_perp = sqrt(v_mag2 - v_par^2)
+    
+    ;Free pointers
+    ptr_free, _v1
+    ptr_free, _v2
+    
+    ;Perpendicular component
+    return, v_perp 
+end
+
+
+;+
+;   The purpose of this program is to read data from a ".gda" file. It must be
+;   over-ridden and, at the end, must store the data via the SetData method.
+;
+; :Private:
+;
+; :Params:
+;       NAME:                   in, required, type=string, default=
+;                               The name of the ".gda" data file (without the ".gda"
+;                                   file extension). GDA files are typically named after
+;                                   the parameter whose data they contain.
+;-
+pro MrSim2::ReadData, name
+    compile_opt strictarr
+
+    ;Catch any errors
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return
+    endif
+
+    message, 'This method must be over-ridden by a subclass object.'
+end
+
+
+;+
+;   The purpose of this method is to store the data in the object.
+;
+; :Private:
+;
+; :Keywods:
+;       NAME:           in, required, type=string, default=
+;                       The name of the ".gda" data file (without the ".gda"
+;                           file extension). GDA files are typically named after
+;                           the parameter whose data they contain.
+;       DATA:           in, required, type=any
+;                       The data to be stored.
+;-
+pro MrSim2::SetData, name, data
+    compile_opt strictarr
+
+    ;Catch any errors
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return
+    endif
+    
+    ;Store the data in the proper location
+    case strupcase(name) of
+        'AY':    *self.Ay = data
+        'BX':    *self.Bx = data
+        'BY':    *self.By = data
+        'BZ':    *self.Bz = data
+        'EX':    *self.Ex = data
+        'EY':    *self.Ey = data
+        'EZ':    *self.Ez = data
+        'NE':    *self.n_e = data
+        'NI':    *self.n_i = data
+        'PE-XX': *self.Pe_xx = data
+        'PE-XY': *self.Pe_xy = data
+        'PE-XZ': *self.Pe_xz = data
+        'PE-YX': *self.Pe_yx = data
+        'PE-YY': *self.Pe_yy = data
+        'PE-YZ': *self.Pe_yz = data
+        'PE-ZX': *self.Pe_zx = data
+        'PE-ZY': *self.Pe_zy = data
+        'PE-ZZ': *self.Pe_zz = data
+        'PI-XX': *self.Pi_xx = data
+        'PI-XY': *self.Pi_xy = data
+        'PI-XZ': *self.Pi_xz = data
+        'PI-YX': *self.Pi_yx = data
+        'PI-YY': *self.Pi_yy = data
+        'PI-YZ': *self.Pi_yz = data
+        'PI-ZX': *self.Pi_zx = data
+        'PI-ZY': *self.Pi_zy = data
+        'PI-ZZ': *self.Pi_zz = data
+        'UEX':   *self.Uex = data
+        'UEY':   *self.Uey = data
+        'UEZ':   *self.Uez = data
+        'UIX':   *self.Uix = data
+        'UIY':   *self.Uiy = data
+        'UIZ':   *self.Uiz = data
+        else: message, 'Data "' + name + '" is cannot be set.'
+    endcase
+end
+
+
 ;+
 ;   The purpose of this program is to calculate the electron plasma beta::
 ;       \beta_{e} = \frac{Tr(P_{e})} {B^{2} / {2 \mu_{0}}
@@ -169,6 +984,8 @@ end
 ;       BETA_E:                 The electron beta.
 ;-
 function MrSim2_Data::A, $
+CROSS=cross, $
+DOT=dot, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
@@ -199,15 +1016,48 @@ end
 
 
 ;+
-;   The purpose of this program is to calculate the electron plasma beta::
-;       \beta_{e} = \frac{Tr(P_{e})} {B^{2} / {2 \mu_{0}}
+;   Return various data products associated with the magnetic field.
 ;
 ; :Private:
 ;
+; :Keywords:
+;       CROSS:              in, optional, type=boolean/string, default=0/''
+;                           If set, the cross product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the cross product with the quantity specified will
+;                               be returned.
+;       DOT:                in, optional, type=boolean/string, default=0/''
+;                           If set, the dot product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the dot product with the quantity specified will
+;                               be returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude is returned.
+;       VECTOR:             in, optional, type=boolean, default=0
+;                           If set, all three components of the electric field will be
+;                               returned in an NxMx3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       X:                  in, optional, type=boolean, default=0
+;                           If set, the X-component is returned.
+;       Y:                  in, optional, type=boolean, default=0
+;                           If set, the Y-component is returned.
+;       Z:                  in, optional, type=boolean, default=0
+;                           If set, the Z-component is returned.
+;
 ; :Returns:
-;       BETA_E:                 The electron beta.
+;       DATA:               Magnetic field data.
 ;-
 function MrSim2_Data::B, $
+CROSS=cross, $
+DOT=dot, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
@@ -219,65 +1069,100 @@ Z=z
     on_error, 2
     
     ;Defaults
-    magnitude     = keyword_set(magnitude)
-    parallel      = keyword_set(parallel)
-    perpendicular = keyword_set(perpendicular)
-    vec           = keyword_set(vec)
-    x             = keyword_set(x)
-    y             = keyword_set(y)
-    z             = keyword_set(z)
+    tf_cross  = keyword_set(cross)
+    tf_dot    = keyword_set(dot)
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    vec       = keyword_set(vec)
+    x         = keyword_set(x)
+    y         = keyword_set(y)
+    z         = keyword_set(z)
     
     ;If nothing was chosen, return the vector.
-    vec = vec || (x + y + z + perpendicular + parallel + magnitude) eq 0
+    vec = vec || (x + y + z + tf_cross + tf_dot + tf_perp + tf_par + magnitude) eq 0
     if vec then begin
         x = 1
         y = 1
         z = 1
     endif
+
+    ;Parallel & perpendicular to what?
+    dotName   = MrIsA(dot,           'STRING') ? dot           : 'B'
+    crossName = MrIsA(cross,         'STRING') ? cross         : 'B'
+    parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
-    ;B cannot be perpendicular to B
-    ;   - Keep in mind that the direction parallel to B is B
-    if perpendicular then message, 'The direction of B perpendicular to B is 0 always.'
-    
-    ;Bx
-    if magnitude || parallel || x $
-        then if n_elements(*self.Bx) eq 0 then self -> ReadData, 'Bx'
-    
-    ;By
-    if magnitude || parallel || y $
-        then if n_elements(*self.By) eq 0 then self -> ReadData, 'By'
-    
-    ;Bz
-    if magnitude || parallel || z $
-        then if n_elements(*self.Bz) eq 0 then self -> ReadData, 'Bz'
-    
-    ;Magnitude
-    if magnitude || parallel then Bmag = sqrt(*self.Bx^2 + *self.By^2 + *self.Bz^2)
+    ;[XYZ]-Components
+    if x then if n_elements(*self.Bx) eq 0 then self -> ReadData, 'Bx'
+    if y then if n_elements(*self.By) eq 0 then self -> ReadData, 'By'
+    if z then if n_elements(*self.Bz) eq 0 then self -> ReadData, 'Bz'
     
     ;Return the proper quantity
     case 1 of
+        magnitude: return, self -> Magnitude('B')
+        tf_cross:  return, self -> CrossProduct('B', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> DotProduct('B', dotName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Parallel( 'B', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Perpendicular('B', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
         vec:       return, [[[*self.Bx]], [[*self.By]], [[*self.Bz]]]
-        magnitude: return, Bmag
-        parallel:  return, Bmag
         x:         return, *self.Bx
         y:         return, *self.By
         z:         return, *self.Bz
-        else:      ;Do nothing
     endcase
 end
 
 
 ;+
-;   The purpose of this program is to calculate the electron plasma beta::
-;       \beta_{e} = \frac{Tr(P_{e})} {B^{2} / {2 \mu_{0}}
+;   The purpose of this program is to return various data products associated with
+;   the electric field.
 ;
 ; :Private:
 ;
+; :Keywords;
+;       CROSS:              in, optional, type=boolean/string, default=0/''
+;                           If set, the cross product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the cross product with the quantity specified will
+;                               be returned.
+;       DOT:                in, optional, type=boolean/string, default=0/''
+;                           If set, the dot product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the dot product with the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude of E will be returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       VECTOR:             in, optional, type=boolean, default=0
+;                           If set, all three components of the electric field will be
+;                               returned in an NxMx3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       X:                  in, optional, type=boolean, default=0
+;                           If set, the X-component of the electric field is returned.
+;       Y:                  in, optional, type=boolean, default=0
+;                           If set, the Y-component of the electric field is returned.
+;       Z:                  in, optional, type=boolean, default=0
+;                           If set, the Z-component of the electric field is returned.
+;
 ; :Returns:
-;       BETA_E:                 The electron beta.
+;       DATA:               Electric field data.
 ;-
 function MrSim2_Data::E, $
-DESTROY=destroy, $
+CROSS=cross, $
+DOT=dot, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
@@ -289,57 +1174,59 @@ Z=z
     on_error, 2
     
     ;Defaults
-    magnitude     = keyword_set(magnitude)
-    parallel      = keyword_set(parallel)
-    perpendicular = keyword_set(perpendicular)
-    vec           = keyword_set(vec)
-    x             = keyword_set(x)
-    y             = keyword_set(y)
-    z             = keyword_set(z)
+    tf_cross  = keyword_set(cross)
+    tf_dot    = keyword_set(dot)
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    vec       = keyword_set(vec)
+    x         = keyword_set(x)
+    y         = keyword_set(y)
+    z         = keyword_set(z)
     
     ;If nothing was chosen, return the vector.
-    vec = vec || (x + y + z + perpendicular + parallel + magnitude) eq 0
+    vec = vec || (x + y + z + tf_cross + tf_dot + tf_par + tf_perp + magnitude) eq 0
     if vec then begin
         x = 1
         y = 1
         z = 1
     endif
+
+    ;Parallel & perpendicular to what?
+    dotName   = MrIsA(dot,           'STRING') ? dot           : 'B'
+    crossName = MrIsA(cross,         'STRING') ? cross         : 'B'
+    parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
-    ;Ex
-    if magnitude || parallel || perpendicular || x $
-        then if n_elements(*self.Ex) eq 0 then self -> ReadData, 'Ex'
-    
-    ;Ey
-    if magnitude || parallel || perpendicular || y $
-        then if n_elements(*self.Ey) eq 0 then self -> ReadData, 'Ey'
-    
-    ;Ez
-    if magnitude || parallel || perpendicular || z $
-        then if n_elements(*self.Ez) eq 0 then self -> ReadData, 'Ez'
+    ;Components
+    if x then if n_elements(*self.Ex) eq 0 then self -> ReadData, 'Ex'
+    if y then if n_elements(*self.Ey) eq 0 then self -> ReadData, 'Ey'
+    if z then if n_elements(*self.Ez) eq 0 then self -> ReadData, 'Ez'
     
     ;Return
     ;   - The order is crucial.
     case 1 of
-        vec:           return, [[[*self.Ex], [*self.Ey], [*self.Ez]]]
-        parallel:      return, self -> Parallel(Ex, Ey, Ez, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        perpendicular: return, self -> Perpendicular(Ex, Ey, Ez, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        magnitude:     return, sqrt(*self.Ex^2 + *self.Ey^2 + *self.Ez^2)
-        x:             return, *self.Ex
-        y:             return, *self.Ey
-        z:             return, *self.Ez
-        else:          ;Not possible
+        magnitude: return, self -> Magnitude('E')
+        tf_cross:  return, self -> CrossProduct('E', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> DotProduct('E', dotName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Parallel('E', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Perpendicular('E', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        vec:       return, [[[*self.Ex], [*self.Ey], [*self.Ez]]]
+        x:         return, *self.Ex
+        y:         return, *self.Ey
+        z:         return, *self.Ez
+        else:      ;Not possible
     endcase
 end
 
 
 ;+
-;   The purpose of this program is to calculate the electron plasma beta::
-;       \beta_{e} = \frac{Tr(P_{e})} {B^{2} / {2 \mu_{0}}
+;   Return the ion density.
 ;
 ; :Private:
 ;
 ; :Returns:
-;       BETA_E:                 The electron beta.
+;       n_i:                Ion density data.
 ;-
 function MrSim2_Data::n_i
     compile_opt strictarr, hidden
@@ -352,13 +1239,12 @@ end
 
 
 ;+
-;   The purpose of this program is to calculate the electron plasma beta::
-;       \beta_{e} = \frac{Tr(P_{e})} {B^{2} / {2 \mu_{0}}
+;   Return the ion density.
 ;
 ; :Private:
 ;
 ; :Returns:
-;       BETA_E:                 The electron beta.
+;       n_e:                Electron density data.
 ;-
 function MrSim2_Data::n_e
     compile_opt strictarr, hidden
@@ -371,18 +1257,50 @@ end
 
 
 ;+
-;   The purpose of this program is to calculate the electron plasma beta::
-;       \beta_{e} = \frac{Tr(P_{e})} {B^{2} / {2 \mu_{0}}
+;   Return various data products associated with the electron pressure tensor.
 ;
 ; :Private:
 ;
+; :Keywords;
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude is returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       TENSOR:             in, optional, type=boolean, default=0
+;                           If set, an upper-diagonal matrix of tensor components will be
+;                               returned in an NxMx3x3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       TXX:                in, optional, type=boolean, default=0
+;                           If set, the Txx-component of the electron pressure is returned.
+;       TXY:                in, optional, type=boolean, default=0
+;                           If set, the Txy-component of the electron pressure is returned.
+;       TXZ:                in, optional, type=boolean, default=0
+;                           If set, the Txz-component of the electron pressure is returned.
+;       TYY:                in, optional, type=boolean, default=0
+;                           If set, the Tyy-component of the electron pressure is returned.
+;       TYZ:                in, optional, type=boolean, default=0
+;                           If set, the Tyz-component of the electron pressure is returned.
+;       TZZ:                in, optional, type=boolean, default=0
+;                           If set, the Tzz-component of the electron pressure is returned.
+;
 ; :Returns:
-;       BETA_E:                 The electron beta.
+;       DATA:               Electron pressure tensor data.
 ;-
 function MrSim2_Data::Pe, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
+TENSOR=tensor, $
 TXX=Txx, $
 TXY=Txy, $
 TXZ=Txz, $
@@ -393,60 +1311,116 @@ TZZ=Tzz
     compile_opt strictarr, hidden
     on_error, 2
     
-    ;Pe-xx
-    if magnitude || parallel || perpendicular || Txx $
-        then if n_elements(*self.Pe_xx) eq 0 then self -> ReadData, 'Pe-xx'
+    ;Defaults
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    tensor    = keyword_set(tensor)
+    Txx       = keyword_set(Txx)
+    Txy       = keyword_set(Txy)
+    Txz       = keyword_set(Txz)
+    Tyy       = keyword_set(Tyy)
+    Tyz       = keyword_set(Tyz)
+    Tzz       = keyword_set(Tzz)
+
+    ;Parallel & perpendicular to what?
+    parName  = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
-    ;Pe-xy
-    if magnitude || parallel || perpendicular || Txy $
-        then if n_elements(*self.Pe_xy) eq 0 then self -> ReadData, 'Pe-xy'
+    ;If nothing was chosen, return the tensor.
+    tensor = tensor || (Txx + Txy + Txz + Tyy + Tyz + Tzz + tf_par + tf_perp + magnitude) eq 0
+    if vec then begin
+        Txx = 1
+        Txy = 1
+        Txz = 1
+        Tyy = 1
+        Tyz = 1
+        Tzz = 1
+    endif
     
-    ;Pe-xz
-    if magnitude || parallel || perpendicular || Txz $
-        then if n_elements(*self.Pe_xz) eq 0 then self -> ReadData, 'Pe-xz'
-    
-    ;Pe-yy
-    if magnitude || parallel || perpendicular || Tyy $
-        then if n_elements(*self.Pe_yy) eq 0 then self -> ReadData, 'Pe-yy'
-    
-    ;Pe-yz
-    if magnitude || parallel || perpendicular || Tyz $
-        then if n_elements(*self.Pe_yz) eq 0 then self -> ReadData, 'Pe-yz'
-    
-    ;Pe-zz
-    if magnitude || parallel || perpendicular || Tzz $
-        then if n_elements(*self.Pe_zz) eq 0 then self -> ReadData, 'Pe-zz'
+    ;Tensor components
+    if Txx then if n_elements(*self.Pe_xx) eq 0 then self -> ReadData, 'Pe-xx'
+    if Txy then if n_elements(*self.Pe_xy) eq 0 then self -> ReadData, 'Pe-xy'
+    if Txz then if n_elements(*self.Pe_xz) eq 0 then self -> ReadData, 'Pe-xz'
+    if Tyy then if n_elements(*self.Pe_yy) eq 0 then self -> ReadData, 'Pe-yy'
+    if Tyz then if n_elements(*self.Pe_yz) eq 0 then self -> ReadData, 'Pe-yz'
+    if Tzz then if n_elements(*self.Pe_zz) eq 0 then self -> ReadData, 'Pe-zz'
     
     ;Return
     ;   - The order is crucial.
     case 1 of
-        parallel:      return, self -> Tensor_Par(Pe_xx, Pe_xy, Pe_xz, Pe_yy, Pe_yz, Pe_zz, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        perpendicular: return, self -> Tensor_Perp(Pe_xx, Pe_xy, Pe_xz, Pe_yy, Pe_yz, Pe_zz, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        magnitude:     return, (*self.Pe_xx + *self.Pe_yy + *self.Pe_zz) / 3.0
+        parallel:      return, self -> Tensor_Par('Pe', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        perpendicular: return, self -> Tensor_Perp('Pe', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        magnitude:     return, self -> Tensor_Mag('Pe')
         Txx:           return, *self.Pe_xx
         Txy:           return, *self.Pe_xy
         Txz:           return, *self.Pe_xz
         Tyy:           return, *self.Pe_yy
         Tyz:           return, *self.Pe_yz
         Tzz:           return, *self.Pe_zz
-        else:          ;Not possible
+        tensor: begin
+            ;Allocate memory
+            dims = size(*self.Pe_xx, /DIMENSIONS)
+            data = fltarr(dims[0], dims[1], 3, 3)
+            
+            ;Create the data product
+            data[*,0,0] = *self.Pe_xx
+            data[*,0,1] = *self.Pe_xy
+            data[*,0,2] = *self.Pe_xz
+            data[*,1,1] = *self.Pe_yy
+            data[*,1,2] = *self.Pe_yz
+            data[*,2,2] = *self.Pe_zz
+            return, data
+        endcase
     endcase
 end
 
 
 ;+
-;   The purpose of this program is to calculate the electron plasma beta::
-;       \beta_{e} = \frac{Tr(P_{e})} {B^{2} / {2 \mu_{0}}
+;   Return various data products associated with the electron pressure tensor.
 ;
 ; :Private:
 ;
+; :Keywords;
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude is returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       TENSOR:             in, optional, type=boolean, default=0
+;                           If set, an upper-diagonal matrix of tensor components will be
+;                               returned in an NxMx3x3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       TXX:                in, optional, type=boolean, default=0
+;                           If set, the Txx-component of the ion pressure is returned.
+;       TXY:                in, optional, type=boolean, default=0
+;                           If set, the Txy-component of the ion pressure is returned.
+;       TXZ:                in, optional, type=boolean, default=0
+;                           If set, the Txz-component of the ion pressure is returned.
+;       TYY:                in, optional, type=boolean, default=0
+;                           If set, the Tyy-component of the ion pressure is returned.
+;       TYZ:                in, optional, type=boolean, default=0
+;                           If set, the Tyz-component of the ion pressure is returned.
+;       TZZ:                in, optional, type=boolean, default=0
+;                           If set, the Tzz-component of the ion pressure is returned.
+;
 ; :Returns:
-;       BETA_E:                 The electron beta.
+;       DATA:               Ion pressure tensor data.
 ;-
 function MrSim2_Data::Pi, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
+TENSOR=tensor, $
 TXX=Txx, $
 TXY=Txy, $
 TXZ=Txz, $
@@ -457,134 +1431,431 @@ TZZ=Tzz
     compile_opt strictarr, hidden
     on_error, 2
     
-    ;Pi-xx
-    if magnitude || parallel || perpendicular || Txx $
-        then if n_elements(*self.Pi_xx) eq 0 then self -> ReadData, 'Pi-xx'
+    ;Defaults
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    tensor    = keyword_set(tensor)
+    Txx       = keyword_set(Txx)
+    Txy       = keyword_set(Txy)
+    Txz       = keyword_set(Txz)
+    Tyy       = keyword_set(Tyy)
+    Tyz       = keyword_set(Tyz)
+    Tzz       = keyword_set(Tzz)
+
+    ;Parallel & perpendicular to what?
+    parName  = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
-    ;Pi-xy
-    if magnitude || parallel || perpendicular || Txy $
-        then if n_elements(*self.Pi_xy) eq 0 then self -> ReadData, 'Pi-xy'
+    ;If nothing was chosen, return the tensor.
+    tensor = tensor || (Txx + Txy + Txz + Tyy + Tyz + Tzz + tf_par + tf_perp + magnitude) eq 0
+    if vec then begin
+        Txx = 1
+        Txy = 1
+        Txz = 1
+        Tyy = 1
+        Tyz = 1
+        Tzz = 1
+    endif
     
-    ;Pi-xz
-    if magnitude || parallel || perpendicular || Txz $
-        then if n_elements(*self.Pi_xz) eq 0 then self -> ReadData, 'Pi-xz'
-    
-    ;Pi-yy
-    if magnitude || parallel || perpendicular || Tyy $
-        then if n_elements(*self.Pi_yy) eq 0 then self -> ReadData, 'Pi-yy'
-    
-    ;Pi-yz
-    if magnitude || parallel || perpendicular || Tyz $
-        then if n_elements(*self.Pi_yz) eq 0 then self -> ReadData, 'Pi-yz'
-    
-    ;Pi-zz
-    if magnitude || parallel || perpendicular || Tzz $
-        then if n_elements(*self.Pi_zz) eq 0 then self -> ReadData, 'Pi-zz'
+    ;Tensor components
+    if Txx then if n_elements(*self.Pi_xx) eq 0 then self -> ReadData, 'Pi-xx'
+    if Txy then if n_elements(*self.Pi_xy) eq 0 then self -> ReadData, 'Pi-xy'
+    if Txz then if n_elements(*self.Pi_xz) eq 0 then self -> ReadData, 'Pi-xz'
+    if Tyy then if n_elements(*self.Pi_yy) eq 0 then self -> ReadData, 'Pi-yy'
+    if Tyz then if n_elements(*self.Pi_yz) eq 0 then self -> ReadData, 'Pi-yz'
+    if Tzz then if n_elements(*self.Pi_zz) eq 0 then self -> ReadData, 'Pi-zz'
     
     ;Return
     ;   - The order is crucial.
     case 1 of
-        parallel:      return, self -> Tensor_Par(Pi_xx, Pi_xy, Pi_xz, Pi_yy, Pi_yz, Pi_zz, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        perpendicular: return, self -> Tensor_Pirp(Pi_xx, Pi_xy, Pi_xz, Pi_yy, Pi_yz, Pi_zz, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        magnitude:     return, (*self.Pi_xx + *self.Pi_yy + *self.Pi_zz) / 3.0
+        parallel:      return, self -> Tensor_Par('Pi', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        perpendicular: return, self -> Tensor_Pirp('Pi', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        magnitude:     return, self -> Tensor_Mag('Pi')
         Txx:           return, *self.Pi_xx
         Txy:           return, *self.Pi_xy
         Txz:           return, *self.Pi_xz
         Tyy:           return, *self.Pi_yy
         Tyz:           return, *self.Pi_yz
         Tzz:           return, *self.Pi_zz
-        else:          ;Not possible
+        tensor: begin
+            ;Allocate memory
+            dims = size(*self.Pi_xx, /DIMENSIONS)
+            data = fltarr(dims[0], dims[1], 3, 3)
+            
+            ;Create the data product
+            data[*,0,0] = *self.Pi_xx
+            data[*,0,1] = *self.Pi_xy
+            data[*,0,2] = *self.Pi_xz
+            data[*,1,1] = *self.Pi_yy
+            data[*,1,2] = *self.Pi_yz
+            data[*,2,2] = *self.Pi_zz
+            return, data
+        endcase
     endcase
 end
 
 
 ;+
-;   The purpose of this program is to calculate the electron plasma beta::
-;       \beta_{e} = \frac{Tr(P_{e})} {B^{2} / {2 \mu_{0}}
+;   Return various data products associated with the ion bulk velocity.
 ;
 ; :Private:
 ;
+; :Keywords:
+;       CROSS:              in, optional, type=boolean/string, default=0/''
+;                           If set, the cross product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the cross product with the quantity specified will
+;                               be returned.
+;       DOT:                in, optional, type=boolean/string, default=0/''
+;                           If set, the dot product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the dot product with the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude is returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       VECTOR:             in, optional, type=boolean, default=0
+;                           If set, all three components of the electric field will be
+;                               returned in an NxMx3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       X:                  in, optional, type=boolean, default=0
+;                           If set, the X-component is returned.
+;       Y:                  in, optional, type=boolean, default=0
+;                           If set, the Y-component is returned.
+;       Z:                  in, optional, type=boolean, default=0
+;                           If set, the Z-component is returned.
+;
 ; :Returns:
-;       BETA_E:                 The electron beta.
+;       DATA:               Ion bulk velocity data.
 ;-
 function MrSim2_Data::Ui, $
+CROSS=cross, $
+DOT=dot, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
+VECTOR=vec, $
 X=x, $
 Y=y, $
 Z=z
     compile_opt strictarr, hidden
     on_error, 2
     
-    ;Uix
-    if magnitude || parallel || perpendicular || x $
-        then if n_elements(*self.Uix) eq 0 then self -> ReadData, 'Uix'
+    ;Defaults
+    tf_cross  = keyword_set(cross)
+    tf_dot    = keyword_set(dot)
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    vec       = keyword_set(vec)
+    x         = keyword_set(x)
+    y         = keyword_set(y)
+    z         = keyword_set(z)
     
-    ;Uiy
-    if magnitude || parallel || perpendicular || y $
-        then if n_elements(*self.Uiy) eq 0 then self -> ReadData, 'Uiy'
+    ;If nothing was chosen, return the vector.
+    vec = vec || (x + y + z + tf_cross + tf_dot + tf_perp + tf_par + magnitude) eq 0
+    if vec then begin
+        x = 1
+        y = 1
+        z = 1
+    endif
+
+    ;Parallel & perpendicular to what?
+    dotName   = MrIsA(dot,           'STRING') ? dot           : 'B'
+    crossName = MrIsA(cross,         'STRING') ? cross         : 'B'
+    parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
-    ;Uiz
-    if magnitude || parallel || perpendicular || z $
-        then if n_elements(*self.Uiz) eq 0 then self -> ReadData, 'Uiz'
+    ;[XYZ]-Components
+    if x then if n_elements(*self.Uix) eq 0 then self -> ReadData, 'Uix'
+    if y then if n_elements(*self.Uiy) eq 0 then self -> ReadData, 'Uiy'
+    if z then if n_elements(*self.Uiz) eq 0 then self -> ReadData, 'Uiz'
     
     ;Which to return?
     ;   - The order is crucial.
     case 1 of
-        parallel:      return, self -> Parallel(*self.Uix, *self.Uiy, *self.Uiz, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        perpendicular: return, self -> Perpendicular(*self.Uix, *self.Uiy, *self.Uiz, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        magnitude:     return, sqrt(*self.Uix^2 + *self.Uiy^2 + *self.Uiz^2)
-        x:             return, *self.Uix
-        y:             return, *self.Uiy
-        z:             return, *self.Uiz
-        else:          ;Not possible
+        magnitude: return, self -> Magnitude('Ui')
+        tf_cross:  return, self -> CrossProduct('Ui', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> DotProduct('Ui', dotName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Parallel( 'Ui', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Perpendicular('Ui', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        vec:       return, [[[*self.Uix]], [[*self.Uiy]], [[*self.Uiz]]]
+        x:         return, *self.Uix
+        y:         return, *self.Uiy
+        z:         return, *self.Uiz
     endcase
 end
 
 
 ;+
-;   The purpose of this program is to calculate the electron plasma beta::
-;       \beta_{e} = \frac{Tr(P_{e})} {B^{2} / {2 \mu_{0}}
+;   Return various data products associated with the electron bulk velocity.
 ;
 ; :Private:
 ;
+; :Keywords:
+;       CROSS:              in, optional, type=boolean/string, default=0/''
+;                           If set, the cross product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the cross product with the quantity specified will
+;                               be returned.
+;       DOT:                in, optional, type=boolean/string, default=0/''
+;                           If set, the dot product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the dot product with the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude is returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       PERPENDICULAR:      in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       VECTOR:             in, optional, type=boolean, default=0
+;                           If set, all three components of the electric field will be
+;                               returned in an NxMx3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       X:                  in, optional, type=boolean, default=0
+;                           If set, the X-component is returned.
+;       Y:                  in, optional, type=boolean, default=0
+;                           If set, the Y-component is returned.
+;       Z:                  in, optional, type=boolean, default=0
+;                           If set, the Z-component is returned.
+;
 ; :Returns:
-;       BETA_E:                 The electron beta.
+;       DATA:               Electron bulk velocity data.
 ;-
 function MrSim2_Data::Ue, $
+CROSS=cross, $
+DOT=dot, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
+VECTOR=vec, $
 X=x, $
 Y=y, $
 Z=z
     compile_opt strictarr, hidden
     on_error, 2
     
-    ;Uex
-    if magnitude || parallel || perpendicular || x then begin
-        then if n_elements(*self.Uex) eq 0 then self -> ReadData, 'Uex'
+    ;Defaults
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    vec       = keyword_set(vec)
+    x         = keyword_set(x)
+    y         = keyword_set(y)
+    z         = keyword_set(z)
     
-    ;Uey
-    if magnitude || parallel || perpendicular || y then begin
-        then if n_elements(*self.Uey) eq 0 then self -> ReadData, 'Uey'
+    ;If nothing was chosen, return the vector.
+    vec = vec || (x + y + z + tf_cross + tf_dot + tf_perp + tf_par + magnitude) eq 0
+    if vec then begin
+        x = 1
+        y = 1
+        z = 1
+    endif
+
+    ;Parallel & perpendicular to what?
+    dotName   = MrIsA(dot,           'STRING') ? dot           : 'B'
+    crossName = MrIsA(cross,         'STRING') ? cross         : 'B'
+    parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
-    ;Uez
-    if magnitude || parallel || perpendicular || z then begin
-        then if n_elements(*self.Uez) eq 0 then self -> ReadData, 'Uez'
+    if x then if n_elements(*self.Uex) eq 0 then self -> ReadData, 'Uex'
+    if y then if n_elements(*self.Uey) eq 0 then self -> ReadData, 'Uey'
+    if z then if n_elements(*self.Uez) eq 0 then self -> ReadData, 'Uez'
     
-    ;Return
+    ;Which to return?
     ;   - The order is crucial.
     case 1 of
-        parallel:      return, self -> Parallel(*self.Uex, *self.Uey, *self.Uez, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        perpendicular: return, self -> Perpendicular(*self.Uex, *self.Uey, *self.Uez, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        magnitude:     return, sqrt(*self.Uex^2 + *self.Uey^2 + *self.Uez^2)
-        x:             return, *self.Uex
-        y:             return, *self.Uey
-        z:             return, *self.Uez
-        else:          ;Not possible
+        magnitude: return, self -> Magnitude('Ue')
+        tf_cross:  return, self -> CrossProduct('B', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> DotProduct('B', dotName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Parallel( 'Ue', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Perpendicular('Ue', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        vec:       return, [[[*self.Uex]], [[*self.Uey]], [[*self.Uez]]]
+        x:         return, *self.Uex
+        y:         return, *self.Uey
+        z:         return, *self.Uez
     endcase
+end
+
+
+;+
+;   Compute the electron anisotropy, valid where the plasma is mostly isotropic::
+;
+;       An_{e} = \frac{ P_{e \bot} } { P_{e \parallel} }
+;-
+function MrSim::An_e
+    compile_opt strictarr, hidden
+    on_error, 2
+    
+    ;Gather data
+    P_par  = self -> GetData('Pe_par')
+    P_perp = self -> GetData('Pe_perp')
+    
+    ;Compute the anisotropy
+    e_An = P_par / P_perp
+    
+    return, e_An
+end
+
+
+;+
+;   Compute the electron Agyrotropy
+;
+;       An_{e} = \frac{ P_{e \bot} } { P_{e \parallel} }
+;
+;   Reference::
+;       Scudder, J., and W. Daughton (2008), “Illuminating” electron diffusion regions of
+;           collisionless magnetic reconnection using electron agyrotropy, 
+;           J. Geophys. Res., 113, A06222, doi:10.1029/2008JA013035.
+;-
+function MrSim::A0_e
+    compile_opt strictarr, hidden
+    on_error, 2
+    
+    ;Gather data
+    Bx = self -> GetData('Bx')
+    By = self -> GetData('By')
+    Bz = self -> GetData('Bz')
+    Pe_xx = self -> GetData('Pe-xx')
+    Pe_xy = self -> GetData('Pe-xy')
+    Pe_xz = self -> GetData('Pe-xz')
+    Pe_yy = self -> GetData('Pe-yy')
+    Pe_yz = self -> GetData('Pe-yz')
+    Pe_zz = self -> GetData('Pe-zz')
+    
+    ;Magnitude and direction of magnetic field
+    Bmag  = sqrt(Bx^2 + By^2 + Bz^2)
+    bx = temporary(Bx) / Bmag
+    by = temporary(By) / Bmag
+    bz = temporary(Bz) / temporary(Bmag)
+    
+    ;Weighted average of dispersions of velocity vectors perpendicular to the magnetic
+    ;field in the electron's zero moment frame.
+    Nxx =  by*by*Pe_zz - 2.0*by*bz*Pe_yz + bz*bz*Pe_yy
+    Nxy = -by*bx*Pe_zz +     by*bz*Pe_xz + bz*bx*Pe_yz - bz*bz*Pe_xy
+    Nxz =  by*bx*Pe_yz -     by*by*Pe_xz - bz*bx*Pe_yy + bz*by*Pe_xy
+    Nyy =  bx*bx*Pe_zz - 2.0*bx*bz*Pe_xz + bz*bz*Pe_xx
+    Nyz = -bx*bx*Pe_yz +     bx*by*Pe_xz + bz*bx*Pe_xy - bz*by*Pe_xx
+    Nzz =  bx*bx*Pe_yy - 2.0*bx*by*Pe_xy + by*by*Pe_xx
+
+    ;Perpendicular directions
+    alpha_e = Nxx + Nyy + Nzz
+    beta_e  = -(Nxy^2 + Nxz^2 + Nyz^2 - Nxx*Nyy - Nxx*Nzz - Nyy*Nzz)
+
+    ; Return agyrotropy data
+    A0 = 2.0 * sqrt(alpha_e^2 - 4.0*beta_e) / alpha_e
+    return, A0
+end
+
+
+;+
+;   Compute the degree of nongyrotropy
+;
+;       An_{e} = \frac{ P_{e \bot} } { P_{e \parallel} }
+;
+;   Reference::
+;       Aunai, N., Hesse, M. and Kuznetsova, M., Electron nongyrotropy in the context of
+;           collisionless magnetic reconnection, Phys. Plasmas 20, 092903 (2013)
+;           http://dx.doi.org/10.1063/1.4820953
+;-
+function MrSim::Dng_e
+    compile_opt strictarr, hidden
+    on_error, 2
+    
+    ;Gather data
+    Bx    = self -> GetData('Bx')
+    By    = self -> GetData('By')
+    Bz    = self -> GetData('Bz')
+    Pe_xx = self -> GetData('Pe-xx')
+    Pe_xy = self -> GetData('Pe-xy')
+    Pe_xz = self -> GetData('Pe-xz')
+    Pe_yy = self -> GetData('Pe-yy')
+    Pe_yz = self -> GetData('Pe-yz')
+    Pe_zz = self -> GetData('Pe-zz')
+    
+    ;Magnitude and direction of magnetic field
+    Bmag  = sqrt(Bx^2 + By^2 + Bz^2)
+    bx_hat = temporary(Bx) / Bmag
+    by_hat = temporary(By) / Bmag
+    bz_hat = temporary(Bz) / temporary(Bmag)
+    
+    ;Parallel pressure.
+    ;   - Pressure tensor is symmetric, hence, the multiple of 2.0
+    ;   - P_par = integral f (v dot b) (v dot b) d3v
+    P_par = Pe_xx * bx_hat^2 + 2.0 * Pe_xy * bx_hat * by_hat + 2.0 * Pe_xz * bx_hat * bz_hat + $
+            Pe_yy * by_hat^2 + 2.0 * Pe_yz * by_hat * bz_hat + $
+            Pe_zz * bz_hat^2
+
+    ;Perpendicular pressure
+    ;   - Assuming the pressure tensor is mostly gyrotropic, P = P_par + 2 P_perp
+    P_perp = (Pe_xx + Pe_yy + Pe_zz - P_par) / 2.0
+    
+    ; Compute G in the x-y-z basis, using the definition in equation (1) of Aunai et al., 2013, POP:
+    ; G = pper*I + (ppar - pper)*bb, where I is the 3x3 identity matrix, and bb is the outer product
+    ; of the normalized magnetic field vector b. In the x-y-z basis, b = [bx, by, bz], and G is not 
+    ; gyrotropic in general, while in the frame parallel to the magnetic field, b is simply [0, 0, 1],
+    ; so G would be gyrotropic in this frame.
+    Gxx = P_perp + (P_par - P_perp) * bx_hat^2
+    Gyy = P_perp + (P_par - P_perp) * by_hat^2
+    Gzz = P_perp + (P_par - P_perp) * bz_hat^2
+    Gxy = (P_par - P_perp) * bx_hat * by_hat 
+    Gxz = (P_par - P_perp) * bx_hat * bz_hat
+    Gyz = (P_par - P_perp) * by_hat * bz_hat
+    
+    ;Free memory
+    P_perp = !Null
+    P_par  = !Null
+    bx_hat = !Null
+    by_hat = !Null
+    bz_hat = !Null
+    
+    ; Now compute N, which is just P - G.
+    Nxx = Pe_xx - Gxx
+    Nyy = Pe_yy - Gyy
+    Nzz = Pe_zz - Gzz
+    Nxy = Pe_xy - Gxy
+    Nxz = Pe_xz - Gxz
+    Nyz = Pe_yz - Gyz
+    
+    ;Free memory
+    Gxx   = !Null
+    Gxy   = !Null
+    Gxz   = !Null
+    Gyy   = !Null
+    Gyz   = !Null
+    Gzz   = !Null
+    Pe_xy = !Null
+    Pe_xz = !Null
+    Pe_yz = !Null
+
+    ; Next, compute Dng (the measure of nongyrotropy), a scalar for each grid point.
+    Dng = sqrt(Nxx^2 + Nyy^2 + Nzz^2 + 2*Nxy^2 + 2*Nxz^2 + 2*Nyz^2) / (Pe_xx + Pe_yy + Pe_zz)
+    return, Dng
 end
 
 
@@ -601,6 +1872,7 @@ function MrSim2_Data::J, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
 MAGNITUDE=magnitude, $
+VECTOR=vec, $
 X=x, $
 Y=y, $
 Z=z
@@ -611,13 +1883,20 @@ Z=z
 	;   - Bulk velocity
     n_e = self -> GetData('ne')
     n_e = self -> GetData('ni')
-    Ue  = self -> GetData('Ue', MAGNITUDE=magnitude, X=x, Y=y, Z=z, $
+    Ue  = self -> GetData('Ue', MAGNITUDE=magnitude, X=x, Y=y, Z=z, VECTOR=vec, $
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
-    Ui  = self -> GetData('Ui', MAGNITUDE=magnitude, X=x, Y=y, Z=z, $
+    Ui  = self -> GetData('Ui', MAGNITUDE=magnitude, X=x, Y=y, Z=z, VECTOR=vec, $
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
 
     ;Total Current
-    J = (-n_e * Ue) + (n_i * Ui)
+    if vec then begin
+        J = Ui
+        J[*,*,0] = (-n_e * Ue[*,*,0]) + (n_i * Ui[*,*,0])
+        J[*,*,1] = (-n_e * Ue[*,*,1]) + (n_i * Ui[*,*,1])
+        J[*,*,2] = (-n_e * Ue[*,*,2]) + (n_i * Ui[*,*,2])
+    endif else begin
+        J = (-n_e * Ue) + (n_i * Ui)
+    endelse
     
     return, J
 end
@@ -637,6 +1916,7 @@ function MrSim2_Data::Je, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
 MAGNITUDE=magnitude, $
+VECTOR=vec, $
 X=x, $
 Y=y, $
 Z=z
@@ -644,15 +1924,22 @@ Z=z
 	on_error, 2
 	
 	;Number density
-	;   - ne is always stored as an object property. Retrieve the pointer
+	;   - ne is always stored as an object property.
 	;   - Only the X, Y, and Z components of Ue are object properties. Since we
 	;       do not know which was chosen without lots of checks, retrieve the data.
     n_e = self -> GetData('ne')
-    Ue  = self -> GetData('Ue', MAGNITUDE=magnitude, X=x, Y=y, Z=z, $
+    Ue  = self -> GetData('Ue', MAGNITUDE=magnitude, X=x, Y=y, Z=z, VECTOR=vec, $
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
     
     ;Compute the current
-    Je = -1.0 * temporary(n_e) * temporary(Ue)
+    if vec then begin
+        Je = Ue
+        Je[*,*,0] = -n_e * Ue[*,*,0]
+        Je[*,*,1] = -n_e * Ue[*,*,1]
+        Je[*,*,2] = -n_e * Ue[*,*,2]
+    endif else begin
+        Je = -1.0 * temporary(n_e) * temporary(Ue)
+    endelse
     
     return, Je
 end
@@ -723,26 +2010,6 @@ Z=z
     V = (mi*Ui + me*Ue) / (mi + me)
     
     return, Vx
-end
-
-
-;+
-;   The purpose of this program is to calculate the dot product between the electric
-;   field and the current density::
-;       \vec{E} \cdot \vec{J} = E_{x}*J_{x} + E_{y}*J_{y} + E_{z}*J_{z}
-;
-; :Private:
-;
-; :Returns:
-;       E_dot_J:                The electric field dotted with the current density.
-;-
-function MrSim2_Data::E_dot_J
-    compile_opt strictarr, hidden
-    on_error, 2
-
-    ;Get the electric field and current density data
-    E_dot_J = self -> DotProduct('E', 'J', X=x, Y=y, Z=y)
-    return, E_dot_J
 end
 
 
@@ -1265,281 +2532,6 @@ end
 
 
 ;+
-;   The purpose of this program is to calculate the x-component of the JxB portion
-;   of the Generalized Ohm's Law::
-;       (J_{e} \times B)_{x} = \frac{1} {n_{e}} (J_{e,y} B_{z} - J_{e,z} B_{y})
-;
-; :Private:
-;
-; :Returns:
-;       JexB_x:             The x-component of the JxB force.
-;-
-function MrSim2_Data::JexB_x
-	compile_opt strictarr, hidden
-	
-	;Get the Electron Velocity and Number Density
-    n_e = self -> getData('ne')
-    Jey = self -> getData('Jey')
-    Jez = self -> getData('Jez')
-    By  = self -> getData('By')
-    Bz  = self -> getData('Bz')
-    
-    ;Calculate the Current Density
-    JexB_x = (Jey*Bz - Jez*By) / n_e
-    
-    return, JexB_x
-end
-
-
-;+
-;   The purpose of this program is to calculate the y-component of the JxB force::
-;       (J_{e} \times B)_{y} = \frac{1} {e n_{e}} (J_{e,x} B_{z} - J_{e,z} B_{x})
-;
-; :Private:
-;
-; :Returns:
-;       JexB_y:             The x-component of the JxB force.
-;-
-function MrSim2_Data::JexB_y
-	compile_opt strictarr, hidden
-	
-	;Get the Electron Velocity and Number Density
-    n_e = self -> getData('ne')
-    Jex = self -> getData('Jex')
-    Jez = self -> getData('Jez')
-    Bx  = self -> getData('Bx')
-    Bz  = self -> getData('Bz')
-    
-    ;Calculate the Current Density
-    JexB_y = (Jex*Bz - Jez*Bx) / n_e
-    
-    return, JexB_y
-end
-
-
-;+
-;   The purpose of this program is to calculate the z-component of the JxB force::
-;       (J_{e} \times B)_{z} = \frac{1} {n_{e}} (J_{e,x} B_{y} - J_{e,y} B_{x})
-;
-; :Private:
-;
-; :Returns:
-;       JexB_z:             The z-component of the JxB force.
-;-
-function MrSim2_Data::JexB_z
-	compile_opt strictarr, hidden
-	
-	;Get the Electron Velocity and Number Density
-    n_e = self -> getData('ne')
-    Jex = self -> getData('Jex')
-    Jey = self -> getData('Jey')
-    Bx  = self -> getData('Bx')
-    By  = self -> getData('By')
-    
-    ;Calculate the Current Density
-    JexB_z = -(Jex*By - Jey*Bx) / n_e
-    
-    return, JexB_z
-end
-
-
-;+
-;   The purpose of this program is to calculate the x-component of the JxB portion
-;   of the Generalized Ohm's Law::
-;       (J_{i} \times B)_{x} = \frac{1} {n_{i}} (J_{i,y} B_{z} - J_{i,z} B_{y})
-;
-; :Private:
-;
-; :Returns:
-;       JixB_x:             The x-component of the JxB force.
-;-
-function MrSim2_Data::JixB_x
-	compile_opt strictarr, hidden
-	
-	;Get the Electron Velocity and Number Density
-    n_i = self -> getData('ni')
-    Jiy = self -> getData('Jiy')
-    Jiz = self -> getData('Jiz')
-    By  = self -> getData('By')
-    Bz  = self -> getData('Bz')
-    
-    ;Calculate the Current Density
-    JixB_x = (Jiy*Bz - Jiz*By) / n_i
-    
-    return, JixB_x
-end
-
-
-;+
-;   The purpose of this program is to calculate the y-component of the JxB force::
-;       (J_{i} \times B)_{y} = \frac{1} {e n_{i}} (J_{i,x} B_{z} - J_{i,z} B_{x})
-;
-; :Private:
-;
-; :Returns:
-;       JixB_y:             The x-component of the JxB force.
-;-
-function MrSim2_Data::JixB_y
-	compile_opt strictarr, hidden
-	
-	;Get the Electron Velocity and Number Density
-    n_i = self -> getData('ni')
-    Jix = self -> getData('Jix')
-    Jiz = self -> getData('Jiz')
-    Bx  = self -> getData('Bx')
-    Bz  = self -> getData('Bz')
-    
-    ;Calculate the Current Density
-    JixB_y = (Jix*Bz - Jiz*Bx) / n_i
-    
-    return, JixB_y
-end
-
-
-;+
-;   The purpose of this program is to calculate the z-component of the JxB force::
-;       (J_{i} \times B)_{z} = \frac{1} {n_{i}} (J_{i,x} B_{y} - J_{i,y} B_{x})
-;
-; :Private:
-;
-; :Returns:
-;       JixB_z:             The z-component of the JxB force.
-;-
-function MrSim2_Data::JixB_z
-	compile_opt strictarr, hidden
-	
-	;Get the Electron Velocity and Number Density
-    n_i = self -> getData('ne')
-    Jix = self -> getData('Jix')
-    Jiy = self -> getData('Jiy')
-    Bx  = self -> getData('Bx')
-    By  = self -> getData('By')
-    
-    ;Calculate the Current Density
-    JixB_z = -(Jix*By - Jiy*Bx) / n_i
-    
-    return, JixB_z
-end
-
-
-;+
-;   The purpose of this program is to calculate the Current Density parallel to the
-;   magnetic field::
-;       B_hat = [Bx, By, Bz] / |B|
-;       J_para = J dot B_hat = Jx*Bx_hat + Jy*By_hat + Jz*Bz_hat
-;
-; :Private:
-;
-; :Returns:
-;       J_PARA:                 The electric field strength in the parallel-to-B
-;                                   direction.
-;-
-function MrSim2_Data::Jpar
-	compile_opt strictarr, hidden
-	
-	;Read the electric and magnetic field data.
-    Jx = self -> getData('Jx')
-    Jy = self -> getData('Jy')
-    Jz = self -> getData('Jz')
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate a unit vector pointing in the direction of the magnetic field
-    Bx_unit = Bx/SQRT(Bx^2+By^2+Bz^2)
-    By_unit = By/SQRT(Bx^2+By^2+Bz^2)
-    Bz_unit = Bz/SQRT(Bx^2+By^2+Bz^2)
-    
-    ;Dot the Current Density with B_had
-    J_para = Jx*Bx_unit + Jy*By_unit + Jz*Bz_unit
-    
-    return, J_para
-end
-
-
-;+
-;   The purpose of this program is to calculate the x-component of the JxB portion
-;   of the Generalized Ohm's Law::
-;       (\vec{J} \times \vec{B})_{x} = \frac{1} {n_{i} + n_{e}} (J_{y} B_{z} - J_{z} B_{y})
-;
-; :Private:
-;
-; :Returns:
-;       JxB_x:             The x-component of the JxB force.
-;-
-function MrSim2_Data::JxB_x
-	compile_opt strictarr, hidden
-	
-	;Get the Electron Velocity and Number Density
-	n_i = self -> getData('ni')
-	n_e = self -> getData('ne')
-    Jy = self -> getData('Jy')
-    Jz = self -> getData('Jz')
-    By  = self -> getData('By')
-    Bz  = self -> getData('Bz')
-    
-    ;Calculate the Current Density
-    JxB_x = (Jy*Bz - Jz*By) / (n_i + n_e)
-    
-    return, JxB_x
-end
-
-
-;+
-;   The purpose of this program is to calculate the y-component of the JxB force::
-;       (\vec{J} \times \vec{B})_{y} = \frac{1} {n_{i} + n_{e}} (J_{z} B_{x} - J_{x} B_{z})
-;
-; :Private:
-;
-; :Returns:
-;       JxB_y:             The x-component of the JxB force.
-;-
-function MrSim2_Data::JxB_y
-	compile_opt strictarr, hidden
-	
-	;Get the Electron Velocity and Number Density
-	n_i = self -> getData('ni')
-	n_e = self -> getData('ne')
-    Jx = self -> getData('Jx')
-    Jz = self -> getData('Jz')
-    Bx  = self -> getData('Bx')
-    Bz  = self -> getData('Bz')
-    
-    ;Calculate the Current Density
-    JxB_y = (Jx*Bz - Jz*Bx) / (n_i + n_e)
-    
-    return, JxB_y
-end
-
-
-;+
-;   The purpose of this program is to calculate the z-component of the JxB force::
-;       (\vec{J} \times \vec{B})_{z} = \frac{1} {n_{i} + n_{e}} (J_{x} B_{y} - J_{y} B_{x})
-;
-; :Private:
-;
-; :Returns:
-;       JxB_z:             The z-component of the JxB force.
-;-
-function MrSim2_Data::JxB_z
-	compile_opt strictarr, hidden
-	
-	;Get the Electron Velocity and Number Density
-	n_i = self -> getData('ni')
-	n_e = self -> getData('ne')
-    Jx = self -> getData('Jx')
-    Jy = self -> getData('Jy')
-    Bx  = self -> getData('Bx')
-    By  = self -> getData('By')
-    
-    ;Calculate the Current Density
-    JxB_z = (Jx*By - Jy*Bx) / (n_i + n_e)
-    
-    return, JxB_z
-end
-
-
-;+
 ;   The purpose of this program is to calculate the electron inertial length::
 ;       \lambda_{e} = c / \omega_{p,e}
 ;
@@ -1582,330 +2574,6 @@ function MrSim2_Data::lambda_i
     lambda_i = c / w_pi
     
     return, lambda_i
-end
-
-
-;+
-;   The purpose of this program is to calculate the magnitude of the cross product 
-;   between the bulk ion velocity and Magnetic Field::
-;       UexB_x = Uey*Bz - Uez*By
-;       UexB_y = Uez*Bx - Uex*Bz
-;       UexB_z = Uex*By - Uey*Bx
-;       UexB = UexB_x + UexB_y + UexB_z
-;       |UexB| = sqrt(UexB dot UexB) = sqrt( UexB_x^2 + UexB_y^2 + UexB_z^2 )
-;
-; :Private:
-;
-; :Returns:
-;       UexB_mag:       The magnitude of the cross product between the electron bulk
-;                           velocity and the magnetic field.
-;-
-function MrSim2_Data::UexB_mag
-	compile_opt strictarr, hidden
-	
-	;Get the Electric and Magnetic Field data
-    Uex = self -> getData('Uex')
-    Uey = self -> getData('Uey')
-    Uez = self -> getData('Uez')
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the magnitude of ExB
-    UexB_x  = Uey*Bz - Uez*By
-    UexB_y  = Uez*Bx - Uex*Bz
-    UexB_z  = Uex*By - Uey*Bx
-    UexB_mag = sqrt(UexB_x^2 + UexB_y^2 + UexB_z^2)
-    
-    return, UexB_mag
-end
-
-
-;+
-;   The purpose of this program is to calculate the x-component of the cross product 
-;   between the bulk electron velocity and Magnetic Field::
-;       UexB_x = Uey*Bz - Uez*By
-;
-; :Private:
-;
-; :Returns:
-;       UexB_x:         The x-component of the cross product between the bulk electron
-;                           velocity and the magnetic field.
-;-
-function MrSim2_Data::UexB_x
-	compile_opt strictarr, hidden
-	
-	;Get the Electric and Magnetic Field data
-    Uey = self -> getData('Uey')
-    Uez = self -> getData('Uez')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the magnitude of ExB
-    UexB_x  = Uey*Bz - Uez*By
-    
-    return, UexB_x
-end
-
-
-;+
-;   The purpose of this program is to calculate the y-component of the cross product 
-;   between the bulk electron velocity and Magnetic Field::
-;       UexB_y = Uez*Bx - Uex*Bz
-;
-; :Private:
-;
-; :Returns:
-;       UexB_y:         The y-component of the cross product between the bulk electron
-;                           velocity and the magnetic field.
-;-
-function MrSim2_Data::UexB_y
-	compile_opt strictarr, hidden
-	
-	;Get the Electric and Magnetic Field data
-    Uex = self -> getData('Uex')
-    Uez = self -> getData('Uez')
-    Bx = self -> getData('Bx')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the magnitude of ExB
-    UexB_y  = Uez*Bx - Uex*Bz
-    
-    return, UexB_y
-end
-
-
-;+
-;   The purpose of this program is to calculate the z-component of the cross product 
-;   between the bulk electron velocity and Magnetic Field::
-;       UexB_z = Uex*By - Ey*Bx
-;
-; :Private:
-;
-; :Returns:
-;       UexB_z:         The z-component of the cross product between the bulk electron
-;                           velocity and the magnetic field.
-;-
-function MrSim2_Data::UexB_z
-	compile_opt strictarr, hidden
-	
-	;Get the Electric and Magnetic Field data
-    Uex = self -> getData('Uex')
-    Uey = self -> getData('Uey')
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    
-    ;Calculate the magnitude of ExB
-    UexB_z  = Uex*By - Uey*Bx
-    
-    return, UexB_z
-end
-
-
-;+
-;   The purpose of this program is to calculate the magnitude of the cross product 
-;   between the bulk ion velocity and Magnetic Field::
-;       UixB_x = Uiy*Bz - Uiz*By
-;       UixB_y = Uiz*Bx - Uix*Bz
-;       UixB_z = Uix*By - Uiy*Bx
-;       UixB = UixB_x + UixB_y + UixB_z
-;       |UixB| = sqrt(UixB dot UixB) = sqrt( UixB_x^2 + UixB_y^2 + UixB_z^2 )
-;
-; :Private:
-;
-; :Returns:
-;       UixB_mag:       The magnitude of the cross product between the Electric
-;                           and Magnetic Fields.
-;-
-function MrSim2_Data::UixB_mag
-	compile_opt strictarr, hidden
-	
-	;Get the Electric and Magnetic Field data
-    Uix = self -> getData('Uix')
-    Uiy = self -> getData('Uiy')
-    Uiz = self -> getData('Uiz')
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the magnitude of ExB
-    UixB_x  = Uiy*Bz - Uiz*By
-    UixB_y  = Uiz*Bx - Uix*Bz
-    UixB_z  = Uix*By - Uiy*Bx
-    UixB_mag = sqrt(UixB_x^2 + UixB_y^2 + UixB_z^2)
-    
-    return, UixB_mag
-end
-
-
-;+
-;   The purpose of this program is to calculate the x-component of the cross product 
-;   between the bulk ion velocity and Magnetic Field::
-;       UixB_x = Uiy*Bz - Uiz*By
-;
-; :Private:
-;
-; :Returns:
-;       UixB_x:         The x-component of the cross product between the Electric
-;                           and Magnetic Fields.
-;-
-function MrSim2_Data::UixB_x
-	compile_opt strictarr, hidden
-	
-	;Get the Electric and Magnetic Field data
-    Uiy = self -> getData('Uiy')
-    Uiz = self -> getData('Uiz')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the magnitude of ExB
-    UixB_x  = Uiy*Bz - Uiz*By
-    
-    return, UixB_x
-end
-
-
-;+
-;   The purpose of this program is to calculate the y-component of the cross product 
-;   between the bulk ion velocity and Magnetic Field::
-;       UixB_y = Uiz*Bx - Uix*Bz
-;
-; :Private:
-;
-; :Returns:
-;       UixB_mag:       The y-component of the cross product between the Electric
-;                           and Magnetic Fields.
-;-
-function MrSim2_Data::UixB_y
-	compile_opt strictarr, hidden
-	
-	;Get the Electric and Magnetic Field data
-    Uix = self -> getData('Uix')
-    Uiz = self -> getData('Uiz')
-    Bx = self -> getData('Bx')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the magnitude of ExB
-    UixB_y  = Uiz*Bx - Uix*Bz
-    
-    return, UixB_y
-end
-
-
-;+
-;   The purpose of this program is to calculate the z-component of the cross product 
-;   between the bulk ion velocity and Magnetic Field::
-;       UixB_z = Uix*By - Ey*Bx
-;
-; :Private:
-;
-; :Returns:
-;       UixB_mag:       The magnitude of the cross product between the Electric
-;                           and Magnetic Fields.
-;-
-function MrSim2_Data::UixB_z
-	compile_opt strictarr, hidden
-	
-	;Get the Electric and Magnetic Field data
-    Uix = self -> getData('Uix')
-    Uiy = self -> getData('Uiy')
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    
-    ;Calculate the magnitude of ExB
-    UixB_z  = Uix*By - Uiy*Bx
-    
-    return, UixB_z
-end
-
-
-;+
-;   The purpose of this program is to calculate the x-component of the cross product 
-;   between the center-of-mass velocity and the magnetic field::
-;       (\vec{V} \times \vec{B})_x = V_{y} B_{z} - V_{z} B_{y}
-;
-;   where (j = x, y, z)::
-;       V_{j} = \frac{m_{i} U_{i,j} + m_{e} U_{e,j}} {m_{i} + m_{e}}
-;
-; :Private:
-;
-; :Returns:
-;       VxB_x:          The x-component of the cross product between the Electric
-;                           and Magnetic Fields.
-;-
-function MrSim2_Data::VxB_x
-	compile_opt strictarr, hidden
-	
-	;Get the MHD velocity and magnetic field data
-    Vy = self -> getData('Vy')
-    Vz = self -> getData('Vz')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the magnitude of VxB
-    VxB_x  = Vy*Bz - Vz*By
-    
-    return, VxB_x
-end
-
-
-;+
-;   The purpose of this program is to calculate the y-component of the cross product 
-;   between the center-of-mass velocity and the magnetic field::
-;       (\vec{V} \times \vec{B})_y = V_{x} B_{z} - V_{z} B_{x}
-;
-;   where (j = x, y, z)::
-;       V_{j} = \frac{m_{i} U_{i,j} + m_{e} U_{e,j}} {m_{i} + m_{e}}
-;
-; :Private:
-;
-; :Returns:
-;       VxB_y:          The x-component of the cross product between the Electric
-;                           and Magnetic Fields.
-;-
-function MrSim2_Data::VxB_y
-	compile_opt strictarr, hidden
-	
-	;Get the MHD velocity and magnetic field data
-    Vx = self -> getData('Vx')
-    Vz = self -> getData('Vz')
-    Bx = self -> getData('Bx')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the magnitude of VxB
-    VxB_y  = Vx*Bz - Vz*Bx
-    
-    return, VxB_y
-end
-
-
-;+
-;   The purpose of this program is to calculate the z-component of the cross product 
-;   between the center-of-mass velocity and the magnetic field::
-;       (\vec{V} \times \vec{B})_z = V_{x} B_{y} - V_{y} B_{x}
-;
-;   where (j = x, y, z)::
-;       V_{j} = \frac{m_{i} U_{i,j} + m_{e} U_{e,j}} {m_{i} + m_{e}}
-;
-; :Private:
-;
-; :Returns:
-;       VxB_z:          The z-component of the cross product between the Electric
-;                           and Magnetic Fields.
-;-
-function MrSim2_Data::VxB_z
-	compile_opt strictarr, hidden
-	
-	;Get the MHD velocity and magnetic field data
-    Vx = self -> getData('Vx')
-    Vy = self -> getData('Vy')
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    
-    ;Calculate the magnitude of VxB
-    VxB_z  = Vx*By - Vy*Bx
-    
-    return, VxB_z
 end
 
 

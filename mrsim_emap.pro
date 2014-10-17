@@ -17,6 +17,7 @@
 ;                           valid simulation object. See MrSim_Create.pro.
 ;       TYPE:           in, optional, type=string, default='Vx-Vz'
 ;                       The type of distribution function to make. Choices are::
+;                           'x-z'
 ;                           'x-Vx'
 ;                           'z-Vz'
 ;                           'Vx-Vz'
@@ -26,16 +27,18 @@
 ;                           'Vpar-Vperp1'
 ;                           'Vpar-Vperp2'
 ;                           'Vperp1-Vperp2'
-;       X:              in, required, type=float
-;                       X-location of the center of the spacial bin from which electron
-;                           distribution information is collected.
-;       Z:              in, required, type=float
-;                       Z-location of the center of the spacial bin from which electron
-;                           distribution information is collected.
-;       DX:             in, optional, type=float, default=1
-;                       Half-width of the bin.
-;       DZ:             in, optional, type=float, default=1
-;                       Half-height of the bin.
+;       X:              in, required, type=float/fltarr(N)
+;                       X-location(s) of the center of the spacial bin from which electron
+;                           distribution information is collected. If both `X` and `Z` are
+;                           vectors, they must be the same length.
+;       Z:              in, required, type=float/fltarr(N)
+;                       Z-location(s) of the center of the spacial bin from which electron
+;                           distribution information is collected. If both `X` and `Z` are
+;                           vectors, they must be the same length.
+;       DX:             in, optional, type=float/fltarr(N), default=1
+;                       Half-width of the bin(s).
+;       DZ:             in, optional, type=float/fltarr(N), default=1
+;                       Half-height of the bin(s).
 ;
 ; :Keywords:
 ;       C_NAME:         in, optional, type=string, default=''
@@ -44,7 +47,8 @@
 ;       CIRCLES:        in, optional, type=boolean, default=0
 ;                       If set, concentric cirlces will be drawn at v=0.25 and v=0.5.
 ;       HGAP:           in, optional, type=float, default=0.0
-;                       Horizontal space between adjacent distributions.
+;                       Horizontal space between adjacent distributions. Ignored of either
+;                           `X` or `Z` are vectors.
 ;       IM_NAME:        in, optional, type=string, default=''
 ;                       Name of a data product for which a 2D overview plot is to be
 ;                           made. White square boxes will be drawn on the image to
@@ -61,7 +65,10 @@
 ;       LAYOUT:         in, optional, type=intarr(2), default=[1,1]
 ;                       Specifies the number of columns and rows: [nCols, nRows]; in
 ;                           the eMap. There will be nCols*nRows number of distributions
-;                           total.
+;                           total. If `X` and `Z` are scalars, a regular grid will be
+;                           formed. If either or both are vectors, nCols*nRows must be
+;                           at least as large as the length of the vector. The layout is
+;                           filled from left-to-right then top-to-bottom.
 ;       LOCATION:       in, optional, type=integer, default=5
 ;                       Specifies which bin within the eMap is centered on `X` and `Y`.
 ;                           Options are::
@@ -83,7 +90,8 @@
 ;                               c / vA = sqrt(mi_me) * f_pe / f_ce.
 ;                           so multiplying v/c by the above equation does the trick.
 ;       VGAP:           in, optional, type=float, default=0.0
-;                       Vertical space between adjacent distributions.
+;                       Vertical space between adjacent distributions. Ignored of either
+;                           `X` or `Z` are vectors.
 ;       _REF_EXTRA:     in, optional, type=structure
 ;                       Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
 ;                           is an object.
@@ -112,6 +120,7 @@
 ;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
 ;                           Repurposed the SIM_OBJECT keyword. Added the CIRCLES and V_VA
 ;                           keyword. - MRA
+;       2014/10/13  -   Added the XSIZE and YSIZE keywords. X, Y, DX, DY can be vectors. - MRA.
 ;-
 function MrSim_eMap, theSim, type, x, y, dx, dy, $
 C_NAME=c_name, $
@@ -125,6 +134,8 @@ LOCATION=location, $
 SIM_OBJECT=oSim, $
 VGAP=vGap, $
 V_VA=v_va, $
+XSIZE=xsize, $
+YSIZE=ysize, $
 _REF_EXTRA=extra
     compile_opt strictarr
     
@@ -167,65 +178,108 @@ _REF_EXTRA=extra
 ;-------------------------------------------------------
 ; Defaults /////////////////////////////////////////////
 ;-------------------------------------------------------
+    nx = n_elements(x)
+    ny = n_elements(y)
+    nDist = nx > ny
+
     if n_elements(nBins)    eq 0 then nBins    = 75
-    if n_elements(layout)   eq 0 then layout   = [1,1]
+    if n_elements(layout)   eq 0 then layout   = [1,nDist]
     if n_elements(location) eq 0 then location = 5
     if n_elements(c_name)   eq 0 then c_name   = ''
     if n_elements(im_name)  eq 0 then im_name  = ''
     if n_elements(vGap)     eq 0 then vGap     = 0
     if n_elements(hGap)     eq 0 then hGap     = 0
+    if n_elements(xsize)    eq 0 then xsize    = 800
+    if n_elements(ysize)    eq 0 then ysize    = 600
+    
+    ;Make sure the distribution is large enough
+    if nDist gt 1 then begin
+        if nDist lt layout[0]*layout[1] then $
+            message, string(FORMAT='(%"LAYOUT is not large enough to hold %i distributions.")', nDist)
+    endif
     
 ;-------------------------------------------------------
 ; Determine Location of Dist Fns ///////////////////////
 ;-------------------------------------------------------
-    xoffset = indgen(1, layout[0])
-    yoffset = indgen(1, 1, layout[1])
+    if nDist eq 1 then begin
+    ;-------------------------------------------------------
+    ; Create Array of Distribution Functions ///////////////
+    ;-------------------------------------------------------
+        ;Bin-center offsets from the center of the bin defined by LOCATION
+        ;   - Dimensions are [position, col, row]
+        ;   - Value is +/-N
+        ;       o (+/-) indicates left/right (up/down) offset
+        ;       o Offset by N bins
+        xoffset = indgen(1, layout[0])
+        yoffset = indgen(1, 1, layout[1])
 
-    ;XOFFSET
-    if layout[0] gt 1 then begin
-        case location of
-            1: ;Do nothing
-            2: xoffset -= layout[0] / 2
-            3: xoffset -= layout[0] - 1
-            4: ;Do nothing
-            5: xoffset -= layout[0] / 2
-            6: xoffset  = layout[0] - 1
-            7: ;Do nothing
-            8: xoffset -= layout[0] / 2
-            9: xoffset  = layout[0] - 1
-            else: message, 'LOCATION must be an integer between 1 and 9.'
-        endcase
-    endif
+        ;XOFFSET
+        if layout[0] gt 1 then begin
+            case location of
+                1: ;Do nothing
+                2: xoffset -= layout[0] / 2
+                3: xoffset -= layout[0] - 1
+                4: ;Do nothing
+                5: xoffset -= layout[0] / 2
+                6: xoffset  = layout[0] - 1
+                7: ;Do nothing
+                8: xoffset -= layout[0] / 2
+                9: xoffset  = layout[0] - 1
+                else: message, 'LOCATION must be an integer between 1 and 9.'
+            endcase
+        endif
     
-    ;If layout[1] = 1
-    ;   - YOFFSET will have only one dimension.
-    ;   - The call to Reverse below will fail.
-    if layout[1] gt 1 then begin
-        case location of
-            1: yoffset  = -yoffset 
-            2: yoffset  = -yoffset
-            3: yoffset  = -yoffset
-            4: yoffset  = reverse(yoffset - layout[1]/2, 3)
-            5: yoffset  = reverse(yoffset - layout[1]/2, 3)
-            6: yoffset  = reverse(yoffset - layout[1]/2, 3)
-            7: ;Do nothing
-            8: ;Do nothing
-            9: ;Do nothing
-            else: message, 'LOCATION must be an integer between 1 and 9.'
-        endcase
-    endif
-    xoffset = (2*dx + hGap) * rebin(xoffset, 2, layout[0], layout[1])
-    yoffset = (2*dy + vGap) * rebin(yoffset, 2, layout[0], layout[1])
+        ;If layout[1] = 1
+        ;   - YOFFSET will have only one dimension.
+        ;   - The call to Reverse below will fail.
+        if layout[1] gt 1 then begin
+            case location of
+                1: yoffset  = -yoffset 
+                2: yoffset  = -yoffset
+                3: yoffset  = -yoffset
+                4: yoffset  = reverse(yoffset - layout[1]/2, 3)
+                5: yoffset  = reverse(yoffset - layout[1]/2, 3)
+                6: yoffset  = reverse(yoffset - layout[1]/2, 3)
+                7: ;Do nothing
+                8: ;Do nothing
+                9: ;Do nothing
+                else: message, 'LOCATION must be an integer between 1 and 9.'
+            endcase
+        endif
         
-    ;Data locations of distribution functions
-    ;   - Saved as [position, index]
-    ;   - Position is the IDL definition of the word
-    ;   - Index starts with 0 in the upper-right corner, then moves right then down
-    nDist                 = product(layout)
-    locations             = rebin([x-dx, y-dy, x+dx, y+dy], 4, layout[0], layout[1])
-    locations[[0,2],*,*] += xoffset
-    locations[[1,3],*,*] += yoffset
-    locations             = reform(locations, 4, nDist)
+        ;Include bin widths and gaps between bins
+        xoffset = (2*dx + hGap) * rebin(xoffset, 2, layout[0], layout[1])
+        yoffset = (2*dy + vGap) * rebin(yoffset, 2, layout[0], layout[1])
+        
+        ;Data locations of distribution functions
+        ;   - Saved as [position, index]
+        ;   - Position is the IDL definition of the word
+        ;   - Index starts with 0 in the upper-right corner, then moves right then down
+        nDist                 = product(layout)
+        locations             = rebin([x-dx, y-dy, x+dx, y+dy], 4, layout[0], layout[1])
+        locations[[0,2],*,*] += xoffset
+        locations[[1,3],*,*] += yoffset
+        locations             = reform(locations, 4, nDist)
+        
+    endif else begin
+    ;-------------------------------------------------------
+    ; Individual Locations Given ///////////////////////////
+    ;-------------------------------------------------------
+        ;Save user some headaches by checking number of elements.
+        ndx = n_elements(dx)
+        ndy = n_elements(dy)
+        if nx  ne 1 && nx  ne nDist then message, 'Incorrect number of elements: X'
+        if ny  ne 1 && ny  ne nDist then message, 'Incorrect number of elements: Y'
+        if ndx ne 1 && ndy ne nDist then message, 'Incorrect number of elements: DX'
+        if ndy ne 1 && ndy ne nDist then message, 'Incorrect number of elements: DY'
+    
+        ;Create the locations
+        locations      = fltarr(4, nDist)
+        locations[0,*] = x - dx
+        locations[1,*] = y - dy
+        locations[2,*] = x + dx
+        locations[3,*] = y + dy
+    endelse
 
 ;-------------------------------------------------------
 ; Overview Plot ////////////////////////////////////////
@@ -249,8 +303,6 @@ _REF_EXTRA=extra
 ;-------------------------------------------------------
 ; Setup Window & Positions /////////////////////////////
 ;-------------------------------------------------------
-    xsize    = 800
-    ysize    = 600
     oxmargin = [10,12]
     xgap     = 0
     ygap     = 0
@@ -312,7 +364,7 @@ _REF_EXTRA=extra
 
     ;Determine the aspect ratio of the plots and create positions
     aspect = (yrange[1] - yrange[0]) / (xrange[1] - xrange[0])
-    pos  = MrLayout(layout, CHARSIZE=charsize, OXMARGIN=oxmargin, ASPECT=aspect, $
+    pos  = MrLayout(layout, CHARSIZE=charsize, OXMARGIN=oxmargin, $;ASPECT=aspect, $
                     XGAP=xgap, YGAP=ygap)
 
     allIm = win2 -> Get(/ALL, ISA='MrImage')
@@ -349,13 +401,13 @@ _REF_EXTRA=extra
 ; Annotate /////////////////////////////////////////////
 ;-------------------------------------------------------
     sim_class = obj_class(oSim)
-    oSim -> GetProperty, TIME=time, YSLICE=yslice
-    oSim -> GetInfo, DTXWCI=dtxwci, DY_DE=dy_de
+    oSim -> GetProperty, TIME=time, YRANGE=yrange
+    oSim -> GetInfo, DTXWCI=dtxwci
     
     ;Create a title
     title  = 'eMap ' + type + ' t*$\Omega$$\downci$='
     title += string(dtxwci*time, FORMAT='(f0.1)')
-    if sim_class eq 'MRSIM3D' then title += ' y=' + string(yslice*dy_de, FORMAT='(f0.1)') + 'de'
+    if sim_class eq 'MRSIM3D' then title += ' y=' + string(yrange[0], FORMAT='(f0.1)') + 'de'
     
     ;Add the title
     !Null = MrText(0.5, 0.965, title, ALIGNMENT=0.5, /CURRENT, $

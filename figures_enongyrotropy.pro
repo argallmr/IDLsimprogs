@@ -306,6 +306,130 @@ end
 ;       FIGURE:         in, optional, type=string
 ;                       Figure number of the figure to be created.
 ;-
+function FEN_Asymm3D_MMS_FlyBy, $
+SIM_OBJECT=oSim, $
+STRNAME=strname
+    compile_opt strictarr
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(oSim) && arg_present(oSim) eq 0 then obj_destroy, oSim
+        if obj_valid(win) then obj_destroy, win
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ;Data Range
+    theSim = 'Asymm-3D'
+    time   = 103286
+    xrange = [250, 700]
+    yrange = [102.4, 102.4]
+    zrange = [-80, 80]
+    
+    ;Window properties
+    xsize = 450
+    ysize = 600
+    
+;-------------------------------------------------------
+; Simulation Object ////////////////////////////////////
+;-------------------------------------------------------
+    ;Create the simulation object
+    if obj_valid(oSim) eq 0 then begin
+        oSim = MrSim_Create(theSim, time, XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+                                          
+    ;Make sure the parameters are correct
+    endif else begin
+        ;Make sure simulation is correct
+        if strupcase(theSim) ne strupcase(oSim.simname) $
+            then oSim -> SetSim, theSim
+    
+        ;Make sure properties are correct
+        oSim -> GetProperty, TIME=tt, XRANGE=xx, YRANGE=yy, ZRANGE=zz
+        if (time ne tt) || (array_equal(xx, xrange) eq 0) || (array_equal(yy, yrange) eq 0) || (array_equal(zz, zrange) eq 0) $
+            then oSim -> SetProperty, TIME=time, XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange
+    endelse
+
+;-------------------------------------------------------
+; Overview Plot ////////////////////////////////////////
+;-------------------------------------------------------
+    win = MrSim_ColorSlab(oSim, 'Dng_e')
+    win -> Refresh, /DISABLE
+    win -> SetProperty, XSIZE=xsize, YSIZE=ysize
+
+;-------------------------------------------------------
+; Fly-by ///////////////////////////////////////////////
+;-------------------------------------------------------
+    ;Get the grid points along a line
+    r0 = [350, 102.4, -15]
+    r1 = [600, 102.4, 15]
+    cells = oSim -> GridLine(r0, r1, COORDS=coords)
+    Bx    = oSim -> ReadGDA_Cells(cells, 'Bx')
+    By    = oSim -> ReadGDA_Cells(cells, 'By')
+    Bz    = oSim -> ReadGDA_Cells(cells, 'Bz')
+    Ex    = oSim -> ReadGDA_Cells(cells, 'Ex')
+    Ey    = oSim -> ReadGDA_Cells(cells, 'Ey')
+    Ez    = oSim -> ReadGDA_Cells(cells, 'Ez')
+    B = transpose([[temporary(Bx)], [temporary(By)], [temporary(Bz)]])
+    E = transpose([[temporary(Ex)], [temporary(Ey)], [temporary(Ez)]])
+
+    ;Destroy the simulation object
+    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    
+    ;Convert coordinates to distance
+    ;   - Measure distance from initial point
+    nPts           = n_elements(coords[0,*])
+    dl             = fltarr(3, nPts)
+    dl[0,1:nPts-1] = coords[0,1:nPts-1] - coords[0,0]
+    dl[1,1:nPts-1] = coords[1,1:nPts-1] - coords[1,0]
+    dl[2,1:nPts-1] = coords[2,1:nPts-1] - coords[2,0]
+    dl             = sqrt(total(coords^2, 1))
+
+    ;Magnetic Field
+    Bplot = MrPlot(dl, B, /CURRENT, $
+                   DIMENSION = 2, $
+                   XTITLE    = 'distance', $
+                   NAME      = 'Bxyz', $
+                   YTITLE    = 'B')
+    !Null = MrLegend(TARGET   = Bplot, $
+                     TITLE    = ['Bx', 'By', 'Bz'], $
+                     LENGTH   = 0, $
+                     LOCATION = 8, $
+                     TCOLOR   = ['Blue', 'Forest Green', 'Red'])
+    
+    ;Electric Field
+    Eplot = MrPlot(dl, E, /CURRENT, $
+                   DIMENSION = 2, $
+                   XTITLE    = 'distance', $
+                   NAME      = 'Exyz', $
+                   YTITLE    = 'E')
+    !Null = MrLegend(TARGET   = Eplot, $
+                     TITLE    = ['Ex', 'Ey', 'Ez'], $
+                     LENGTH   = 0, $
+                     LOCATION = 8, $
+                     TCOLOR   = ['Blue', 'Forest Green', 'Red'])
+
+;-------------------------------------------------------
+; Draw Trajectory /////////////////////////////////////
+;-------------------------------------------------------
+    !Null = MrPlotS([r0[0], r1[0]], [r0[2], r1[2]], $
+                    /DATA, $
+                    COLOR  = 'White', $
+                    NAME   = 'Trajectory', $
+                    TARGET = win['Color Dng_e'])
+    
+    win -> Refresh
+    return, win
+end
+
+
+;+
+;   Create the desired figure.
+;
+; Params:
+;       FIGURE:         in, optional, type=string
+;                       Figure number of the figure to be created.
+;-
 function FEN_Overview_t06, $
 SIM_OBJECT=oSim, $
 STRNAME=strname
@@ -1235,6 +1359,278 @@ end
 ;       FIGURE:         in, optional, type=string
 ;                       Figure number of the figure to be created.
 ;-
+function FEN_Figure5_eMap_3D, $
+SIM_OBJECT=oSim
+    compile_opt strictarr
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(win)     then obj_destroy, win
+        if obj_valid(uexwin)  then obj_destroy, uexWin
+        if obj_valid(winVxVy) then obj_destroy, winVxVy
+        if obj_valid(winVxVz) then obj_destroy, winVxVz
+        if obj_valid(winVyVz) then obj_destroy, winVyVz
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+;-------------------------------------------------------
+; Simulation Object ////////////////////////////////////
+;-------------------------------------------------------
+    
+;-------------------------------------------------------
+; Create a Window & Simulation Object //////////////////
+;-------------------------------------------------------
+    oxmargin = [10, 15]
+    xsize    = 800
+    ysize    = 590
+    win = MrWindow(OXMARGIN=oxmargin, XSIZE=xsize, YSIZE=ysize, NAME='Fig5: Asymm-3D', REFRESH=0)
+    
+    
+    theSim = 'Asymm-3D'
+    tIndex = 76
+    xrange = [800, 900]
+    zrange = [-20,  20]
+
+    ;Create the simulation object
+    if obj_valid(oSim) eq 0 then begin
+        oSim = MrSim_Create(theSim, tIndex, $
+                            /BINARY, $
+                            XRANGE=xrange, $
+                            YRANGE=yrange, $
+                            ZRANGE=zrange)
+                                          
+    ;Make sure the parameters are correct
+    endif else begin
+        oSim -> GetProperty, TIME=tt, XRANGE=xx, ZRANGE=zz
+        if (tIndex ne tt) || (array_equal(xx, xrange) eq 0) || (array_equal(zz, zrange) eq 0) $
+            then oSim -> SetProperty, TIME=time, XRANGE=xrange, ZRANGE=zrange
+    endelse
+                        
+;-------------------------------------------------------
+; Line Cut /////////////////////////////////////////////
+;-------------------------------------------------------
+    ;Place in the main window
+    !Null = MrSim_LineCut(oSim, 'ne', 0, /HORIZONTAL, /CURRENT)
+                        
+;-------------------------------------------------------
+; Generate an eMap /////////////////////////////////////
+;-------------------------------------------------------
+    nBins      = [150, 75]
+    bin_center = [847.8, 0]
+    bin_layout = [5, 1]
+    bin_hsize  = 1.0
+    bin_vsize  = 0.5
+    bin_hspace = 5
+    location   = 4
+    v_va       = 1
+    
+    ;Vperp1-Vperp2
+    winV1V2 = MrSim_eMap(oSim, 'Vperp1-Vperp2', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                         C_NAME   = 'Ay', $
+                         HGAP     = bin_hspace, $
+                         IM_NAME  = 'Dng_e', $
+                         IM_WIN   = dngWin, $
+                         LAYOUT   = bin_layout, $
+                         LOCATION = location, $
+                         NBINS    = nBins, $
+                         V_VA     = v_va)
+    
+    ;Vpar-Vperp1
+    winVpV1 = MrSim_eMap(oSim, 'Vpar-Vperp1', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                          HGAP     = bin_hspace, $
+                          LAYOUT   = bin_layout, $
+                          LOCATION = location, $
+                          NBINS    = nBins, $
+                          V_VA     = v_va)
+    
+    ;Vpar-Vperp2
+    winVpV2 = MrSim_eMap(oSim, 'Vpar-Vperp2', bin_center[0], bin_center[1], bin_hsize, bin_vsize, $
+                         HGAP     = bin_hspace, $
+                         LAYOUT   = bin_layout, $
+                         LOCATION = location, $
+                         NBINS    = nBins, $
+                         V_VA     = v_va)
+    
+    ;Turn refresh off
+    dngWin  -> Refresh, /DISABLE
+    winV1V2 -> Refresh, /DISABLE
+    winVpV1 -> Refresh, /DISABLE
+    winVpV2 -> Refresh, /DISABLE
+                        
+;-------------------------------------------------------
+; Move Color and Line Plot into Main Window ////////////
+;-------------------------------------------------------
+    ;Place them side-by-side at the top of the figure
+    ;   - Leave space between for annotations.
+    linePos  = [0.15, 0.77, 0.45, 0.95]
+    colorPos = [0.55, 0.77, 0.85, 0.95]
+
+    ;Move Color Uix
+    tempGfx = dngWin -> Get(/ALL)
+    foreach gfx, tempGfx do gfx -> SwitchWindows, win
+    
+    ;Destroy the empty window
+    obj_destroy, dngWin
+
+    ;Reposition the color and line plot
+    win['Color Dng_e'] -> SetLayout, POSITION=colorPos
+    win['Cut ne']      -> SetLayout, POSITION=linePos
+                        
+;-------------------------------------------------------
+; Move Distributions into Main Window //////////////////
+;-------------------------------------------------------
+    ;Width and height of the distributions
+    ;   - Make them square
+    nCol   = bin_layout[0]
+    nRow   = 3
+    aspect = 1
+    ygap   = 0.025
+    xgap   = 0.03
+    width  = 0.80/5 * xsize
+    height = 0.46/3 * ysize
+    if width gt height $
+        then width  = height $
+        else height = width
+
+    ;Normalize
+    width  /= float(xsize)
+    height /= float(ysize)
+    
+    ;Positions of the distributions
+    x0 = 0.13 + width*indgen(nCol) + xgap*indgen(nCol)
+    x1 = x0   + width
+    y1 = 0.6  - height*indgen(nRow) - ygap*indgen(nRow)
+    y0 = y1   - height
+    
+    ;Remember the maximum data ranges
+    eCount = 0
+    xrange = [!values.f_infinity, -!values.f_infinity]
+    yrange = [!values.f_infinity, -!values.f_infinity]
+
+    ;Step through each distribution-type    
+    for i = 0, 2 do begin
+        case i of
+            0: theWin = winVxVy
+            1: theWin = winVxVz
+            2: theWin = winVyVz
+        endcase
+        
+        j = 0
+        tempGfx = theWin -> Get(/ALL)
+        foreach gfx, tempGfx do begin
+            objClass = obj_class(gfx)
+            
+            ;Do not keep the title or colorbar
+            if objClass eq 'WECOLORBAR' then continue
+            if objClass eq 'MRTEXT' && gfx.NAME eq 'eMap Title' then continue
+    
+            ;Switch to the primary window
+            gfx -> SwitchWindows, win
+        
+            ;Reposition the distribution functions
+            if objClass eq 'MRIMAGE' then begin
+                ;Set the position
+                gfx -> SetLayout, POSITION=[x0[j], y0[i], x1[j], y1[i]]
+            
+                ;Determine the ranges
+                gfx -> GetProperty, XRANGE=xr, YRANGE=yr, RANGE=r
+                eCount >= r[1]
+                xrange[0] <= xr[0]
+                xrange[1] >= xr[1]
+                yrange[0] <= yr[0]
+                yrange[1] >= yr[1]
+            
+                ;Next image
+                j += 1
+            endif
+        endforeach
+        obj_destroy, theWin
+    endfor
+
+;-------------------------------------------------------
+; Make Pretty //////////////////////////////////////////
+;-------------------------------------------------------
+    win['Cut Uex'] -> SetProperty, YTICKS=2, YTICKV=[-0.3, 0.0, 0.3], YMINOR=3
+    
+    if v_va eq 0 then begin
+        xrange = [-1, 1]
+        yrange = [-1, 1]
+        xticks = 2
+        xminor = 5
+    endif else begin
+        xrange = [-25, 25]
+        yrange = [-25, 25]
+        xticks = 2
+        xtickv = [-20, 0, 20]
+        xminor = 4
+    endelse
+    range = [0, eCount]
+
+    ;Step through each image
+    tempGfx = win -> Get(/ALL, ISA='MRIMAGE')
+    foreach gfx, tempGfx do begin
+        name = strupcase(gfx.name)
+        
+        ;2D Color Plot
+        if name eq 'COLOR UEX' then begin
+            gfx -> SetProperty, XRANGE=[800,900], XTITLE='', XTICKFORMAT='(a1)', YRANGE=zrange
+        
+        ;Distribution functions
+        endif else if strpos(name, 'EDIST') ne -1 then begin
+            ;Set the ranges.
+            gfx -> SetProperty, XRANGE=xrange, YRANGE=yrange, RANGE=range
+            
+            ;All except bottom row
+            ;   - Remove x-axis annotations
+            if strpos(name, 'VY-VZ') eq -1 $
+                then gfx -> SetProperty, XTICKFORMAT='(a1)', XTITLE='' $
+                else gfx -> SetProperty, XMINOR=xminor, XTICKV=xtickv, XTICKS=xticks, $
+                                         XTICKINTERVAL=0, XTICKFORMAT='(i0)'
+                
+            ;All except the left column
+            ;   - Remove y-axis annontations
+            if strpos(name, '00') eq -1 $
+                then gfx -> SetProperty, YTICKFORMAT='(a1)', YTITLE=''
+        endif
+    endforeach
+    
+    ;Add a colorbar for the distribution functions
+    !NULL = MrColorbar(/CURRENT, $
+                       /VERTICAL, $
+                       CTINDEX=13, $
+                       NAME      = 'CB: e- Counts', $
+                       POSITION  = [0.92, min(y0), 0.94, max(y1)], $
+                       RANGE     = range, $
+                       TITLE     = 'e- Counts', $
+                       TLOCATION = 'Right')
+    
+    ;Draw a line
+    line = MrPlotS([0.0, 1.0], [0.5, 0.5], $
+                   /RELATIVE, $
+                   COLOR  = 'white', $
+                   TARGET = win['Color Uex'])
+
+;-------------------------------------------------------
+; Create the Image /////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Destroy the simulation object
+    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    
+    win -> Refresh
+    return, win
+end
+
+
+;+
+;   Create the desired figure.
+;
+; Params:
+;       FIGURE:         in, optional, type=string
+;                       Figure number of the figure to be created.
+;-
 function FEN_Sym_Overview_t72, $
 SIM_OBJECT=oSim
     compile_opt strictarr
@@ -1330,12 +1726,14 @@ VPERP1_VPERP2=vperp1_vperp2
                        ['Figure2 Map Sim1     ', ''], $
                        ['Figure3 Map By0      ', ''], $
                        ['Figure4 Map By1      ', ''], $
+                       ['Figure5 Map 3D       ', ''], $
                        ['Figure1 LiJen        ', ''], $
                        ['Asymm-Scan/By0       ', 'Asymm-Scan/By0 simulation figures'], $
                        ['    t28 eMap         ', ''], $
                        ['Asymm-Scan/By1       ', 'Asymm-Scan/By1 simulation figures'], $
                        ['    t30 eMap         ', ''], $, $
                        ['3D                   ', 'Asymm-3D simulation figures'], $
+                       ['    MMS Fly-By       ', ''], $
                        ['    t108090 y650 eMap  ', ''], $
                        ['    t108090 y905 eMap  ', ''], $
                        ['    t108090 y1440 eMap ', ''], $
@@ -1415,6 +1813,7 @@ VPERP1_VPERP2=vperp1_vperp2
             'ASYMM-2D-LARGE-NEW T09 OVERVIEW': win = FEN_Overview_t09(SIM_OBJECT=oSim, STRNAME=strname)
             'ASYMM-2D-LARGE-NEW T13 OVERVIEW': win = FEN_Overview_t13(SIM_OBJECT=oSim, STRNAME=strname)
             'ASYMM-2D-LARGE-NEW T18 OVERVIEW': win = FEN_Overview_t18(SIM_OBJECT=oSim, STRNAME=strname)
+            'ASYMM-3D MMS FLY-BY':             win = FEN_Asymm3D_MMS_FlyBy()
             'SIM1 OVERVIEW T72': win = FEN_Overview_Sym_t72_xline(SIM_OBJECT=oSim)
             else: message, 'Figure "' + figure + '" not an option.'
         endcase

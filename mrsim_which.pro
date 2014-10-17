@@ -498,7 +498,7 @@ FMAP_DIR=fMap_dir
     directory = '/data2/Asymm-3D/data/'
     dtxwci    = 8.324609e-04 ;From info file - no t-slices in 3D .gda files
     if arg_present(ascii_version) then ascii_version = 1
-    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/Asymm-3D/'
+    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/Work/AssymectricSim/fmaps/'
     if arg_present(eCountFactor)  then eCountFactor  = 2.0
 
     ;Binary Info File
@@ -527,12 +527,12 @@ FMAP_DIR=fMap_dir
         yStr = strtrim(yslice, 2)
         
         ;File name
-        eFile = '/data2/Asymm-3D/data/electrons-y' + yStr + '.bin'
+        eFile = '/home/daughton/Asymm-3D/electrons-y' + yStr + '.bin'
     endif
     
     ;Regions with electrons
-    ;   - Have moment data for   t=108090
-    ;   - Have particle data for t=108108
+    ;   - Have field & moment data for t=108090
+    ;   - Have particle data for       t=108108
     if arg_present(eRegions) then begin
         eRegions = { tIndex: [108090, 108090, 108090], $
                      yslice: [650, 905, 1440], $

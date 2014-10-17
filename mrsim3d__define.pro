@@ -56,8 +56,753 @@
 ;       2014/03/29  -   Added the divPe_y, divPi_y, gradPe, gradPi, Pe, and Pi methods. - MRA
 ;       2014/04/08  -   Added the D_DY and divPi_y methods. - MRA
 ;       2014/10/11  -   Oranization, comments, and flow to ::ReadMoments improved. - MRA
+;       2014/10/14  -   ::ReadElectrons is now a function. File checking delegated
+;                           elsewhere. - MRA
 ;-
 ;*****************************************************************************************
+;+
+;   The purpose of this program is to compute the Z-derivative of a data array.
+;
+; :Params:
+;       DATA:               in, required, type=NxM float
+;                           The data of which the derivative will be taken.
+;
+; :Keywords:
+;       OVERWRITE:          in, optional, type=boolean, default=0
+;                           If set, the derivative will overwrite `DATA` and avoids
+;                               having an extra copy in memory.
+;
+; :Returns:
+;       DERIVATIVE:         The derivative of `DATA` with respect to Z
+;-
+function MrSim3D::ReadGDA_FilePos, coords, $
+COORD_SYSTEM=coord_system, $
+RANGES=ranges
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ranges  = keyword_set(ranges)
+    _system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
+
+;-------------------------------------------------------
+; Grid Points in Current System ////////////////////////
+;-------------------------------------------------------
+    ;Cell location in the current coordinate system.
+    if ranges then begin
+        ix = getIndexRange(*self.xSim, self.xrange)
+        iy = reform(getIndexRange(*self.ySim, self.yrange))
+        iz = getIndexRange(*self.zSim, self.zrange)
+    endif else begin
+        ix = value_locate(*self.xSim, coords[0,*])
+        iy = value_locate(*self.ySim, coords[1,*])
+        iz = value_locate(*self.zSim, coords[2,*])
+    endelse
+
+;-------------------------------------------------------
+; From Simulation //////////////////////////////////////
+;-------------------------------------------------------
+    ;We must convert from the current coordinate system back
+    ;to simulation coordinates. Coordinate transformations from simulation to
+    ;whatever are described below.
+    case _system of
+        'SIMULATION': ;Do nothing
+    
+        ; The entire transformation results in
+        ;   x -> -z
+        ;   y -> +y
+        ;   z -> +x
+        ; and takes place in in three stages. The first is here.
+        ;
+        ;
+        ; The x- and z-axis need to be interchanged.
+        ;   - The reverse occurs here.
+        ;
+        ;           MSP                         MSP
+        ; +z  *--------------|       ++x *--------------|
+        ;     |              |  ==>      |              |
+        ; -z  |--------------+        +x |--------------+
+        ;     +x    MSH    ++x           -z     MSH    +z
+        ;
+        ; To complete the transformation
+        ;   - Transpose data (::CoordTransform)
+        ;
+        ;                            ++z +--------|
+        ;                                |        |
+        ;           MSP                  |        |
+        ; +x  *--------------|         M |        | M
+        ;     |              |  ===>   S |        | S
+        ; -x  |--------------+         H |        | P
+        ;     +z    MSH    ++z           |        |
+        ;                                |        |
+        ;                             +z |--------*
+        ;                               -x       +x
+        ;
+        ; And finally
+        ;   - Reverse x-axis (::MakeSimDomain)
+        ;
+        ;  ++z +--------|        ++z +--------|
+        ;      |        |            |        |
+        ;      |        |            |        |
+        ;    M |        | M        M |        | M
+        ;    S |        | S  ===>  S |        | S
+        ;    H |        | P        H |        | P
+        ;      |        |            |        |
+        ;      |        |            |        |
+        ;   +z |--------*         +z |--------*
+        ;     -x       +x           +x       -x
+        ;
+        'MAGNETOPAUSE': begin
+            ;Interchange x and z
+            iTemp = ix
+            ix    = iz
+            iz    = temporary(iTemp)
+        endcase
+    
+        ;
+        ; The entire transformation results in
+        ;   x -> -x
+        ; and takes place in one stage, none of which occur here.
+        ;
+        ; Reverse the direction of vectors pointing in the x-direction
+        ;   - ::CoordTransform
+        ;
+        ;          North                       North
+        ; +z  *--------------|        +z *--------------|
+        ;     |              |  ==>      |              |
+        ; -z  |--------------+        -z |--------------+
+        ;     +x   South    ++x         -x     South   --x
+        ;
+        'MAGNETOTAIL': ;Do nothing
+    
+        else: message, 'Coordinate system not recognized: "' + _system + '".'
+    endcase
+    
+;-------------------------------------------------------
+; From Simulation //////////////////////////////////////
+;-------------------------------------------------------
+    ;Sort ranges
+    if ranges then begin
+        if ix[0] gt ix[1] then ix = ix[[1,0]]
+        if iy[0] gt iy[1] then iy = iy[[1,0]]
+        if iz[0] gt iz[1] then iz = iz[[1,0]]
+    endif
+    
+    return, transpose([[ix], [iy], [iz]])
+end
+
+
+;+
+;   The purpose of this program is to compute the Z-derivative of a data array.
+;
+; :Params:
+;       DATA:               in, required, type=NxM float
+;                           The data of which the derivative will be taken.
+;
+; :Keywords:
+;       OVERWRITE:          in, optional, type=boolean, default=0
+;                           If set, the derivative will overwrite `DATA` and avoids
+;                               having an extra copy in memory.
+;
+; :Returns:
+;       DERIVATIVE:         The derivative of `DATA` with respect to Z
+;-
+pro MrSim3D::ReadGDA_TransformData, name, data, $
+COORD_SYSTEM=coord_system, $
+ORIENTATION=orientation
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return
+    endif
+
+    _name   = strupcase(name)
+    _orient = n_elements(orientation)  eq 0 ? self.orientation  : strupcase(orientation)
+    _system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
+
+;-------------------------------------------------------
+; Change from SIMULATION Coordinates? //////////////////
+;-------------------------------------------------------
+    ;See ::ReadGDA_FilePos for detailed comments about
+    ;transformations.
+
+    case strupcase(_system) of
+        'SIMULATION': ;Do nothing
+        
+        'MAGNETOPAUSE': begin
+            case _orient of
+                'XY': ;Do nothing
+                'XZ': data = transpose(data)
+                else: message, 'Orienatation "' + _orient + '" not recognized.'
+            endcase
+
+            ;Now reverse the z-axes
+            ;   Single negate Bz, Uiz, Pe-xz, Pe-yz, etc.
+            case 1 of
+                stregex(_name, '[A-Z][a-z]*z$',   /BOOLEAN): data = -data
+                stregex(_name, '-(z[yx]|[xy]z)$', /BOOLEAN): data = -data
+                else: ;Do nothing
+            endcase
+        end
+        
+        'MAGNETOTAIL': begin
+            case _orient of
+                'XY': ;Do nothing
+                'XZ': ;Do nothing
+                else: message, 'Orienatation "' + _orient + '" not recognized.'
+            endcase
+
+            ;Now reverse the x-axes
+            ;   Single negate Bx, Uix, Pe-xz, Pe-xy, etc.
+            case 1 of
+                stregex(_name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
+                stregex(_name, '-(y|z)[x]$',      /BOOLEAN): data = -data
+                stregex(_name, '-[x](y|z)$',      /BOOLEAN): data = -data
+                else: ;Do nothing
+            endcase
+        end
+    endcase
+end
+
+
+;+
+;   The purpose of this method is to read data. If the data file does not exist, an
+;   informational message will be printed and no data will be read.
+;
+; :Params:
+;       NAME:           in, required, type=string
+;                       Name of the data product to be read.
+;
+;-
+function MrSim3D::ReadGDA_Cells, cells, name, tIndex, $
+COORD_SYSTEM=coord_system, $
+COORDINATES=coordinates, $
+DIRECTORY=directory, $
+NSMOOTH=nSmooth, $
+ORIENTATION=orientation
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if n_elements(lun) gt 0 then free_lun, lun
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+;-------------------------------------------------------
+; Defaults /////////////////////////////////////////////
+;-------------------------------------------------------
+    if n_elements(directory)   eq 0 then directory   = self.directory
+    if n_elements(nSmooth)     eq 0 then nSmooth     = self.nSmooth
+    if n_elements(orientation) eq 0 then orientation = self.orientation
+    if n_elements(tindex)      eq 0 then tindex      = self.time
+    coord_system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
+
+    ;Create file name and test for the file
+    ;   - If file does not exist, create dialog to pick the file.
+    ;   - If dialog is cancelled, return nothing.
+    filename = filepath(name + '_' + string(tindex, FORMAT='(i0)') + '.gda', ROOT_DIR=directory)
+    if file_test(filename) eq 0 then begin
+        if filename ne '' then message, 'Choose a file. Given file not found: "' + filename + '".', /INFORMATIONAL
+        filename = cgPickFile(TITLE='Choose .gda Field or Moment File.', /READ)
+        if filename eq '' then return, !Null
+    endif
+
+;-------------------------------------------------------
+; Read the Data ////////////////////////////////////////
+;-------------------------------------------------------
+    ;File size
+    self -> GetInfo, NX=nx, NY=ny, NZ=nz
+
+    ;Allocate memory
+    nCells = n_elements(cells[0,*])
+    data   = fltarr(nCells)
+    record = 0.0
+
+    ;Open the file
+    openr, lun, filename, /GET_LUN
+
+    ;Step through each record.
+    for i = 0ULL, nCells-1 do begin
+        ;Get the cell locations.
+        ix = cells[0,i]
+        iy = cells[1,i]
+        iz = cells[2,i]
+        
+        ;Jump to the desired cell
+        offset = 4ULL * (ix + nx*iy + nx*ny*iz)
+        
+        ;Read and store the record.
+        point_lun, lun, offset
+        readu, lun, record
+        data[i] = record
+    endfor
+    
+    ;Free the file
+    free_lun, lun
+
+;-------------------------------------------------------
+; Cleanup //////////////////////////////////////////////
+;-------------------------------------------------------
+    ;Return the coordinates at which the grid-cells are located
+    if arg_present(coordinates) then begin
+        coordinates = cells
+        coordinates[0,*] = (*self.xSim)[cells[0,*]]
+        coordinates[1,*] = (*self.ySim)[cells[1,*]]
+        coordinates[2,*] = (*self.zSim)[cells[2,*]]
+    endif
+
+    ;Smooth data 
+    if nSmooth gt 0 then data = smooth(data, nSmooth, /EDGE_TRUNCATE)  
+
+    ;Store the data so that it does not have to be read again.
+    return, data
+end
+
+
+;+
+;   Read a 2D slice of data in the XY plane. Data is assumed to be stored in as
+;   floating point values ordered in the same as an [nx, ny, xz] array.
+;
+; :Private:
+;
+; :Params:
+;       FILE:               in, required, type=string
+;                           Name of the file to be read.
+;       IXRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the x-dimension.
+;       IYRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the y-dimension.
+;       IZ                  in, required, type=intarr(2)
+;                           Grid cell along the z-direction at which to read the 2D slice.
+;
+; :Keywords:
+;       NX:                 in, optional, type=integer
+;                           Number of total grid cells along the x-direction.
+;       NY:                 in, optional, type=integer
+;                           Number of total grid cells along the y-direction.
+;       NZ:                 in, optional, type=integer
+;                           Number of total grid cells along the z-direction.
+;
+; :Returns:
+;       DATA:               Data extracted from the file.
+;-
+function MrSim3D::ReadGDA_XY, file, ixrange, iyrange, iz, $
+NX=nx, $
+NY=ny, $
+NZ=nz
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if n_elements(lun) gt 0 then free_lun, lun
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get/Set defaults
+    self -> GetInfo, NX=_nx, NY=_ny, NZ=_nz
+    if n_elements(nx) eq 0 then nx = _nx
+    if n_elements(ny) eq 0 then ny = _ny
+    if n_elements(nz) eq 0 then nz = _nz
+
+    ;Minimum and maximum grid cells to read
+    ixMin = min(ixrange, MAX=ixMax)
+    iyMin = min(iyrange, MAX=iyMax)
+    
+    ;Open File and read data
+    openr, lun, file, /GET_LUN
+    
+    ;Declare array for data
+    data = fltarr(ixMax-ixMin+1, iyMax-iyMin+1)
+    temp = fltarr(ixMax-ixMin+1)
+
+;-------------------------------------------------------
+; Read Data ////////////////////////////////////////////
+;-------------------------------------------------------
+    
+    ;How to read:
+    ;   - Z is fixed
+    ;   - Step through each row (y)
+    ;   - Read all columns (x) in each row
+    ix      = ulong64(ixMin)
+    zOffset = iz*nx*ny*4ULL
+    
+    ;Read the data
+    for iy = ulong64(iyMin), iyMax do begin
+        point_lun, lun, zOffset + 4ULL*(ix + iy*nx)
+        readu, lun, temp
+        data[*,iy] = temp
+    endfor
+    
+    ;Free the file
+    free_lun, lun
+    
+    return, data
+end
+
+
+;+
+;   Read a 2D slice of data in the XZ plane. Data is assumed to be stored in as
+;   floating point values ordered in the same as an [nx, ny, xz] array.
+;
+; :Private:
+;
+; :Params:
+;       FILE:               in, required, type=string
+;                           Name of the file to be read.
+;       IXRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the x-dimension.
+;       IZRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the z-dimension.
+;       IY                  in, required, type=intarr(2)
+;                           Grid cell along the y-direction at which to read the 2D slice.
+;
+; :Keywords:
+;       NX:                 in, optional, type=integer
+;                           Number of total grid cells along the x-direction.
+;       NY:                 in, optional, type=integer
+;                           Number of total grid cells along the y-direction.
+;       NZ:                 in, optional, type=integer
+;                           Number of total grid cells along the z-direction.
+;
+; :Returns:
+;       DATA:               Data extracted from the file.
+;-
+function MrSim3D::ReadGDA_XZ, file, ixrange, izrange, iy, $
+NX=nx, $
+NY=ny, $
+NZ=nz
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if n_elements(lun) gt 0 then free_lun, lun
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get/Set defaults
+    self -> GetInfo, NX=_nx, NY=_ny, NZ=_nz
+    if n_elements(nx) eq 0 then nx = _nx
+    if n_elements(ny) eq 0 then ny = _ny
+    if n_elements(nz) eq 0 then nz = _nz
+
+    ;Minimum and maximum grid cells to read
+    ixMin = min(ixrange, MAX=ixMax)
+    izMin = min(izrange, MAX=izMax)
+
+    ;Open File and read data
+    openr, lun, file, /GET_LUN
+    
+    ;Declare output array for data
+    data = fltarr(ixMax-ixMin+1, izMax-izMin+1)
+
+    ;Read this many elements from a row.
+    temp = fltarr(ixMax-ixMin+1)
+
+;-------------------------------------------------------
+; Read Data ////////////////////////////////////////////
+;-------------------------------------------------------
+
+    ;How to read:
+    ;   - Y is fixed
+    ;   - Jump from z to z
+    ;   - Read all columns (x) at each z
+    ix = ulong64(ixMin)
+    for iz = ulong64(izMin), izMax do begin
+        ;Offset to first record.
+        ;   ix       = column offset
+        ;   iy*ny    = row offset
+        ;   iz*nx*ny = 3rd dimension offset
+        ;   4        = Bytes per element
+        offset = 4ULL * (ix + iy*nx + iz*nx*ny)
+        
+        ;Read and save the records.
+        point_lun, lun, offset
+        readu, lun, temp
+        data[*,iz-izMin] = temp
+    endfor
+    
+    ;Free the file
+    free_lun, lun
+    
+    return, data
+end
+
+
+;+
+;   Read a 2D slice of data in the YZ plane. Data is assumed to be stored in as
+;   floating point values ordered in the same as an [nx, ny, xz] array.
+;
+; :Private:
+;
+; :Params:
+;       FILE:               in, required, type=string
+;                           Name of the file to be read.
+;       IXRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the x-dimension.
+;       IYRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the y-dimension.
+;       IZ                  in, required, type=intarr(2)
+;                           Grid cell along the z-direction at which to read the 2D slice.
+;
+; :Keywords:
+;       NX:                 in, optional, type=integer
+;                           Number of total grid cells along the x-direction.
+;       NY:                 in, optional, type=integer
+;                           Number of total grid cells along the y-direction.
+;       NZ:                 in, optional, type=integer
+;                           Number of total grid cells along the z-direction.
+;
+; :Returns:
+;       DATA:               Data extracted from the file.
+;-
+function MrSim3D::ReadGDA_YZ, file, iyrange, izrange, ix, $
+NX=nx, $
+NY=ny, $
+NZ=nz
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if n_elements(lun) gt 0 then free_lun, lun
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get/Set defaults
+    self -> GetInfo, NX=_nx, NY=_ny, NZ=_nz
+    if n_elements(nx) eq 0 then nx = _nx
+    if n_elements(ny) eq 0 then ny = _ny
+    if n_elements(nz) eq 0 then nz = _nz
+
+    ;Minimum and maximum grid cells to read
+    iyMin = min(iyrange, MAX=iyMax)
+    izMin = min(izrange, MAX=izMax)
+
+    ;Open File and read data
+    openr, lun, file, /GET_LUN
+    
+    ;Declare array for data
+    data = fltarr(iyMax-iyMin+1, izMax-izMin+1)
+    temp = fltarr(1)
+
+;-------------------------------------------------------
+; Read Data ////////////////////////////////////////////
+;-------------------------------------------------------
+    
+    ;How to read
+    ;   - X is fixed
+    ;   - Jump to desired row (y)
+    ;   - Jump to desired depth (z)
+    ;   - y and z are not adjacent, so each element must be read
+    for iz = ulong64(izMin), izMax do begin
+        for iy = ulong64(iyMin), iyMax do begin
+            ;Offset to first record.
+            ;   ix       = column offset
+            ;   iy*ny    = row offset
+            ;   iz*nx*ny = 3rd dimension offset
+            ;   4        = Bytes per element
+            offset = 4ULL * (ix + iy*nx + iz*nx*ny)
+        
+            ;Read and save the records.
+            point_lun, lun, offset
+            readu, lun, temp
+            data[iy-iyMin, iz-izMin] = temp
+        endfor
+    endfor
+    
+    ;Free the file
+    free_lun, lun
+    
+    return, data
+end
+
+
+;+
+;   Read a 3D slice of data. Data is assumed to be stored in as floating point values
+;   ordered in the same as an [nx, ny, xz] array.
+;
+; :Private:
+;
+; :Params:
+;       FILE:               in, required, type=string
+;                           Name of the file to be read.
+;       IXRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the x-dimension.
+;       IYRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the y-dimension.
+;       IZ                  in, required, type=intarr(2)
+;                           Grid cell along the z-direction at which to read the 2D slice.
+;
+; :Keywords:
+;       NX:                 in, optional, type=integer
+;                           Number of total grid cells along the x-direction.
+;       NY:                 in, optional, type=integer
+;                           Number of total grid cells along the y-direction.
+;       NZ:                 in, optional, type=integer
+;                           Number of total grid cells along the z-direction.
+;
+; :Returns:
+;       DATA:               Data extracted from the file.
+;-
+function MrSim3D::ReadGDA_XYZ, file, ixrange, iyrange, izrange, $
+NX=nx, $
+NY=ny, $
+NZ=nz
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if n_elements(lun) gt 0 then free_lun, lun
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get/Set defaults
+    self -> GetInfo, NX=_nx, NY=_ny, NZ=_nz
+    if n_elements(nx) eq 0 then nx = _nx
+    if n_elements(ny) eq 0 then ny = _ny
+    if n_elements(nz) eq 0 then nz = _nz
+
+    ;Minimum and maximum grid cells to read
+    ixMin = min(ixrange, MAX=ixMax)
+    iyMin = min(iyrange, MAX=iyMax)
+    izMin = min(izrange, MAX=izMax)
+    
+    ;Open File and read data
+    openr, lun, file, /GET_LUN
+    
+    ;Declare array for data
+    data = fltarr(ixMax-ixMin+1, iyMax-iyMin+1, izMax-izMin+1)
+    temp = fltarr(ixMax-ixMin+1)
+
+;-------------------------------------------------------
+; Read Data ////////////////////////////////////////////
+;-------------------------------------------------------
+    
+    ;How to read:
+    ;   - Advance to the first desired column
+    ;   - Read all desired columns(x)
+    ;   - Advance row (y) and repeat.
+    ;   - When a full xy-plane is read, advance depth, repeat.
+    ix = ulong64(ixMin)
+    
+    ;Read the data
+    for iz = ulong64(izMin), izMax do begin
+        for iy = ulong64(iyMin), iyMax do begin
+            point_lun, lun, 4ULL*(ix + iy*nx + iz*nx*ny)
+            readu, lun, temp
+            data[*, iy, iz] = temp
+        endfor
+    endfor
+    
+    ;Free the file
+    free_lun, lun
+    
+    return, data
+end
+
+
+;+
+;   The purpose of this method is to read data. If the data file does not exist, an
+;   informational message will be printed and no data will be read.
+;
+; :Params:
+;       NAME:           in, required, type=string
+;                       Name of the data product to be read.
+;
+;-
+function MrSim3D::ReadGDA, name, tIndex, $
+COORD_SYSTEM=coord_system, $
+DIRECTORY=directory, $
+NSMOOTH=nSmooth, $
+ORIENTATION=orientation, $
+SIM_OBJECT=oSim, $
+XRANGE=xrange, $
+YRANGE=yrange, $
+ZRANGE=zrange
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+;-------------------------------------------------------
+; Defaults /////////////////////////////////////////////
+;-------------------------------------------------------
+    if n_elements(directory)   eq 0 then directory   = self.directory
+    if n_elements(nSmooth)     eq 0 then nSmooth     = self.nSmooth
+    if n_elements(orientation) eq 0 then orientation = self.orientation
+    if n_elements(tindex)      eq 0 then tindex      = self.time
+    if n_elements(xrange)      eq 0 then xrange      = self.xrange
+    if n_elements(yrange)      eq 0 then yrange      = self.yrange
+    if n_elements(zrange)      eq 0 then zrange      = self.zrange
+    coord_system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
+
+    ;Create file name and test for the file
+    file = filepath(name + '_' + string(tindex, FORMAT='(i0)') + '.gda', ROOT_DIR=directory)
+    if file_test(file) eq 0 then begin
+        if file ne '' then message, 'Choose a file. Given file not found: "' + file + '".', /INFORMATIONAL
+        file = cgPickFile(TITLE='Choose .gda Field or Moment File.', /READ)
+        if file eq '' then return, !Null
+    endif
+
+;-------------------------------------------------------
+; Read the Data ////////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Data in the gda files are stored in simulation coordinates
+    ;   - Translate from COORD_SYSTEM to SIMULATION cell locations.
+    cells = self -> ReadGDA_FilePos(/RANGES, COORD_SYSTEM=coord_system)
+
+    case orientation of
+        'XY': data = self -> ReadGDA_XY(file, cells[0,*], cells[1,*], cells[2,0])
+        'XZ': data = self -> ReadGDA_XZ(file, cells[0,*], cells[2,*], cells[1,0])
+        'YZ': data = self -> ReadGDA_YZ(file, cells[1,*], cells[2,*], cells[0,0])
+        else: message, 'Orientation "' + orientation + '" not recognized.'
+    endcase
+
+    ;Manipulate data from SIMULATION to COORD_SYSTEM coordinates.
+    self -> ReadGDA_TransformData, name, data
+
+
+;-------------------------------------------------------
+; Cleanup //////////////////////////////////////////////
+;-------------------------------------------------------
+    ;Smooth data 
+    if nSmooth gt 0 then data = smooth(data, nSmooth, /EDGE_TRUNCATE)  
+
+    ;Store the data so that it does not have to be read again.
+    return, data
+end
+
+
 ;+
 ;   The purpose of this program is to compute the Z-derivative of a data array.
 ;
@@ -217,6 +962,52 @@ end
 
 
 ;+
+;   The purpose of this program is to read data from a ".gda" file produced by 
+;   one of Bill Daughton's simulation runs.
+;
+; :Params:
+;       DATA_PRODUCT:           in, required, type=string, default=
+;                               The name of the data product to be read. For a list of
+;                                   available data product, call mr_readSIM without any
+;                                   arguments.
+;
+; :Returns:
+;       DATA:                   The requested data. If the data product does not exist,
+;                                   then !Null will be returned.
+;-
+function MrSim3D::GridLine, r0, r1, $
+COORDS=coords
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ;Determine the size of a grid cell in DE
+    self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de
+    
+    ;Number of grid cells between r0 and r1
+    dr = sqrt(total(r1^2 - r0^2))
+    n  = dr * dx_de
+    
+    ;Coordinates of each point on the line.
+    coords = MrLine3D(r0, r1, NPOINTS=n)
+    
+    ;Find the cells
+    cells = coords
+    cells[0,*] = self -> GetCell(coords[0,*], /X)
+    cells[1,*] = self -> GetCell(coords[1,*], /Y)
+    cells[2,*] = self -> GetCell(coords[2,*], /Z)
+    
+    return, cells
+end
+
+
+;+
 ;   The purpose of this method is to read the ASCII "info" file relating to Bill
 ;   Daughton's simulations.
 ;
@@ -226,7 +1017,13 @@ end
 ;       FILENAME:           in, optional, type=string, default='electrons-y' [y-slice] + '.gda'
 ;                           Name of the "info" file to be read.
 ;-
-pro MrSim3D::ReadElectrons, filename
+function MrSim3D::ReadElectrons, filename, $
+ENERGY=energy, $
+FMAP_DIR=fmap_dir, $
+VELOCITY=velocity, $
+VERBOSE=verbose, $
+XRANGE=xrange, $
+ZRANGE=zrange
     compile_opt strictarr
     
     ;catch errors
@@ -234,33 +1031,29 @@ pro MrSim3D::ReadElectrons, filename
     if the_error ne 0 then begin
         catch, /CANCEL
         void = cgErrorMsg()
-        return
+        return, !Null
     endif
 
-;---------------------------------------------------------------------
-; Create a File Name /////////////////////////////////////////////////
-;---------------------------------------------------------------------
-    if n_elements(filename) eq 0 || filename eq '' then begin
-        MrSim_Which, self.simnum, EFILE=filename, FMAP_DIR=fMap_dir, TINDEX=self.time, YSLICE=self.yslice
-        if n_elements(filename) eq !Null then filename = ''
-        if n_elements(fMap_dir) eq !Null then fMap_dir = ''
+    ;Get the y-grid-cell
+    yslice = self -> GetCell(self.yrange[0], /Y)
 
-        ;Pick a file if the guessed file is not valid.
-        if file_test(filename) eq 0 then filename = ''
-        if filename eq '' then filename = dialog_pickfile(/READ, TITLE='Pick electron file.')
-        if fmap_dir eq '' then fmap_dir = dialog_pickfile(/READ, TITLE='Pick fMap directory.', /DIRECTORY)
+    ;Create defaults    
+    MrSim_Which, self.simname, EFILE=filename, FMAP_DIR=fMap_dir, TINDEX=self.time, YSLICE=yslice
     
-    ;Ensure the file exists.
-    endif else begin
-        if file_test(filename) eq 0 then $
-            message, 'File does not exist: "' + filename + '".'
-    endelse
-
-;---------------------------------------------------------------------
-; Read Electron Data /////////////////////////////////////////////////
-;---------------------------------------------------------------------
+    ;Set defaults
+    if n_elements(filename) eq 0 then filename = eFile
+    if n_elements(fmap_dir) eq 0 then fmap_dir = fmap
+    if n_elements(xrange)   eq 0 then xrange   = self.xrange
+    if n_elements(zrange)   eq 0 then zrange   = self.zrange
+    
     ;Read the simulation info file
-    *self.electrons = MrSim_ReadParticles(filename, self.xrange, self.zrange, FMAP_DIR=fmap_dir, /VERBOSE)
+    data = MrSim_ReadParticles(filename, xrange, zrange, $
+                               ENERGY           = energy, $
+                               FMAP_DIR         = fMap_dir, $
+                               VELOCITY         = velocity, $
+                               VERBOSE          = verbose)
+    
+    return, data
 end
 
 
@@ -308,243 +1101,29 @@ ZRANGE=zrange
     ;Create file name and test for the file
     file = filepath(name + '_' + string(tindex, FORMAT='(i0)') + '.gda', ROOT_DIR=directory)
     if file_test(file) eq 0 then begin
+        if file ne '' then message, 'Choose a file. Given file not found: "' + file + '".', /INFORMATIONAL
         file = cgPickFile(TITLE='Choose .gda Field or Moment File.', /READ)
         if file eq '' then return, !Null
     endif
 
 ;-------------------------------------------------------
-; Index Range into Data ////////////////////////////////
+; Read the Data ////////////////////////////////////////
 ;-------------------------------------------------------
-    ;Get the index range into the simulation data arrays
-    ixRange = getIndexRange(*self.xSim, xrange)
-    iyRange = getIndexRange(*self.ySim, yrange)
-    izRange = getIndexRange(*self.zSim, zrange)
-    
-    ;xRange: min & max
-    if ixRange[0] lt ixRange[1] then begin
-        ixMin = ixRange[0]
-        ixMax = ixRange[1]
-    endif else begin
-        ixMin = ixRange[1]
-        ixMax = ixRange[0]
-    endelse
-    
-    ;yRange: min & max
-    if iyRange[0] lt iyRange[1] then begin
-        iyMin = iyRange[0]
-        iyMax = iyRange[1]
-    endif else begin
-        iyMin = iyRange[1]
-        iyMax = iyRange[0]
-    endelse
-    
-    ;zRange: min & max
-    if izRange[0] lt izRange[1] then begin
-        izMin = izRange[0]
-        izMax = izRange[1]
-    endif else begin
-        izMin = izRange[1]
-        izMax = izRange[0]
-    endelse
 
-;-------------------------------------------------------
-; Coordinate System -> Simulation Coordinates //////////
-;-------------------------------------------------------
-    ;Subset of data to read
-    ;   - Data is still in SIMULATION coordinates.
-    ;   - Ranges are in COORD_SYSTEM coordinates.
-    ;   - Must traslate from COORD_SYSTEM to SIMULATION.
-    case strupcase(coord_system) of
-        'SIMULATION': ;Do nothing
-        
-        ;Interchange indices
-        ;   x -> -z (negation occurs below)
-        ;   y -> +y
-        ;   z -> +x
-        ;
-        ;           MSP                         MSP
-        ; +z  *--------------|       ++x *--------------|
-        ;     |              |  ==>      |              |
-        ; -z  |--------------+        +x |--------------+
-        ;     +x    MSH    ++x           -z            +z
-        ;
-        'MAGNETOPAUSE': begin
-            ;Interchange x and z
-            iTemp   = ixRange
-            ixRange = izRange
-            izRange = temporary(iTemp)
-        endcase
-        
-        ;Interchange indices
-        ;   x -> -x (negation occurs below)
-        'MAGNETOTAIL': ;Do nothing
-        
-        else: message, 'Coordinate system not recognized: "' + coord_system + '".'
-    endcase
+    ;Data in the gda files are stored in simulation coordinates
+    ;   - Translate from COORD_SYSTEM to SIMULATION cell locations.
+    cells = self -> ReadGDA_FilePos(/RANGES, COORD_SYSTEM=coord_system)
 
-;-------------------------------------------------------
-; Read Data ////////////////////////////////////////////
-;-------------------------------------------------------
-    ;
-    ;Now loop through the 3D array in the data file and read only the
-    ;needed y-slice of the data file - assume array is in FORTRAN ordering
-    ;
-    
-    ;Size of simulation/data in file
-    self -> GetInfo, NX=nx, NY=ny, NZ=nz
-
-    ;Open File and read data
-    openr, lun, file, /GET_LUN
-
-    ;Read x-z slice at constant y
     case orientation of
-        'XZ': begin
-            ;Declare output array for data
-            data = fltarr(ixMax-ixMin+1, izMax-izMin+1)
-
-            ;Read this many elements from a row.
-            temp = fltarr(ixMax-ixMin+1)
-
-            ;Read the data
-            ix = ulong64(ixMin)
-            iy = ulong64(iyMin)
-            for iz = ulong64(izMin), izMax do begin
-                ;Offset to first record.
-                ;   ix       = column offset
-                ;   iy*ny    = row offset
-                ;   iz*nx*ny = 3rd dimension offset
-                ;   4        = Bytes per element
-                offset = 4ULL * (ix + iy*nx + iz*nx*ny)
-                
-                ;Read and save the records.
-                point_lun, lun, offset
-                readu, lun, temp
-                data[*,iz-izMin] = temp
-            endfor
-        endcase
-        
-        'XY': begin
-            ;Declare array for data
-            data = fltarr(ixMax-ixMin+1, iyMax-iyMin+1)
-            temp = fltarr(ixMax-ixMin+1)
-            
-            ;Here, we must pick out single values of X within different rows.
-            ;   - Jump to the proper z-slice
-            ix      = ulong64(ixMin)
-            iz      = ulong64(izMin)
-            zOffset = iz*nx*ny*4ULL
-            
-            ;Read the data
-            ;   - Jump to the proper row (y)
-            ;   - Read all of the requested columns (x)
-            for iy = ulong64(iyMin), iyMax do begin
-                point_lun, lun, zOffset + 4ULL*(ix + iy*nx)
-                readu, lun, temp
-                data[*,iy] = temp
-            endfor
-        endcase
-        
-        'YZ': begin
-            ;Declare array for data
-            data = fltarr(iyMax-iyMin+1, izMax-izMin+1)
-            temp  = fltarr(1)
-
-            ;Here, we must pick out single values of X within different rows.
-            ix     = ulong64(ixMin)
-            for iz = ulong64(izMin), izMax do begin
-                for iy = ulong64(iyMin), iyMax do begin
-                    ;Offset to first record.
-                    ;   ix       = column offset
-                    ;   iy*ny    = row offset
-                    ;   iz*nx*ny = 3rd dimension offset
-                    ;   4        = Bytes per element
-                    offset = 4ULL * (ix + iy*nx + iz*nx*ny)
-                
-                    ;Read and save the records.
-                    point_lun, lun, offset
-                    readu, lun, temp
-                    data[iy-iyMin, iz-izMin] = temp
-                endfor
-            endfor
-        endcase
-    
-        else: message, 'Orientation not recognized: "' + orientation + '".'
-    endcase  
-
-    ;Close file
-    free_lun, lun
-
-;-------------------------------------------------------
-; Change from SIMULATION Coordinates? //////////////////
-;-------------------------------------------------------
-    case strupcase(coord_system) of
-        'SIMULATION': ;Do nothing
-        
-        'MAGNETOPAUSE': begin
-            ;Re-orient the axes
-            ;   - x and z have been switch from SIMULATION coordinates arleady (above).
-            ;   - IDL draws the bottom row of the image first: img[*,0]
-            ;       * When transpose, the bottom row becomes the left-most column.
-            ;   - Ordering bottom axis as [+x, -x] requires two steps.
-            ;       * Negate all data products with a single "z" in them (below).
-            ;       * Reverse the x-axis itself (::MakeSimDomain method).
-            ;
-            ;                            ++z +--------|
-            ;                                |        |
-            ;           MSP                  |        |
-            ; +x  *--------------|         M |        | M
-            ;     |              |   ===>  S |        | S
-            ; -x  |--------------+         H |        | P
-            ;     +z    MSH    ++z           |        |
-            ;                                |        |
-            ;                             +z |--------*
-            ;                               -x       +x
-            ;
-            case orientation of
-                'XY': ;Do nothing
-                'XZ': data = transpose(data)
-                else: message, 'Orienatation "' + orientation + '" not recognized.'
-            endcase
-
-            ;Now reverse the z-axes
-            ;   Single negate Bz, Uiz, Pe-xz, Pe-yz, etc.
-            case 1 of
-                stregex(_name, '[A-Z][a-z]*z$',   /BOOLEAN): data = -data
-                stregex(_name, '-(z[yx]|[xy]z)$', /BOOLEAN): data = -data
-                else: ;Do nothing
-            endcase
-        end
-        
-        'MAGNETOTAIL': begin
-            ;Re-orient the axes
-            ;   - x and z are the same orientation as simulation coordinates
-            ;   - Ordering bottom axis as [max, min] requires two steps.
-            ;       * Negate all data products with a single "x" in them (below).
-            ;       * Negate the x-axis itself (::MakeSimDomain method).
-            ;
-            ;
-            ;          North                      North
-            ; +z  *--------------|        +z *--------------|
-            ;     |              |  ===>     |              |
-            ; -z  |--------------+        -z |--------------+
-            ;     +x   South   ++x          -x    South    --x
-            ;
-            case orientation of
-                'XY': ;Do nothing
-                'XZ': ;Do nothing
-                else: message, 'Orienatation "' + orientation + '" not recognized.'
-            endcase
-
-            ;Now reverse the x-axes
-            ;   Single negate Bx, Uix, Pe-xz, Pe-xy, etc.
-            case 1 of
-                stregex(_name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
-                stregex(_name, '-(y|z)[x]$',      /BOOLEAN): data = -data
-                stregex(_name, '-[x](y|z)$',      /BOOLEAN): data = -data
-                else: ;Do nothing
-            endcase
-        end
+        'XY': data = self -> ReadGDA_XY(file, cells[0,*], cells[1,*], cells[2,0])
+        'XZ': data = self -> ReadGDA_XZ(file, cells[0,*], cells[2,*], cells[1,0])
+        'YZ': data = self -> ReadGDA_YZ(file, cells[1,*], cells[2,*], cells[0,0])
+        else: message, 'Orientation "' + orientation + '" not recognized.'
     endcase
+
+    ;Manipulate data from SIMULATION to COORD_SYSTEM coordinates.
+    self -> ReadGDA_TransformData, name, data
+
 
 ;-------------------------------------------------------
 ; Cleanup //////////////////////////////////////////////
@@ -554,177 +1133,6 @@ ZRANGE=zrange
 
     ;Store the data so that it does not have to be read again.
     return, data
-end
-
-
-;+
-;   The purpose of this method is to read data. If the data file does not exist, an
-;   informational message will be printed and no data will be read.
-;
-;   Original method of reading field and moment data.
-;
-; :Params:
-;       NAME:           in, required, type=string
-;                       Name of the data product to be read.
-;-
-function MrSim3D::ReadMoment_Original, name, tIndex, xrange, yslice, zrange
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if n_elements(lun) gt 0 then free_lun, lun
-        void = cgErrorMsg()
-        return, !Null
-    endif
-
-    ;Defaults
-    if n_elements(nSmooth) eq 0 then nSmooth = self.nSmooth
-    if n_elements(tindex)  eq 0 then tindex  = self.time
-    if n_elements(xrange)  eq 0 then xrange  = self.xrange
-    if n_elements(yslice)  eq 0 then yslice  = self.yslice
-    if n_elements(zrange)  eq 0 then zrange  = self.zrange
-
-    ;Create file name and test for the file
-    file = filepath(name + '_' + string(tindex, FORMAT='(i0)') + '.gda', ROOT_DIR=self.directory)
-    if file_test(file) eq 0 then begin
-        file = cgPickFile(TITLE='Choose .gda Field or Moment File.', /READ)
-        if file eq '' then return, !Null
-    endif
-
-;-------------------------------------------------------
-; Coordinate System -> Simulation Coordinates //////////
-;-------------------------------------------------------
-    ;Subset of data to read
-    ;   - Data is still in SIMULATION coordinates.
-    ;   - Ranges are in COORD_SYSTEM coordinates.
-    ;   - Must traslate from COORD_SYSTEM to SIMULATION.
-    case self.coord_system of
-        'SIMULATION':   self -> GetProperty, IXRANGE=ixrange, IYRANGE=iyrange, IZRANGE=izrange
-        
-        ;Interchange indices
-        ;   x -> -z
-        ;   y -> -y
-        ;   z -> +x
-        'MAGNETOPAUSE': begin
-            ;Interchange x and z
-            self -> GetProperty, IXRANGE=izrange, IYRANGE=iyrange, IZRANGE=ixrange
-            xDim = n_elements(*self.ZSim)
-            yDim = n_elements(*self.YSim)
-            zDim = n_elements(*self.XSim)
-            
-            ;Negate by picking from the opposite end of the simulation
-            iyrange = yDim - iyrange - 1
-            izrange = zDim - izrange - 1
-            
-            ;Order [min, max]
-            iyrange = iyrange[sort(iyrange)]
-            izrange = izrange[sort(izrange)]
-        endcase
-        
-        else: ;Nothing
-    endcase
-
-;-------------------------------------------------------
-; Read Data ////////////////////////////////////////////
-;-------------------------------------------------------
-    ;
-    ;Now loop through the 3D array in the data file and read only the
-    ;needed y-slice of the data file - assume array is in FORTRAN ordering
-    ;
-    
-    ;Dimension sizes.
-    self -> GetInfo, NX=nx, NY=ny, NZ=nz
-
-    ;Open File and read data
-    openr, lun, file, /GET_LUN
-
-    ;Read x-z slice at constant y
-    case self.orientation of
-        'XZ': begin
-            if izrange[0] lt izrange[1] then begin
-                izMin = izrange[0]
-                izMax = izrange[1]
-            endif else begin
-                izMin = izrange[1]
-                izMax = izrange[0]
-            endelse
-        
-            ;Declare array for data
-            slice = fltarr(nx,izMax-izMin+1)
-
-            ;Get data from the file
-            template = fltarr(nx)
-            dfile = assoc(lun, template)
-
-            ;Get the desired subset of data. DFILE access cannot be vectorized
-            ;because it is a file... X values seem to be stored in the rows
-            ;while y and z combinations make up the row numbers.
-            j = self.yslice
-            for k = izMin, izMax do begin
-                n = (j + ny*k)
-                slice[*,k-izMin] = dfile[n]
-            endfor
-            
-            ;Trim the X component
-            slice = slice[ixrange[0]:ixrange[1],*]
-        endcase
-        
-        'XY': begin
-            ;Declare array for data
-            slice = fltarr(nx,ny)
-        
-            stemplate = fltarr(1)
-            dfile = assoc(lun, stemplate)
-            
-            ;Here, we must pick out single values of X within different rows.
-            i = self.yslice
-            for k = 0, nz-1 do begin
-                for j = 0, ny-1 do begin
-                    n = (i + nx*(j + ny*k))
-                    slice[j,k] = dfile[n]
-                endfor
-            endfor
-        endcase
-    
-        else: ;Nothing
-    endcase   
-
-    ;Close file
-    free_lun, lun
-
-;-------------------------------------------------------
-; Change from SIMULATION Coordinates? //////////////////
-;-------------------------------------------------------
-    case self.coord_system of
-        'SIMULATION':   ;Do nothing
-        
-        'MAGNETOPAUSE': begin
-            ;Re-orient the axes
-            case self.orientation of
-                'XY': ;Do nothing
-                'XZ': slice = transpose(slice)
-                else: message, 'Orienatation "' + self.orientation + '" not recognized.'
-            endcase
-            
-            ;Now reverse the  z-axes
-            ;   single negate Pe-xz, Pe-yz, etc.
-            ;   double negate Pe-zz, etc.
-            case 1 of
-                stregex(name, '[A-Z][a-z]*z$',   /BOOLEAN): slice = -slice
-                stregex(name, '-(z[yx]|[xy]z)$', /BOOLEAN): slice = -slice
-                else: ;Do nothing
-            endcase
-        end
-        
-        else: ;Nothing
-    endcase
-    
-    ;Smooth data 
-    if self.nSmooth gt 0 then slice = smooth(slice, self.nSmooth, /EDGE_TRUNCATE)
-
-    return, slice
 end
 
 
@@ -749,89 +1157,10 @@ pro MrSim3D::ReadData, name
     endif
 
     ;Read the data
-    data = self -> ReadMoment(name)
+    data = self -> ReadGDA(name)
     
     ;Store the data so the file does not have to be accessed again.
     self -> SetData, name, temporary(data)
-end
-
-
-;+
-;   The purpose of this method is to read data from 3 adjacent slices in y so that
-;   3D derivatives in the XZ plane can be taken.
-;
-; :Params:
-;       NAME:           in, required, type=string
-;                       Name of the data product to be read.
-;-
-function MrSim3D::Read3D, name
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if n_elements(lun) gt 0 then free_lun, lun
-        if arg_present(the_error) eq 0 then void = cgErrorMsg()
-        return, !Null
-    endif
-
-    
-    self -> GetInfo, NX=nx, NY=ny
-    self -> GetProperty, TIME=time, DIRECTORY=directory, $
-                         ORIENTATION=orientation, YSLICE=yslice
-
-    ;Check if NAME as an underscore. Replace it with a hyphen (i.e. "Pe_xx" -> "Pe-xx")
-    if stregex(name, '_', /BOOLEAN) then name = strjoin(strsplit(name, '_', /EXTRACT), '-')
-
-    ;Create file name and test for the file
-    file = filepath(name + '_' + string(time, FORMAT='(i0)') + '.gda', ROOT_DIR=directory)
-    if file_test(file) eq 0 then message, 'File does not exist: "' + file + '"'
-
-    ;Open File and read data
-    openr, lun, file, /GET_LUN
-    
-    ;Size of the data space to read
-    self -> GetProperty, IXRANGE=ixrange, IZRANGE=izrange
-    nz = izrange[1] - izrange[0] + 1
-
-    ;Declare array for data
-    slice3 = fltarr(nx, 3, izrange[1]-izrange[0]+1)
-    buff   = fltarr(nx)
-
-    ;Declare integer index
-    n = 0L
-
-    ;Associate buffer space with specified data file
-    dfile = assoc(lun, buff)
-
-    ;Make sure we don't request data outside of array
-    j = self.yslice
-    if (yslice eq 0)    then j = 1
-    if (yslice eq ny-1) then j = ny-2
-
-    ;Now loop through the 3D array in the data file and read only the
-    ;needed y-slice of the data file - assume array is in FORTRAN ordering
-    for k=0,nz-1 do begin
-        n             = (j - 1 + ny*k)
-        slice3[*,0,k] = dfile[n]
-        n             = (j + ny*k)
-        slice3[*,1,k] = dfile[n]
-        n             = (j + 1 + ny*k)
-        slice3[*,2,k] = dfile[n]
-     endfor
-
-    ;Close the file
-    free_lun, lun
-    
-    ;Trim the data to the desired x-range
-    slice3 = slice3[ixrange[0]:ixrange[1],*,*]
-
-    ;Smooth data --- Data is already smoothed!
-    if self.nSmooth gt 0 then slice3 = smooth(slice3, self.nSmooth, /EDGE_TRUNCATE)
-    
-    ;Return the data
-    return, slice3
 end
 
 

@@ -66,6 +66,7 @@
 ; :History:
 ;    Modification History::
 ;       2014/08/28  -   Written by Matthew Argall
+;       2014/10/14  -   Added the VELOCITY and ENERGY keywords. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -243,6 +244,8 @@ end
 ;                               of this size (units of de), and `DATA` will contain the
 ;                               particle counts in each bin. If a scalar, the x- and z-
 ;                               dimensions will have the same binsize.
+;       ENERGY:             in, optional, type=boolean, default=0
+;                           If set, momentum will be converted to energy.
 ;       FMAP_DIR:           in, optional, type=string, default=pwd
 ;                           Directory in which to find an fMap. See MrSim_Create_fMap.pro.
 ;       N_RECS_PER_CHUNK:   in, optional, type=ulong64, default=1000000ULL
@@ -258,14 +261,16 @@ end
 ;                               data values of the form [x, z, ux, uy, uz], where x and
 ;                               z are two spatial locations and u[xyz] are the three
 ;                               components of the momentum.
+;       VELOCITY:           in, optional, type=boolean, default=0
+;                           If set, momentum will be converted to velocity.
 ;       VERBOSE:            in, optional, type=boolean, default=0
 ;                           If set, information about particle will be printed data to
 ;                               the command window.
-;       XPOS:               out, optional, type=fltarr
-;                           If `BINSIZE` or `NBINS` is given, then XPOS is the spacial
+;       XLOC:               out, optional, type=fltarr
+;                           If `BINSIZE` or `NBINS` is given, then XLOC is the spacial
 ;                               location of the center of each column in `DATA`.
-;       ZPOS:               out, optional, type=fltarr
-;                           If `BINSIZE` or `NBINS` is given, then ZPOS is the spacial
+;       ZLOC:               out, optional, type=fltarr
+;                           If `BINSIZE` or `NBINS` is given, then ZLOC is the spacial
 ;                               location of the center of each row in `DATA`.
 ;
 ; :Returns:
@@ -275,10 +280,12 @@ end
 ;-
 function MrSim_ReadParticles, filename, xrange, zrange, $
 BINSIZE=binSize, $
+ENERGY=energy, $
 FMAP_DIR=fMap_dir, $
 N_RECS_PER_CHUNK=n_rec_per_chunk, $
 NBINS=nBins, $
 REC_SAMPLE=rec_sample, $
+VELOCITY=velocity, $
 VERBOSE=verbose, $
 XLOC=xloc, $
 ZLOC=zloc
@@ -293,12 +300,21 @@ ZLOC=zloc
     endif
 
     ;Make sure the file exists
-    if file_test(filename) eq 0 then $
-        message, 'File does not exist: "' + filename + '".'
+    ;   - If it does not, open a dialog.
+    ;   - If cancelled, return
+    if n_elements(filename) eq 0 then filename = ''
+    if file_test(filename) eq 0 then begin
+        if filename ne '' then $
+            message, 'Choose a file. Given file does not exist. "' + filename + '".', /INFORMATIONAL
+        if filename eq '' then filename = dialog_pickfile(/READ, TITLE='Pick electron file.')
+        if filename eq '' then return, !Null
+    endif
 
     ;Defaults
     ;   - There are five 4-byte numbers associated with each particle.
-    verbose = keyword_set(verbose)
+    energy   = keyword_set(energy)
+    velocity = keyword_set(velocity)
+    verbose  = keyword_set(verbose)
     if n_elements(fMap_dir)         eq 0 then fMap_dir         = file_dirname(filename)
     if n_elements(n_recs_per_chunk) eq 0 then n_recs_per_chunk = 1000000ULL
     if n_elements(rec_sample)       eq 0 then rec_sample       = fltarr(5)
@@ -307,6 +323,9 @@ ZLOC=zloc
     if n_elements(binsize) + n_elements(nBins) gt 0 $
         then make_hist = 1 $
         else make_hist = 0
+    
+    ;Dependencies
+    if energy + velocity gt 1 then message, 'ENERGY and VELOCITY are mutually exclusive.'
 ;---------------------------------------------------------------------
 ;Record Info /////////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
@@ -423,7 +442,24 @@ ZLOC=zloc
 
     ;Close the file
     free_lun, lun
+    
+    nParticles = iStart
     data = data[*,0:iStart-1]
+
+;---------------------------------------------------------------------
+; Convert Units //////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+
+    ;Convert to velocity
+    if velocity then begin
+        e_gamma = sqrt(1.0 + total(data[2:4, *]^2, 1))
+        data[2:4, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
+    endif
+    
+    ;Convert to energy
+    if energy then begin
+        message, 'Converting to energy not implemented.'
+    endif
 
 ;---------------------------------------------------------------------
 ; Histogram into Particle Counts? ////////////////////////////////////
