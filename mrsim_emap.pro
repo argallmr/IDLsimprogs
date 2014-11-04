@@ -81,6 +81,9 @@
 ;                                   7: Bottom-Left
 ;                                   8: Bottom-Middle
 ;                                   9: Bottom-Right
+;       POSITIONS:      out, optional, type=4xN float
+;                       A named variable to receive the positions of each bin, in data
+;                           coordinates. "Position" has the IDL definition.
 ;       SIM_OBJECT:     out, optional, type=object
 ;                       If `THESIM` is the name or number of a simulation, then
 ;                           this keyword returns the object reference to the
@@ -121,8 +124,11 @@
 ;                           Repurposed the SIM_OBJECT keyword. Added the CIRCLES and V_VA
 ;                           keyword. - MRA
 ;       2014/10/13  -   Added the XSIZE and YSIZE keywords. X, Y, DX, DY can be vectors. - MRA.
+;       2014/10/18  -   Added the POSITIONS keyword. - MRA
+;       2014/10/30  -   Changed input parameters X, Z, DX, and, DZ to BIN_CENTER and
+;                           HALF_WIDTH. - MRA
 ;-
-function MrSim_eMap, theSim, type, x, y, dx, dy, $
+function MrSim_eMap, theSim, type, bin_center, half_width, $
 C_NAME=c_name, $
 CIRCLES=circles, $
 HGAP=hGap, $
@@ -131,6 +137,7 @@ IM_WIN=im_win, $
 NBINS=nBins, $
 LAYOUT=layout, $
 LOCATION=location, $
+POSITIONS=positions, $
 SIM_OBJECT=oSim, $
 VGAP=vGap, $
 V_VA=v_va, $
@@ -164,7 +171,7 @@ _REF_EXTRA=extra
         
     ;Object?
     endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM') eq 0 $
+        if obj_isa(theSim, 'MRSIM2') eq 0 $
             then message, 'THESIM must be a subclass of the MrSim class.' $
             else oSim = theSim
             
@@ -178,9 +185,9 @@ _REF_EXTRA=extra
 ;-------------------------------------------------------
 ; Defaults /////////////////////////////////////////////
 ;-------------------------------------------------------
-    nx = n_elements(x)
-    ny = n_elements(y)
-    nDist = nx > ny
+    nDims = size(bin_center, /N_DIMENSIONS)
+    dims  = size(bin_center, /DIMENSIONS)
+    nDist = nDims eq 1 ? dims[0] : dims[1]
 
     if n_elements(nBins)    eq 0 then nBins    = 75
     if n_elements(layout)   eq 0 then layout   = [1,nDist]
@@ -194,91 +201,122 @@ _REF_EXTRA=extra
     
     ;Make sure the distribution is large enough
     if nDist gt 1 then begin
-        if nDist lt layout[0]*layout[1] then $
+        if nDist gt layout[0]*layout[1] then $
             message, string(FORMAT='(%"LAYOUT is not large enough to hold %i distributions.")', nDist)
     endif
     
 ;-------------------------------------------------------
 ; Determine Location of Dist Fns ///////////////////////
 ;-------------------------------------------------------
-    if nDist eq 1 then begin
+    if nDims eq 1 then begin
     ;-------------------------------------------------------
     ; Create Array of Distribution Functions ///////////////
     ;-------------------------------------------------------
+        ;Center of eMap and half-widths of distributions.
+        if dims[0] eq 2 then begin
+            center = [bin_center[0], 0, bin_center[1]]
+            width  = [half_width[0], 0, half_width[1]]
+        endif else begin
+            center = bin_center
+            width  = half_width
+        endelse
+        
+        ;Position of eMap bin indicated by LOCATION
+        ;   - [x0, y0, z0, x1, y1, z1]
+        positions = [[center[0] - width[0]], $
+                     [center[1] - width[1]], $
+                     [center[2] - width[2]], $
+                     [center[0] + width[0]], $
+                     [center[1] + width[1]], $
+                     [center[2] + width[2]]]
+        
         ;Bin-center offsets from the center of the bin defined by LOCATION
         ;   - Dimensions are [position, col, row]
         ;   - Value is +/-N
         ;       o (+/-) indicates left/right (up/down) offset
         ;       o Offset by N bins
-        xoffset = indgen(1, layout[0])
-        yoffset = indgen(1, 1, layout[1])
+        hoffset = indgen(1, layout[0])
+        voffset = indgen(1, 1, layout[2])
 
         ;XOFFSET
         if layout[0] gt 1 then begin
             case location of
-                1: ;Do nothing
-                2: xoffset -= layout[0] / 2
-                3: xoffset -= layout[0] - 1
-                4: ;Do nothing
-                5: xoffset -= layout[0] / 2
-                6: xoffset  = layout[0] - 1
-                7: ;Do nothing
-                8: xoffset -= layout[0] / 2
-                9: xoffset  = layout[0] - 1
+                1: ;Do nothing                      ;LEFT
+                2: hoffset -= layout[0] / 2         ;CENTER
+                3: hoffset -= layout[0] - 1         ;RIGHT
+                4: ;Do nothing                      ;LEFT
+                5: hoffset -= layout[0] / 2         ;CENTER
+                6: hoffset  = layout[0] - 1         ;RIGHT
+                7: ;Do nothing                      ;LEFT
+                8: hoffset -= layout[0] / 2         ;CENTER
+                9: hoffset  = layout[0] - 1         ;RIGHT
                 else: message, 'LOCATION must be an integer between 1 and 9.'
             endcase
         endif
     
-        ;If layout[1] = 1
-        ;   - YOFFSET will have only one dimension.
+        ;If layout[2] = 2
+        ;   - VOFFSET will have only one dimension.
         ;   - The call to Reverse below will fail.
         if layout[1] gt 1 then begin
             case location of
-                1: yoffset  = -yoffset 
-                2: yoffset  = -yoffset
-                3: yoffset  = -yoffset
-                4: yoffset  = reverse(yoffset - layout[1]/2, 3)
-                5: yoffset  = reverse(yoffset - layout[1]/2, 3)
-                6: yoffset  = reverse(yoffset - layout[1]/2, 3)
-                7: ;Do nothing
-                8: ;Do nothing
-                9: ;Do nothing
+                1: voffset  = -voffset                              ;TOP
+                2: voffset  = -voffset                              ;TOP
+                3: voffset  = -voffset                              ;TOP
+                4: voffset  = reverse(voffset - layout[1]/2, 4)     ;MIDDLE
+                5: voffset  = reverse(voffset - layout[1]/2, 4)     ;MIDDLE
+                6: voffset  = reverse(voffset - layout[1]/2, 4)     ;MIDDLE
+                7: ;Do nothing                                      ;BOTTOM
+                8: ;Do nothing                                      ;BOTTOM
+                9: ;Do nothing                                      ;BOTTOM
                 else: message, 'LOCATION must be an integer between 1 and 9.'
             endcase
         endif
         
         ;Include bin widths and gaps between bins
-        xoffset = (2*dx + hGap) * rebin(xoffset, 2, layout[0], layout[1])
-        yoffset = (2*dy + vGap) * rebin(yoffset, 2, layout[0], layout[1])
+        hoffset = (2*dx + hGap) * rebin(hoffset, 2, layout[0], layout[1])
+        voffset = (2*dz + vGap) * rebin(voffset, 2, layout[0], layout[1])
         
         ;Data locations of distribution functions
         ;   - Saved as [position, index]
         ;   - Position is the IDL definition of the word
         ;   - Index starts with 0 in the upper-right corner, then moves right then down
         nDist                 = product(layout)
-        locations             = rebin([x-dx, y-dy, x+dx, y+dy], 4, layout[0], layout[1])
-        locations[[0,2],*,*] += xoffset
-        locations[[1,3],*,*] += yoffset
-        locations             = reform(locations, 4, nDist)
+        positions             = rebin(positions, 6, layout[0], layout[1])
+        positions[[0,3],*,*] += hoffset
+        positions[[2,5],*,*] += voffset
+        positions             = reform(positions, 4, nDist)
+        
+        ;Bin centers
+        centers = fltarr(3, nDist)
+        centers[0,*] = center[0] + temporary(hoffset)
+        centers[1,*] = center[1]
+        centers[2,*] = center[2] + temporary(voffset)
+        center = !Null
+        
+        ;Half widths
+        widths = rebin(temporary(width), 3, nDist)
         
     endif else begin
     ;-------------------------------------------------------
     ; Individual Locations Given ///////////////////////////
     ;-------------------------------------------------------
-        ;Save user some headaches by checking number of elements.
-        ndx = n_elements(dx)
-        ndy = n_elements(dy)
-        if nx  ne 1 && nx  ne nDist then message, 'Incorrect number of elements: X'
-        if ny  ne 1 && ny  ne nDist then message, 'Incorrect number of elements: Y'
-        if ndx ne 1 && ndy ne nDist then message, 'Incorrect number of elements: DX'
-        if ndy ne 1 && ndy ne nDist then message, 'Incorrect number of elements: DY'
-    
-        ;Create the locations
-        locations      = fltarr(4, nDist)
-        locations[0,*] = x - dx
-        locations[1,*] = y - dy
-        locations[2,*] = x + dx
-        locations[3,*] = y + dy
+        ;Determine bin centers and half-widths.
+        ;   - Make 3D if 2D.
+        if dims[0] eq 2 then begin
+            centers = [bin_center[0,*], fltarr(1, dims[0]), bin_center[1,*]]
+            widths  = [half_width[0,*], fltarr(1, dims[0]), half_width[1,*]]
+        endif else begin
+            centers = [bin_center[0,*], bin_center[1,*], bin_center[2,*]]
+            widths  = [half_width[0,*], half_width[1,*], half_width[2,*]]
+        endelse
+        
+        ;Get positions: [x0, y0, z0, x1, y1, z0]
+        positions = [centers[0,*] - widths[0,*], $
+                     centers[1,*] - widths[1,*], $
+                     centers[2,*] - widths[2,*], $
+                     centers[0,*] + widths[0,*], $
+                     centers[1,*] + widths[1,*], $
+                     centers[2,*] + widths[2,*]]
     endelse
 
 ;-------------------------------------------------------
@@ -292,7 +330,7 @@ _REF_EXTRA=extra
         ;Draw boxes where the distribution functions are being taken.
         theIm = im_win['Color ' + im_name]
         for i = 0, nDist - 1 do begin
-            theBin = locations[*,i]
+            theBin = positions[*,i]
             xpoly  = theBin[[0,2,2,0,0]]
             ypoly  = theBin[[1,1,3,3,1]]
             !Null  = MrPlotS(xpoly, ypoly, TARGET=theIm, NAME='Bin ' + strtrim(i, 2), $
@@ -320,17 +358,16 @@ _REF_EXTRA=extra
     tf_xvel = strmid(xaxis, 0, 1) eq 'V'
     tf_yvel = strmid(xaxis, 0, 1) eq 'V'
 
+    ;Keep track of ranges to make all distributions uniform
     xrange = [!values.f_infinity, -!values.f_infinity]
     yrange = [!values.f_infinity, -!values.f_infinity]
     cmax = 0D
+    
+    ;Step through each distribution.
     for i = 0, nDist - 1 do begin
-        ;Location of bin center
-        x_temp = locations[0,i] + dx
-        y_temp = locations[1,i] + dy
-        
         ;Create the distribution function
         ;   - Remove the colorbar
-        imgTemp  = MrSim_eDist(oSim, type, x_temp, y_temp, dx, dy, $
+        imgTemp  = MrSim_eDist(oSim, type, centers, widths, $
                                NBINS=nBins, CIRCLES=circles, /CURRENT, V_VA=v_va)
         win2    -> Remove, win2['CB: eDist'], /DESTROY
 
@@ -363,10 +400,11 @@ _REF_EXTRA=extra
     endif
 
     ;Determine the aspect ratio of the plots and create positions
-    aspect = (yrange[1] - yrange[0]) / (xrange[1] - xrange[0])
-    pos  = MrLayout(layout, CHARSIZE=charsize, OXMARGIN=oxmargin, $;ASPECT=aspect, $
+    aspect = 1.0;(yrange[1] - yrange[0]) / (xrange[1] - xrange[0])
+    pos  = MrLayout(layout, CHARSIZE=charsize, OXMARGIN=oxmargin, ASPECT=aspect, $
                     XGAP=xgap, YGAP=ygap)
 
+    ;Step through each distribution
     allIm = win2 -> Get(/ALL, ISA='MrImage')
     foreach imgTemp, allIm do begin
         ;Determine location in layout.

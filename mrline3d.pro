@@ -77,18 +77,52 @@ NPOINTS=npoints
     ;   z = z0 + c*t
     ;
     
-    ;Create x
-    x = r0[0] + (r1[0] - r0[0]) * findgen(nPoints)/(nPoints-1)
-    
-    ;Compute v
+    ;Create v
     v = r1 - r0
     
-    ;Compute t
-    t = (x - r0[0]) / v[0]
+    ;One of v=(a,b,c) must not be zero.
+    case 1 of
+        ;dx > 0
+        v[0] ne 0: begin
+            ;Compute x and t
+            x = r0[0] + (r1[0] - r0[0]) * findgen(nPoints)/(nPoints-1)
+            t = (x - r0[0]) / v[0]
     
-    ;Comput y and z
-    y = r0[1] + v[1]*t
-    z = r0[2] + v[2]*t
+            ;Compute y and z
+            y = r0[1] + v[1]*t
+            z = r0[2] + v[2]*t
+        endcase
+        
+        ;dy > 0
+        v[1] ne 0: begin
+            ;Compute y and t
+            y = r0[1] + (r1[1] - r0[1]) * findgen(nPoints)/(nPoints-1)
+            t = (x - r0[1]) / v[1]
+    
+            ;Compute x and z
+            x = r0[0] + v[0]*t
+            z = r0[2] + v[2]*t
+        endcase
+        
+        ;dz > 0
+        v[2] ne 0: begin
+            ;Compute z and t
+            z = r0[2] + (r1[2] - r0[2]) * findgen(nPoints)/(nPoints-1)
+            t = (z - r0[2]) / v[2]
+    
+            ;Compute y and z
+            x = r0[0] + v[0]*t
+            y = r0[1] + v[1]*t
+        endcase
+        
+        ;Line of zero length
+        else: begin
+            nPoints = 1
+            x = r0[0]
+            y = r0[1]
+            z = r0[2]
+        endcase
+    endcase
     
     ;Form the line
     line = fltarr(3, nPoints)

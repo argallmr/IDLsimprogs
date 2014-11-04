@@ -327,6 +327,7 @@ ORIENTATION=orientation
     self -> GetInfo, NX=nx, NY=ny, NZ=nz
 
     ;Allocate memory
+    _cells = ulong64(cells)
     nCells = n_elements(cells[0,*])
     data   = fltarr(nCells)
     record = 0.0
@@ -337,9 +338,9 @@ ORIENTATION=orientation
     ;Step through each record.
     for i = 0ULL, nCells-1 do begin
         ;Get the cell locations.
-        ix = cells[0,i]
-        iy = cells[1,i]
-        iz = cells[2,i]
+        ix = _cells[0,i]
+        iy = _cells[1,i]
+        iz = _cells[2,i]
         
         ;Jump to the desired cell
         offset = 4ULL * (ix + nx*iy + nx*ny*iz)
@@ -791,7 +792,6 @@ ZRANGE=zrange
     ;Manipulate data from SIMULATION to COORD_SYSTEM coordinates.
     self -> ReadGDA_TransformData, name, data
 
-
 ;-------------------------------------------------------
 ; Cleanup //////////////////////////////////////////////
 ;-------------------------------------------------------
@@ -991,7 +991,7 @@ COORDS=coords
     self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de
     
     ;Number of grid cells between r0 and r1
-    dr = sqrt(total(r1^2 - r0^2))
+    dr = sqrt( total( (r1 - r0)^2 ) )
     n  = dr * dx_de
     
     ;Coordinates of each point on the line.
@@ -1002,7 +1002,7 @@ COORDS=coords
     cells[0,*] = self -> GetCell(coords[0,*], /X)
     cells[1,*] = self -> GetCell(coords[1,*], /Y)
     cells[2,*] = self -> GetCell(coords[2,*], /Z)
-    
+
     return, cells
 end
 

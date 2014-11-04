@@ -87,7 +87,7 @@
 ;                           If set, the ion current will be plotted instead of the
 ;                               total current.
 ;-
-pro MrSim_OhmsLaw_Total, component, cut, oSim, $
+pro MrSim_OhmsLaw_Total, oSim, component, cut, $
 ELECTRONS = electrons, $
 IONS = ions
     compile_opt strictarr
@@ -223,7 +223,7 @@ end
 ;                           If set, the ion current will be plotted instead of the
 ;                               total current.
 ;-
-pro MrSim_OhmsLaw_GradPe, component, cut, oSim, $
+pro MrSim_OhmsLaw_GradPe, oSim, component, cut, $
 ELECTRONS = electrons, $
 IONS = ions
     compile_opt strictarr
@@ -368,7 +368,7 @@ end
 ;                           If set, the ion current will be plotted instead of the
 ;                               total current.
 ;-
-pro MrSim_OhmsLaw_VxB, component, cut, oSim, $
+pro MrSim_OhmsLaw_VxB, oSim, component, cut, $
 ELECTRONS = electrons, $
 IONS = ions
     compile_opt strictarr
@@ -528,7 +528,7 @@ end
 ;                           If set, the ion current will be plotted instead of the
 ;                               total current.
 ;-
-pro MrSim_OhmsLaw_JxB, component, cut, oSim, $
+pro MrSim_OhmsLaw_JxB, oSim, component, cut, $
 ELECTRONS = electrons, $
 IONS = ions
     compile_opt strictarr
@@ -632,8 +632,8 @@ IONS = ions
             E   = MrSim_LineCut('Ez', cut, /CURRENT, SIM_OBJECT=oSim)
             JxB = MrSim_LineCut('JxB_z', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
             Jx  = oSim -> LineCuts('Jx', cut, pos)
-            n_i  = oSim -> LineCuts('ni', cut)
-            n_e  = oSim -> LineCuts('ne', cut)
+            n_i = oSim -> LineCuts('ni', cut)
+            n_e = oSim -> LineCuts('ne', cut)
             Jy  = oSim -> LineCuts('Jy', cut)
             Bx  = oSim -> LineCuts('Bx', cut)
             By  = oSim -> LineCuts('By', cut)
@@ -717,14 +717,13 @@ end
 ;                               If the image data does not exist, an invalid object
 ;                               will be returned.
 ;-
-function MrSim_OhmsLaw, component, cut, time, $
+function MrSim_OhmsLaw, oSim, component, cut, time, $
 CURRENT = current, $
 ELECTRONS = electrons, $
 GRADPE = gradPe, $
 IONS = ions, $
 JXB = JxB, $
 OFILENAME = ofilename, $
-SIM_OBJECT = oSim, $
 SIM3D = Sim3D, $
 TOTAL = ETotal, $
 VXB = VxB, $
@@ -735,11 +734,35 @@ _REF_EXTRA = extra
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
-        if obj_valid(oSim)     && arg_present(oSim)    eq 0 then obj_destroy, oSim
+        if osim_created        && arg_present(oSim)    eq 0 then obj_destroy, oSim
         if obj_valid(colorWin) && keyword_set(current) eq 0 then obj_destroy, colorWin
         void = cgErrorMSG()
         return, obj_new
     endif
+
+;-------------------------------------------------------
+; Check Simulation /////////////////////////////////////
+;-------------------------------------------------------
+    osim_created = 0B
+    
+    ;Simulation name or number?
+    if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
+        oSim = MrSim_Create(theSim, time, yslice, _STRICT_EXTRA=extra)
+        if obj_valid(oSim) eq 0 then return, obj_new()
+        osim_created = 1B
+        
+    ;Object?
+    endif else if MrIsA(theSim, 'OBJREF') then begin
+        if obj_isa(theSim, 'MRSIM2') eq 0 $
+            then message, 'THESIM must be a subclass of the MrSim class.' $
+            else oSim = theSim
+            
+    ;Somthing else
+    endif else begin
+        MrSim_Which
+        message, 'THESIM must be a simulation name, number, or object.'
+    endelse
+    sim_class = obj_class(oSim)
 
 ;-------------------------------------------------------
 ; Defaults ////////////////////////////////////////////
@@ -765,16 +788,6 @@ _REF_EXTRA = extra
         VxB    = 1
     endif
     
-    ;Create a simulation object
-    if n_elements(oSim) gt 0 then begin
-        if obj_valid(oSim) eq 0 || obj_isa(oSim, 'MRSIM') eq 0 then $
-            message, 'SIM_OBJECT must be valid and a subclass of "MrSim"'
-        sim_class = obj_class(oSim)
-    endif else begin
-        if Sim3D then sim_class = 'MRSIM3D' else sim_class = 'MRSIM2D'
-        oSim = obj_new(sim_class, time, _STRICT_EXTRA=extra)
-    endelse
-    
     ;Buffer the output?
     if current eq 0 then $
         if ofilename eq '' then buffer = 0 else buffer = 1
@@ -790,10 +803,10 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
 ; Plot Ohm's Law ///////////////////////////////////////
 ;-------------------------------------------------------
-    if ETotal then MrSim_OhmsLaw_Total,  component, cut, oSim, ELECTRONS=electrons, IONS=ions
-    if VxB    then MrSim_OhmsLaw_VxB,    component, cut, oSim, ELECTRONS=electrons, IONS=ions
-    if JxB    then MrSim_OhmsLaw_JxB,    component, cut, oSim, ELECTRONS=electrons, IONS=ions
-    if gradPe then MrSim_OhmsLaw_gradPe, component, cut, oSim, ELECTRONS=electrons, IONS=ions
+    if ETotal then MrSim_OhmsLaw_Total,  oSim, component, cut, ELECTRONS=electrons, IONS=ions
+    if VxB    then MrSim_OhmsLaw_VxB,    oSim, component, cut, ELECTRONS=electrons, IONS=ions
+    if JxB    then MrSim_OhmsLaw_JxB,    oSim, component, cut, ELECTRONS=electrons, IONS=ions
+    if gradPe then MrSim_OhmsLaw_gradPe, oSim, component, cut, ELECTRONS=electrons, IONS=ions
     
 ;-------------------------------------------------------
 ;Output ////////////////////////////////////////////////
@@ -822,7 +835,7 @@ _REF_EXTRA = extra
     endswitch
 
     ;Destroy the object
-    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
     
     ;Refresh and output, if requested.
     if current eq 0 then begin

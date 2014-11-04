@@ -131,7 +131,7 @@ ZRANGE = zrange
     if n_elements(simnum) eq 0 then return, !Null
 
     ;Which simulation object should be used?
-    class = dimension eq '2D' ? 'MrSim2D' : 'MrSim3D'
+    class = dimension eq '2D' ? 'MrSim2' : 'MrSim2'
 
     ;Create the simulation object
     sim_object = obj_new(class, simnum, time, yslice, $

@@ -55,6 +55,8 @@
 ;                           keywords. - MRA
 ;       2014/10/14  -   Electrons are now read from the file. With fmaps, the method is
 ;                           faster than the previous method. - MRA
+;       2014/10/30  -   Changed input parameters X and Z to BIN_CENTER and HALF_WIDTH.
+;                           Added YRANGE parameter to helper functions. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -64,6 +66,8 @@
 ; :Params:
 ;       XRANGE:         in, required, type=fltarr(2)
 ;                       x-range over which particle counts will be collected.
+;       YRANGE:         in, required, type=fltarr(2)
+;                       y-range over which particle counts will be collected.
 ;       ZRANGE:         in, required, type=fltarr(2)
 ;                       z-range over which particle counts will be collected.
 ;       SIM_OBJECT:     in, required, type=object
@@ -72,14 +76,14 @@
 ; :Returns:
 ;       B_HAT:          A unit vector pointing in the direction of the magnetic field.
 ;-
-function MrSim_eDist_B_hat, xrange, zrange, sim_object
+function MrSim_eDist_B_hat, xrange, yrange, zrange, sim_object
     compile_opt strictarr
     on_error, 2
     
     ;Average magnetic field within the bin
-    Bx    = sim_object -> GetMoment('Bx', xrange, zrange)
-    By    = sim_object -> GetMoment('By', xrange, zrange)
-    Bz    = sim_object -> GetMoment('Bz', xrange, zrange)
+    Bx    = sim_object -> ReadGDA('Bx', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    By    = sim_object -> ReadGDA('By', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    Bz    = sim_object -> ReadGDA('Bz', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
     B_avg = [mean(Bx), mean(By), mean(Bz)]
     B_hat = B_avg / sqrt(total(B_avg^2))
     undefine, Bx, By, Bz
@@ -96,6 +100,8 @@ end
 ; :Params:
 ;       XRANGE:         in, required, type=fltarr(2)
 ;                       x-range over which particle counts will be collected.
+;       YRANGE:         in, required, type=fltarr(2)
+;                       y-range over which particle counts will be collected.
 ;       ZRANGE:         in, required, type=fltarr(2)
 ;                       z-range over which particle counts will be collected.
 ;       SIM_OBJECT:     in, required, type=object
@@ -111,24 +117,24 @@ end
 ;       P1_HAT:         A unit vector pointing in the ExB-direction, perpendicular to the
 ;                           magnetic field.
 ;-
-function MrSim_eDist_Perp1_hat, xrange, zrange, sim_object, $
+function MrSim_eDist_Perp1_hat, xrange, yrange, zrange, sim_object, $
 B_HAT=b_hat, $
 E_HAT=e_hat
     compile_opt strictarr
     on_error, 2
     
     ;Average magnetic field within the bin
-    Bx    = sim_object -> GetMoment('Bx', xrange, zrange)
-    By    = sim_object -> GetMoment('By', xrange, zrange)
-    Bz    = sim_object -> GetMoment('Bz', xrange, zrange)
+    Bx    = sim_object -> ReadGDA('Bx', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    By    = sim_object -> ReadGDA('By', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    Bz    = sim_object -> ReadGDA('Bz', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
     B_avg = [mean(Bx), mean(By), mean(Bz)]
     B_hat = B_avg / sqrt(total(B_avg^2))
     undefine, Bx, By, Bz
     
     ;Average electric field within the bin
-    Ex    = sim_object -> GetMoment('Ex', xrange, zrange)
-    Ey    = sim_object -> GetMoment('Ey', xrange, zrange)
-    Ez    = sim_object -> GetMoment('Ez', xrange, zrange)
+    Ex    = sim_object -> ReadGDA('Ex', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    Ey    = sim_object -> ReadGDA('Ey', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    Ez    = sim_object -> ReadGDA('Ez', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
     E_avg = [mean(Ex), mean(Ey), mean(Ez)]
     E_hat = E_avg / sqrt(total(E_avg^2))
     undefine, Ex, Ey, Ez
@@ -151,6 +157,8 @@ end
 ; :Params:
 ;       XRANGE:         in, required, type=fltarr(2)
 ;                       x-range over which particle counts will be collected.
+;       YRANGE:         in, required, type=fltarr(2)
+;                       y-range over which particle counts will be collected.
 ;       ZRANGE:         in, required, type=fltarr(2)
 ;                       z-range over which particle counts will be collected.
 ;       SIM_OBJECT:     in, required, type=object
@@ -168,7 +176,7 @@ end
 ;       P2_HAT:         A unit vector pointing in the Bx(ExB)-direction, perpendicular to
 ;                           the magnetic field and the ExB-drift direction.
 ;-
-function MrSim_eDist_Perp2_hat, xrange, zrange, sim_object, $
+function MrSim_eDist_Perp2_hat, xrange, yrange, zrange, sim_object, $
 B_HAT=b_hat, $
 E_HAT=E_hat, $
 P1_HAT=p1_hat
@@ -176,17 +184,17 @@ P1_HAT=p1_hat
     on_error, 2
     
     ;Average magnetic field within the bin
-    Bx    = sim_object -> GetMoment('Bx', xrange, zrange)
-    By    = sim_object -> GetMoment('By', xrange, zrange)
-    Bz    = sim_object -> GetMoment('Bz', xrange, zrange)
+    Bx    = sim_object -> ReadGDA('Bx', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    By    = sim_object -> ReadGDA('By', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    Bz    = sim_object -> ReadGDA('Bz', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
     B_avg = [mean(Bx), mean(By), mean(Bz)]
     B_hat = B_avg / sqrt(total(B_avg^2))
     undefine, Bx, By, Bz
     
     ;Average electric field within the bin
-    Ex    = sim_object -> GetMoment('Ex', xrange, zrange)
-    Ey    = sim_object -> GetMoment('Ey', xrange, zrange)
-    Ez    = sim_object -> GetMoment('Ez', xrange, zrange)
+    Ex    = sim_object -> ReadGDA('Ex', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    Ey    = sim_object -> ReadGDA('Ey', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    Ez    = sim_object -> ReadGDA('Ez', XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
     E_avg = [mean(Ex), mean(Ey), mean(Ez)]
     E_hat = E_avg / sqrt(total(E_avg^2))
     undefine, Ex, Ey, Ez
@@ -228,7 +236,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_x_z, e_data, xrange, zrange, $
+function MrSim_eDist_x_z, e_data, xrange, yrange, zrange, $
 NBINS=nBins
     compile_opt strictarr
     
@@ -242,23 +250,25 @@ NBINS=nBins
     endif
     
     ;Histogram in velocity space
-    e_dist = hist_nd(e_data[[0,1], *], NBINS=nBins)
-    
-    ;Determine the data range and dimensions
-    dims   = size(e_dist, /DIMENSIONS)
+    ;   - [x, z, ux, uy, uz]
+    ;   - [x, y, z, ux, uy, uz]
+    if dims[0] eq 5 $
+        then e_dist = hist_nd(e_data[[0,1], *], NBINS=nBins) $
+        else e_dist = hist_nd(e_data[[0,2], *], NBINS=nBins)
     
     ;Create the axis locations
-    xloc    = linspace(xrange[0], xrange[1], dims[0])
-    zloc    = linspace(zRange[0], zRange[1], dims[1])
+    dims = size(e_dist, /DIMENSIONS)
+    xloc = linspace(xrange[0], xrange[1], dims[0])
+    zloc = linspace(zRange[0], zRange[1], dims[1])
     
     ;Plotting parameters
-    xtitle  = 'x (de)'
-    ytitle  = 'z (de)'
+    xtitle = 'x (de)'
+    ytitle = 'z (de)'
 
     ;Create the distribution function
-    img    = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
-                     XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
-                     NAME='eDist: x-z', XRANGE=xrange, YRANGE=yrange)
+    img = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
+                  XTITLE=xtitle, YTITLE=ytitle, TITLE=title, MISSING_VALUE=0, MISSING_COLOR='White', $
+                  NAME='eDist: x-z', XRANGE=xrange, YRANGE=yrange)
     
     return, img
 end
@@ -287,7 +297,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_x_Vx, e_data, xrange, zrange, $
+function MrSim_eDist_x_Vx, e_data, xrange, yrange, zrange, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -302,16 +312,22 @@ V_VA=v_va
     endif
     
     ;Units
+    dims = size(e_data, /DIMENSIONS)
     v_va = keyword_set(v_va)
     
     ;Histogram in velocity space
-    e_dist = hist_nd(e_data[[0,2], *], NBINS=nBins)
-    
-    ;Determine the data range and dimensions
-    dims    = size(e_dist, /DIMENSIONS)
-    vxRange = [min(e_data[4,*], MAX=vxMax), vxMax]
+    ;   - [x, z, ux, uy, uz]
+    ;   - [x, y, z, ux, uy, uz]
+    if dims[0] eq 5 then begin
+        e_dist = hist_nd(e_data[[0,3], *], NBINS=nBins)
+        vxRange = [min(e_data[3,*], MAX=vxMax), vxMax]
+    endif else begin
+        e_dist = hist_nd(e_data[[0,3], *], NBINS=nBins)
+        vxRange = [min(e_data[3,*], MAX=vxMax), vxMax]
+    endelse
     
     ;Create the axis locations
+    dims    = size(e_dist, /DIMENSIONS)
     xloc    = linspace(xrange[0], xrange[1], dims[0])
     yloc    = linspace(vxRange[0], vxRange[1], dims[1])
     
@@ -353,7 +369,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_z_Vz, e_data, xrange, zrange, $
+function MrSim_eDist_z_Vz, e_data, xrange, yrange, zrange, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -368,16 +384,22 @@ V_VA=v_va
     endif
     
     ;Units
+    dims = size(e_data, /DIMENSIONS)
     v_va = keyword_set(v_va)
     
     ;Histogram in velocity space
-    e_dist = hist_nd(e_data[[1,4], *], NBINS=nBins)
-    
-    ;Determine the data range and dimensions
-    dims    = size(e_dist, /DIMENSIONS)
-    vzRange = [min(e_data[4,*], MAX=vzMax), vzMax]
+    ;   - [x, z, ux, uy, uz]
+    ;   - [x, y, z, ux, uy, uz]
+    if dims[0] eq 5 then begin
+        e_dist = hist_nd(e_data[[1,4], *], NBINS=nBins)
+        vzRange = [min(e_data[4,*], MAX=vzMax), vzMax]
+    endif else begin
+        e_dist = hist_nd(e_data[[1,5], *], NBINS=nBins)
+        vzRange = [min(e_data[5,*], MAX=vzMax), vzMax]
+    endelse
     
     ;Create the spacial grid
+    dims    = size(e_dist, /DIMENSIONS)
     xloc    = linspace(zrange[0], zrange[1], dims[0])
     yloc    = linspace(vzRange[0], vzRange[1], dims[1])
     
@@ -419,7 +441,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vx_Vz, e_data, xrange, zrange, $
+function MrSim_eDist_Vx_Vz, e_data, xrange, yrange, zrange, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -434,17 +456,24 @@ V_VA=v_va
     endif
     
     ;Units
+    dims = size(e_data, /DIMENSIONS)
     v_va = keyword_set(v_va)
 
     ;Histogram in velocity space
-    e_dist  = hist_nd(e_data[[2,4],*], NBINS=nBins)
-    
-    ;Determine the data range and dimensions
-    dims    = size(e_dist, /DIMENSIONS)
-    vxRange = [min(e_data[2,*], MAX=xmax), xmax]
-    vzRange = [min(e_data[4,*], MAX=zmax), zmax]
+    ;   - [x, z, ux, uy, uz]
+    ;   - [x, y, z, ux, uy, uz]
+    if dims[0] eq 5 then begin
+        e_dist  = hist_nd(e_data[[2,4],*], NBINS=nBins)
+        vxRange = [min(e_data[2,*], MAX=xmax), xmax]
+        vzRange = [min(e_data[4,*], MAX=zmax), zmax]
+    endif else begin
+        e_dist  = hist_nd(e_data[[3,5],*], NBINS=nBins)
+        vxRange = [min(e_data[3,*], MAX=xmax), xmax]
+        vzRange = [min(e_data[5,*], MAX=zmax), zmax]
+    endelse
     
     ;Create the spacial grid
+    dims    = size(e_dist, /DIMENSIONS)
     xloc    = linspace(vxRange[0], vxRange[1], dims[0])
     zloc    = linspace(vzRange[0], vzRange[1], dims[1])
     
@@ -487,7 +516,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vx_Vy, e_data, xrange, zrange, $
+function MrSim_eDist_Vx_Vy, e_data, xrange, yrange, zrange, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -502,17 +531,24 @@ V_VA=v_va
     endif
     
     ;Units
+    dims = size(e_data, /DIMENSIONS)
     v_va = keyword_set(v_va)
 
     ;Histogram in velocity space
-    e_dist  = hist_nd(e_data[[2,3],*], NBINS=nBins)
-    
-    ;Determine the data range and dimensions
-    dims    = size(e_dist, /DIMENSIONS)
-    vxRange = [min(e_data[2,*], MAX=xmax), xmax]
-    vyRange = [min(e_data[3,*], MAX=ymax), ymax]
+    ;   - [x, z, ux, uy, uz]
+    ;   - [x, y, z, ux, uy, uz]
+    if dims[0] eq 5 then begin
+        e_dist  = hist_nd(e_data[[2,3],*], NBINS=nBins)
+        vxRange = [min(e_data[2,*], MAX=xmax), xmax]
+        vyRange = [min(e_data[3,*], MAX=ymax), ymax]
+    endif else begin
+        e_dist  = hist_nd(e_data[[3,4],*], NBINS=nBins)
+        vxRange = [min(e_data[3,*], MAX=xmax), xmax]
+        vyRange = [min(e_data[4,*], MAX=ymax), ymax]
+    endelse
     
     ;Create the spacial grid
+    dims    = size(e_dist, /DIMENSIONS)
     xloc    = linspace(vxRange[0], vxRange[1], dims[0])
     yloc    = linspace(vyRange[0], vyRange[1], dims[1])
     
@@ -555,7 +591,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vy_Vz, e_data, xrange, zrange, $
+function MrSim_eDist_Vy_Vz, e_data, xrange, yrange, zrange, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -570,17 +606,24 @@ V_VA=v_va
     endif
     
     ;Units
+    dims = size(e_data, /DIMENSIONS)
     v_va = keyword_set(v_va)
 
     ;Histogram in velocity space
-    e_dist  = hist_nd(e_data[[3,4],*], NBINS=nBins)
-    
-    ;Determine the data range and dimensions
-    dims    = size(e_dist, /DIMENSIONS)
-    vyRange = [min(e_data[3,*], MAX=vyMax), vyMax]
-    vzRange = [min(e_data[4,*], MAX=vzMax), vzMax]
+    ;   - [x, z, ux, uy, uz]
+    ;   - [x, y, z, ux, uy, uz]
+    if dims[0] eq 5 then begin
+        e_dist  = hist_nd(e_data[[3,4],*], NBINS=nBins)
+        vyRange = [min(e_data[3,*], MAX=vyMax), vyMax]
+        vzRange = [min(e_data[4,*], MAX=vzMax), vzMax]
+    endif else begin
+        e_dist  = hist_nd(e_data[[4,5],*], NBINS=nBins)
+        vyRange = [min(e_data[4,*], MAX=vyMax), vyMax]
+        vzRange = [min(e_data[5,*], MAX=vzMax), vzMax]
+    endelse
     
     ;Create the spacial grid
+    dims    = size(e_dist, /DIMENSIONS)
     xloc    = linspace(vyRange[0], vyRange[1], dims[0])
     yloc    = linspace(vzRange[0], vzRange[1], dims[1])
     
@@ -623,7 +666,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vpar_Vperp, e_data, xrange, zrange, sim_object, $
+function MrSim_eDist_Vpar_Vperp, e_data, xrange, yrange, zrange, sim_object, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -638,18 +681,28 @@ V_VA=v_va
         return, obj_new()
     endif
     
-    ;Units
+    ;Inputs
+    dims = size(e_data, /DIMENSIONS)
     v_va = keyword_set(v_va)
     
     ;Get the average magnetic field in the bin
-    B_hat = MrSim_eDist_B_hat(xrange, zrange, sim_object)
+    B_hat = MrSim_eDist_B_hat(xrange, yrange, zrange, sim_object)
     
     ;Magnitude, parallel, and perpendicular components
+    ;   - [x, z, ux, uy, uz]
+    ;   - [x, y, z, ux, uy, uz]
     e_data = transpose(e_data)
-    v_mag  = sqrt(total(e_data[*,[2,3,4]]^2, 2))
-    v_par  = e_data[*,2] * B_hat[0] + $
-             e_data[*,3] * B_hat[1] + $
-             e_data[*,4] * B_hat[2]
+    if dims[0] eq 5 then begin
+        v_mag = sqrt(total(e_data[*,[2,3,4]]^2, 2))
+        v_par  = e_data[*,2] * B_hat[0] + $
+                 e_data[*,3] * B_hat[1] + $
+                 e_data[*,4] * B_hat[2]
+    endif else begin
+        v_mag = sqrt(total(e_data[*,[3,4,5]]^2, 2))
+        v_par  = e_data[*,3] * B_hat[0] + $
+                 e_data[*,4] * B_hat[1] + $
+                 e_data[*,5] * B_hat[2]
+    endelse
     v_perp = sqrt(v_mag^2 - v_par^2)
     
     ;Histogram the data
@@ -657,7 +710,7 @@ V_VA=v_va
     e_dist     = hist_nd(v_par_perp, NBINS=nBins)
     
     ;Determine the data range and dimensions
-    vMax       = max(abs(v_par_perp))
+    vMax       = max(abs(temporary(v_par_perp)))
     vParRange  = [-vMax, vMax]
     vPerpRange = [0, vMax]
     
@@ -702,7 +755,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vpar_Vperp1, e_data, xrange, zrange, sim_object, $
+function MrSim_eDist_Vpar_Vperp1, e_data, xrange, yrange, zrange, sim_object, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -718,26 +771,38 @@ V_VA=v_va
     endif
     
     ;Units
+    dims = size(e_data, /DIMENSIONS)
     v_va = keyword_set(v_va)
     
     ;Get the parallel and perp1-directions
-    p1_hat = MrSim_eDist_Perp1_hat(xrange, zrange, sim_object, B_HAT=B_hat)
+    p1_hat = MrSim_eDist_Perp1_hat(xrange, yrange, zrange, sim_object, B_HAT=B_hat)
     
     ;Perpendicular directions
+    ;   - [x, z, ux, uy, uz]
+    ;   - [x, y, z, ux, uy, uz]
     e_data  = transpose(e_data)
-    v_par   = e_data[*,2] * B_hat[0] + $
-              e_data[*,3] * B_hat[1] + $
-              e_data[*,4] * B_hat[2]
-    v_perp1 = e_data[*,2] * p1_hat[0] + $
-              e_data[*,3] * p1_hat[1] + $
-              e_data[*,4] * p1_hat[2]
+    if dims[0] eq 5 then begin
+        v_par   = e_data[*,2] * B_hat[0] + $
+                  e_data[*,3] * B_hat[1] + $
+                  e_data[*,4] * B_hat[2]
+        v_perp1 = e_data[*,2] * p1_hat[0] + $
+                  e_data[*,3] * p1_hat[1] + $
+                  e_data[*,4] * p1_hat[2]
+    endif else begin
+        v_par   = e_data[*,3] * B_hat[0] + $
+                  e_data[*,4] * B_hat[1] + $
+                  e_data[*,5] * B_hat[2]
+        v_perp1 = e_data[*,3] * p1_hat[0] + $
+                  e_data[*,4] * p1_hat[1] + $
+                  e_data[*,5] * p1_hat[2]
+    endelse
     
     ;Histogram the data
-    v_par_perp = transpose([[temporary(v_par)], [temporary(v_perp1)]])
-    e_dist     = hist_nd(v_par_perp, NBINS=nBins)
+    v_par_perp1 = transpose([[temporary(v_par)], [temporary(v_perp1)]])
+    e_dist      = hist_nd(v_par_perp1, NBINS=nBins)
     
     ;Determine the data range and dimensions
-    vMax        = max(abs(v_par_perp))
+    vMax        = max(abs(temporary(v_par_perp1)))
     vParRange   = [-vMax, vMax]
     vPerp1Range = [-vMax, vMax]
     
@@ -782,7 +847,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vpar_Vperp2, e_data, xrange, zrange, sim_object, $
+function MrSim_eDist_Vpar_Vperp2, e_data, xrange, yrange, zrange, sim_object, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -798,26 +863,38 @@ V_VA=v_va
     endif
     
     ;Units
+    dims = size(e_data, /DIMENSIONS)
     v_va = keyword_set(v_va)
     
     ;Get the parallel and perp1-directions
-    p2_hat = MrSim_eDist_Perp2_hat(xrange, zrange, sim_object, B_HAT=B_hat)
+    p2_hat = MrSim_eDist_Perp2_hat(xrange, yrange, zrange, sim_object, B_HAT=B_hat)
     
     ;Perpendicular directions
+    ;   - [x, z, ux, uy, uz]
+    ;   - [x, y, z, ux, uy, uz]
     e_data  = transpose(e_data)
-    v_par   = e_data[*,2] * B_hat[0] + $
-              e_data[*,3] * B_hat[1] + $
-              e_data[*,4] * B_hat[2]
-    v_perp2 = e_data[*,2] * p2_hat[0] + $
-              e_data[*,3] * p2_hat[1] + $
-              e_data[*,4] * p2_hat[2]
+    if dims[0] eq 5 then begin
+        v_par   = e_data[*,2] * B_hat[0] + $
+                  e_data[*,3] * B_hat[1] + $
+                  e_data[*,4] * B_hat[2]
+        v_perp2 = e_data[*,2] * p2_hat[0] + $
+                  e_data[*,3] * p2_hat[1] + $
+                  e_data[*,4] * p2_hat[2]
+    endif else begin
+        v_par   = e_data[*,3] * B_hat[0] + $
+                  e_data[*,4] * B_hat[1] + $
+                  e_data[*,5] * B_hat[2]
+        v_perp2 = e_data[*,3] * p2_hat[0] + $
+                  e_data[*,4] * p2_hat[1] + $
+                  e_data[*,5] * p2_hat[2]
+    endelse
     
     ;Histogram the data
-    v_par_perp = transpose([[temporary(v_par)], [temporary(v_perp2)]])
-    e_dist     = hist_nd(v_par_perp, NBINS=nBins)
+    v_par_perp2 = transpose([[temporary(v_par)], [temporary(v_perp2)]])
+    e_dist      = hist_nd(v_par_perp2, NBINS=nBins)
     
     ;Determine the data range and dimensions
-    vMax        = max(abs(v_par_perp))
+    vMax        = max(abs(temporary(v_par_perp2)))
     vParRange   = [-vMax, vMax]
     vPerp2Range = [-vMax, vMax]
     
@@ -862,7 +939,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vperp1_Vperp2, e_data, xrange, zrange, sim_object, $
+function MrSim_eDist_Vperp1_Vperp2, e_data, xrange, yrange, zrange, sim_object, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -881,7 +958,7 @@ V_VA=v_va
     v_va = keyword_set(v_va)
     
     ;Get the perp1 and perp2-directions
-    p2_hat = MrSim_eDist_Perp2_hat(xrange, zrange, sim_object, P1_HAT=p1_hat)
+    p2_hat = MrSim_eDist_Perp2_hat(xrange, yrange, zrange, sim_object, P1_HAT=p1_hat)
     
     ;Perpendicular directions
     e_data = transpose(e_data)
@@ -937,16 +1014,12 @@ end
 ;                           'Vpar-Vperp1'
 ;                           'Vpar-Vperp2'
 ;                           'Vperp1-Vperp2'
-;       X:              in, required, type=float
-;                       X-location of the center of the spacial bin from which electron
-;                           distribution information is collected.
-;       Z:              in, required, type=float
-;                       Z-location of the center of the spacial bin from which electron
-;                           distribution information is collected.
-;       DX:             in, optional, type=float, default=1
-;                       Half-width of the bin.
-;       DZ:             in, optional, type=float, default=1
-;                       Half-height of the bin.
+;       BIN_CENTER:     in, required, type=fltarr(2)/fltarr(3)
+;                       An array specifying the coordinates of the distribution function
+;                           center. For 2D simulations, this is a 2-element array, and for
+;                           3D, a 3-element array is required.
+;       HALF_WIDTH:     in, required, type=fltarr(2)/fltarr(3)
+;                       Half-widge of each dimension of the bin.
 ;
 ; :Keywords:
 ;       V_VA:           in, optional, type=boolean, default=0
@@ -989,7 +1062,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist, theSim, type, x, z, dx, dz, $
+function MrSim_eDist, theSim, type, bin_center, half_width, $
 CIRCLES=circles, $
 CURRENT=current, $
 ENERGY=energy, $
@@ -1025,7 +1098,7 @@ _REF_EXTRA=ref_extra
         
     ;Object?
     endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM') eq 0 $
+        if obj_isa(theSim, 'MRSIM2') eq 0 $
             then message, 'THESIM must be a subclass of the MrSim class.' $
             else oSim = theSim
             
@@ -1055,9 +1128,14 @@ _REF_EXTRA=ref_extra
     if energy + momentum gt 1 then $
         message, 'Keywords ENERGY and MOMENTUM are mutually exclusive.'
     
-    ;Create the spacial range of the distribution function
-    xrange = x + [-dx, dx]
-    zrange = z + [-dz, dz]
+    ;Location and size of the distribution function
+    center = n_elements(bin_center) eq 2 ? [bin_center[0], 0, bin_center[1]] : bin_center
+    width  = n_elements(half_width) eq 0 ? [half_width[0], 0, half_width[1]] : half_width
+    
+    ;Volume of distribution function.
+    xrange = center[0] + [-width[0], width[0]]
+    yrange = center[1] + [-width[1], width[1]]
+    zrange = center[2] + [-width[2], width[2]]
     
 ;-------------------------------------------------------
 ;Select Data ///////////////////////////////////////////
@@ -1065,7 +1143,7 @@ _REF_EXTRA=ref_extra
 
     ;Pick out the data
     e_data = oSim -> ReadElectrons(filename, FMAP_DIR=fmap_dir, /VELOCITY, $
-                                             XRANGE=xrange, ZRANGE=zrange)
+                                             XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
     if n_elements(e_data) eq 0 then return, !Null
     
     ;Convert to units of v/vA from v/c?
@@ -1103,17 +1181,17 @@ _REF_EXTRA=ref_extra
 
     ;Make the distribution
     case _type of
-        'X-Z':           img = MrSim_eDist_x_z(e_data,   xrange, zrange, NBINS=nBins)
-        'X-VX':          img = MrSim_eDist_x_Vx(e_data,  xrange, zrange, NBINS=nBins, V_VA=v_va)
-        'Z-VZ':          img = MrSim_eDist_z_Vz(e_data,  xrange, zrange, NBINS=nBins, V_VA=v_va)
-        'VX-VZ':         img = MrSim_eDist_Vx_Vz(e_data, xrange, zrange, NBINS=nBins, V_VA=v_va)
-        'VX-VY':         img = MrSim_eDist_Vx_Vy(e_data, xrange, zrange, NBINS=nBins, V_VA=v_va)
-        'VY-VZ':         img = MrSim_eDist_Vy_Vz(e_data, xrange, zrange, NBINS=nBins, V_VA=v_va)
-        'VPAR-VPERP':    img = MrSim_eDist_Vpar_Vperp(e_data,    xrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
-        'VPAR-VPERP1':   img = MrSim_eDist_Vpar_Vperp1(e_data,   xrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
-        'VPAR-VPERP2':   img = MrSim_eDist_Vpar_Vperp2(e_data,   xrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
-        'VPERP1-VPERP2': img = MrSim_eDist_Vperp1_Vperp2(e_data, xrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
-        else:         message, 'Distribution type "' + type + '" not recognized.'
+        'X-Z':           img = MrSim_eDist_x_z(e_data,   xrange, yrange, zrange, NBINS=nBins)
+        'X-VX':          img = MrSim_eDist_x_Vx(e_data,  xrange, yrange, zrange, NBINS=nBins, V_VA=v_va)
+        'Z-VZ':          img = MrSim_eDist_z_Vz(e_data,  xrange, yrange, zrange, NBINS=nBins, V_VA=v_va)
+        'VX-VZ':         img = MrSim_eDist_Vx_Vz(e_data, xrange, yrange, zrange, NBINS=nBins, V_VA=v_va)
+        'VX-VY':         img = MrSim_eDist_Vx_Vy(e_data, xrange, yrange, zrange, NBINS=nBins, V_VA=v_va)
+        'VY-VZ':         img = MrSim_eDist_Vy_Vz(e_data, xrange, yrange, zrange, NBINS=nBins, V_VA=v_va)
+        'VPAR-VPERP':    img = MrSim_eDist_Vpar_Vperp(e_data,    xrange, yrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
+        'VPAR-VPERP1':   img = MrSim_eDist_Vpar_Vperp1(e_data,   xrange, yrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
+        'VPAR-VPERP2':   img = MrSim_eDist_Vpar_Vperp2(e_data,   xrange, yrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
+        'VPERP1-VPERP2': img = MrSim_eDist_Vperp1_Vperp2(e_data, xrange, yrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
+        else:            message, 'Distribution type "' + type + '" not recognized.'
     endcase
     e_data = !Null
     if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
@@ -1137,8 +1215,8 @@ _REF_EXTRA=ref_extra
     endif
     
     ;Add text annotations
-    xText = string(FORMAT='(%"X=%0.1f$\\+-$%0.1f")', x, dx)
-    zText = string(FORMAT='(%"Z=%0.1f$\\+-$%0.1f")', z, dz)
+    xText = string(FORMAT='(%"X=%0.1f$\\+-$%0.1f")', center[0], width[0])
+    zText = string(FORMAT='(%"Z=%0.1f$\\+-$%0.1f")', center[2], width[2])
     !Null = MrText(0.04, 0.87, xText, /RELATIVE, TARGET=img, NAME='BinX')
     !Null = MrText(0.04, 0.05, zText, /RELATIVE, TARGET=img, NAME='BinZ')
     

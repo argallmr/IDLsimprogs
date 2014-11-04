@@ -1502,9 +1502,14 @@ ZSIM = ZSim
         XSim = (*self.XSim)[ix[0]:ix[1]]
     endif
     
-    if arg_present(YSim) && n_elements(*self.YSim) gt 0 then begin
-        iy = getIndexRange(*self.YSim, self.yrange)
-        YSim = (*self.YSim)[iy[0]:iy[1]]
+    ;2D simulations have only 1 grid cell in Y
+    if arg_present(YSim) then begin
+        if n_elements(*self.YSim) gt 1 then begin
+            iy = getIndexRange(*self.YSim, self.yrange)
+            YSim = (*self.YSim)[iy[0]:iy[1]]
+        endif else begin
+            YSim = (*self.YSim)
+        endelse
     endif
 
     if arg_present(ZSim) && n_elements(*self.ZSim) gt 0 then begin

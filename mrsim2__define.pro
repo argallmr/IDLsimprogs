@@ -56,7 +56,7 @@
 ;-
 ;*****************************************************************************************
 ;+
-;   This method initializes the MrSim2 class.
+;   This method initializes the MrSim class.
 ;
 ; :Params:
 ;       TIME:           in, optional, type=long, default=0
@@ -66,6 +66,9 @@
 ;                           in 2D simulations.
 ;
 ; :Keywords:
+;       ASCII_VERSION:  in, optional, type=integer, default=1
+;                       Version of the info file to read. Ignored if `BINARY`=1.
+;                           See MrSim_Which.pro.
 ;       AXIS_LABELS:    in, optional, type=strarr(3), default="['x', 'y', 'z']"
 ;                       Labels for the axes.
 ;       BINARY:         in, optional, type=boolean, default=0
@@ -81,6 +84,9 @@
 ;                       The ASCII info file containing information about the simulation
 ;                           setup. If `BINARY` is set, the default file will be
 ;                           `DIRECTORY`/info.
+;       INFO_VERSION:   in, optional, type=integer, default=1
+;                       Version of the info file to read. Ignored if `BINARY`=1.
+;                           See MrSim_Which.pro.
 ;       ION_SCALE:      in, optional, type=boolean, default=0
 ;                       Construct the simulation domain in units of "di" instead of "de"
 ;                           (the ion and electron skin depth, respectively).
@@ -94,6 +100,9 @@
 ;                           of "vertical" and "horizontal" when making 1D cuts. Possible
 ;                           choices are "XY" and "XZ". This keyword has no meaning for
 ;                           2D simulations.
+;       SIM_INFO:       in, optional, type=boolean, default=0
+;                       If set, information about each simulation will be printed to the
+;                           command window. Initialization will be aborted.
 ;       XRANGE:         in, optional, type=dblarr(2), default=width of domain
 ;                       X-range over which data will be read and stored, in units defined
 ;                           by `ION_SCALE`.
@@ -105,15 +114,18 @@
 ;                           by `ION_SCALE`.
 ;-
 function MrSim2::INIT, theSim, time, yslice, $
+ASCII_VERSION = ascii_version, $
 AXIS_LABELS = axis_labels, $
 BINARY = binary, $
 COORD_SYSTEM = coord_system, $
 DIRECTORY = directory, $
 INFO_FILE = info_file, $
+INFO_VERSION = info_version, $
 ION_SCALE = ion_scale, $
 MVA_FRAME = mva_frame, $
 NSMOOTH = nsmooth, $
 ORIENTATION = orientation, $
+SIM_INFO = sim_info, $
 XRANGE = xrange, $
 YRANGE = yrange, $
 ZRANGE = zrange
@@ -126,34 +138,76 @@ ZRANGE = zrange
         void = cgErrorMSG()
         return, 0
     endif
+    
 
+;-------------------------------------------------------
+; Simulation Number ////////////////////////////////////
+;-------------------------------------------------------
+    
+    ;List the simulations?
+    if keyword_set(sim_info) then begin
+        MrSim_Which
+        return, 0
+    endif      
+
+    ;Get information about the simulation
+    MrSim_Which, theSim, NAME=simname, NUMBER=simnum, $
+                 DIRECTORY=_dir, ASCII_INFO=_ascii_info, BINARY_INFO=_bin_info, $
+                 ASCII_VERSION=vASCII, DIMENSION=dimension, ASYMMETRIC=asymmetric
+    
+    ;Defaults
+    binary = keyword_set(binary)
+    if n_elements(directory)     eq 0 then directory     = _dir
+    if n_elements(ascii_version) eq 0 then ascii_version = vASCII
+    if n_elements(info_file)     eq 0 $
+        then info_file = binary ? _bin_info : _ascii_info
+    
+    ;Properties
+    self.symmetric = ~asymmetric
+    self.directory = directory
+    self.dimension = dimension
+    self.simnum    = simnum
+    self.simname   = simname
 ;-------------------------------------------------------
 ;Read the Info File ////////////////////////////////////
 ;-------------------------------------------------------
-    ;Set the data directory
-    binary = keyword_set(binary)
-    if n_elements(directory) eq 0 then void = cgRootName(DIRECTORY=directory)
-    self.directory = directory
     
-    ;Guess where the info file is.
-    if n_elements(info_file) eq 0 then begin
-        if binary then begin
-            info_file = filepath('info', ROOT_DIR=directory)
-        endif else begin
-            info_dir  = strsplit(directory, path_sep(), /EXTRACT, COUNT=nDir)
-            info_dir  = strjoin(info_dir[0:nDir-2], path_sep())
-            info_file = filepath('info', ROOT_DIR=info_dir)
-        endelse
-    endif
-
     ;Make sure the file exists
     self.info = ptr_new(/ALLOCATE_HEAP)
     if file_test(info_file) eq 0 then $
         message, 'Cannot find ASCII info file: "' + info_file + '"'
+    
+    ;Binary info file
+    if binary then begin
+        if keyword_set(ion_scale) then $
+            message, 'ION_SCALE is only possible with ASCII info file. ' + $
+                     'Setting ION_SCALE=0', /INFORMATIONAL
+        ion_scale = 0
+        self -> ReadInfo_Binary, info_file
         
-    if binary $
-        then self -> ReadBinaryInfo, info_file $
-        else self -> ReadAsciiInfo, info_file
+    ;Ascii info file
+    endif else begin
+        self -> ReadInfo_Ascii, info_file, VERSION=ascii_version
+    endelse
+    
+    ;
+    ;From Bill Daughton:
+    ;   The 3D data is so big, it is difficult to look at and/or move.
+    ;   To make things easier, we usually apply a smoothing operator and then 
+    ;   downsample by a factor of 2x in each direction - which gives a 
+    ;   reduction of 8x in the file size. This is why nx, ny, nz are 2x 
+    ;   smaller in the data I sent. For example, in 1D the smoothing 
+    ;   operator would be
+    ;
+    ;   B_j  =  0.25 *[ B(j-1) + 2*B(j) + B(j+1) ]
+    ;
+    ;   but instead of keeping every point, I would skip every other one for
+    ;   the new "smoothed" array. 
+    ;
+    
+    ;This information is captured in the binary info file, but not the ASCII file.
+    if self.dimension eq '3D' && binary eq 0 $
+        then self -> ReadInfo_Binary, _bin_info
 
 ;-------------------------------------------------------
 ;Set Defaults //////////////////////////////////////////
@@ -181,13 +235,13 @@ ZRANGE = zrange
     if n_elements(nsmooth) eq 0 then nsmooth = 3
     if n_elements(time)    eq 0 then time    = 0
     if n_elements(xrange)  eq 0 then xrange  = [0, xsize]
-    if n_elements(yrange)  eq 0 then yrange  = [0, ysize]
+    if n_elements(yrange)  eq 0 then yrange  = [-ysize/2.0, ysize/2.0]
     if n_elements(yslice)  eq 0 then yslice  = 0L
     if n_elements(zrange)  eq 0 then zrange  = [-zsize/2.0, zsize/2.0]
     
     if max(coord_system eq ['SIMULATION', 'MAGNETOPAUSE', 'MAGNETOTAIL']) eq 0 then $
         message, 'Coordinate system "' + coord_system + '" not recognized.'
-    if max(_orientation eq ['XY', 'XZ']) eq 0 then $
+    if max(_orientation eq ['XY', 'XZ', 'YZ']) eq 0 then $
         message, 'Orienatation "' + _orientation + '" not recognized.'
     
     ;MVA Frame?
@@ -198,19 +252,18 @@ ZRANGE = zrange
             else:           ;Do nothing
         endcase
     endif
-    
+
     ;Set Properties
     self.axis_labels  = _axis_labels
-    self.directory    = directory
     self.coord_system = coord_system
+    self.directory    = directory
     self.ion_scale    = ion_scale
-    self.orientation  = _orientation
     self.mva_frame    = mva_frame
     self.nsmooth      = nsmooth
+    self.orientation  = _orientation
     self.time         = time
     self.xrange       = xrange
     self.yrange       = yrange
-    self.yslice       = yslice
     self.zrange       = zrange
 
     ;Set the domain coordinates
@@ -218,12 +271,39 @@ ZRANGE = zrange
     self -> MakeSimDomain
 
 ;-------------------------------------------------------
-; Superclass ///////////////////////////////////////////
+; Data Properties //////////////////////////////////////
+;-------------------------------------------------------
+    ;Data Products
+    success = self -> MrSim2_Data::Init()
+    if ~success then return, 0
+
+;-------------------------------------------------------
+; Print Info about the Simulation //////////////////////
 ;-------------------------------------------------------
 
-    ;Superclass
-    success = MrSim2_Data::Init()
-    if success eq 0 then return, 0
+    ;Get the information
+    self -> GetInfo, NX=nx, NY=ny, NZ=nz, $
+                     LX_DE=lx_de, LY_DE=ly_de, LZ_DE=lz_de, $
+                     MI_ME=mi_me, DTXWCI=dtxwci
+    
+    ;Check the ::GetProperty method.
+    message, '', /INFORMATIONAL
+    print, FORMAT='(%"    DTxWCI          = %0.2f  **hard-coded**")', dtxwci
+
+    ;Determine the number of time steps
+    Bx_info = file_info(filepath('Bx.gda', ROOT_DIR=self.directory))
+    if Bx_info.exists then begin
+        ;Size of one time slice
+        ;   - 4-byte floats, plus a leading and trailing character
+        rec_size = 4L * (nx * ny * nz + 2L)
+        nTimes   = (Bx_info.size / rec_size) - 1
+        print, FORMAT='(%"    # t-slices      = %i")', nTimes
+    endif
+    
+    ;Simulation info
+    print, FORMAT='(%"    Simulation Size = %i x %i x %i")', nx, ny, nz
+    print, FORMAT='(%"    Sim Size (de)   = %i x %i x %i")', lx_de, ly_de, lz_de
+    if n_elements(mi_me) gt 0 then print, FORMAT='(%"    m_i / m_e       = %f")', mi_me
 
     return, 1
 end
@@ -246,82 +326,106 @@ pro MrSim2::CLEANUP
     ;Free all of the pointers
     ptr_free, self.info
     ptr_free, self.XSim
+    ptr_free, self.YSim
     ptr_free, self.ZSim
     
-    ;Data products
+    ;Superclasses
     self -> MrSim2_Data::Cleanup
 end
 
 
 ;+
-;   The purpose of this method is to release memory taken up by simulation data.
-;
-; :Private:
+;   Given a particular slice/index, determine the location in units of de (di if
+;   the ION_SCALE property is set).
 ;
 ; :Params:
-;       DATA_PRODUCT:           in, optional, type=string
-;                               The name of the data product whose data is to be released.
-;                                   If not given, the data for all data products is freed.
+;       CELL:           in, required, type=integer
+;                       Index (or grid-cell) at which the location in "de" is to be
+;                           returned.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, `CELL` reference to a grid-cell along the x-dimension.
+;                           This is the default if no keywords are set.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, `CELL` reference to a grid-cell along the y-dimension
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, `CELL` reference to a grid-cell along the z-dimension
+;
+; :Returns:
+;       COORD:          Location in de (di if the ION_SCALE property is set) of the
+;                           given grid cell along the chosen dimension.
 ;-
-pro MrSim2::Clear_Data, data_product
+function MrSim2::GetCoord, cell, $
+X=x, $
+Y=y, $
+Z=z
     compile_opt strictarr
+    on_error, 2
     
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        void = cgErrorMSG()
-        return
-    endif
+    ;Defaults
+    x = keyword_set(x)
+    y = keyword_set(y)
+    z = keyword_set(z)
+    if x + y + z eq 0 then x = 1
+    if x + y + z gt 1 then message, 'X, Y, and Z are mutually exclusive.'
+
+    ;Get the location
+    case 1 of
+        x: coord = (*self.xSim)[cell]
+        y: coord = (*self.ySim)[cell]
+        z: coord = (*self.zSim)[cell]
+    endcase
     
-    ;Free all of the data
-    if n_params() eq 0 then begin
-        data_product = ['Ay', 'Bx', 'By', 'Bz', 'Ex', 'Ey', 'Ez', 'ne', 'ni', $
-                        'Pe_xx', 'Pe_xy', 'Pe_xz', 'Pe_yx', 'Pe_yy', 'Pe_yz', $
-                        'Pe_zx', 'Pe_zy', 'Pe_zz', 'Pi_xx', 'Pi_xy', 'Pi_xz', $
-                        'Pi_yx', 'Pi_yy', 'Pi_yz', 'Pi_zx', 'Pi_zy', 'Pi_zz', $
-                        'Uex', 'Uey', 'Uez', 'Uix', 'Uiy', 'Uiz']
-    endif
+    return, coord
+end
+
+
+;+
+;   Given a particular location units of de (di of the ION_SCALE property is set) determine
+;   the equivalent grid cell. For a grid cell spanning [min, max] de, the provided
+;   location is rounded down and matched to min.
+;
+; :Params:
+;       COORD:          in, required, type=integer
+;                       Location at which the grid cell is to be determined. Units are
+;                           de unless ION_SCALE is specified.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, `COORD` is an x-coordinate.
+;                           This is the default if no keywords are set.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, `COORD` is an y-coordinate
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, `COORD` is an z-coordinate
+;
+; :Returns:
+;       CELL:           Grid cell/index corresponding to the given location along the
+;                           desired dimension.
+;-
+function MrSim2::GetCell, coord, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    on_error, 2
     
-    ;Step through all of the data products given and free the data
-    foreach name, data_product do begin
-        case name of
-            'Ay':    *self.Ay    = !Null
-            'Bx':    *self.Bx    = !Null
-            'By':    *self.By    = !Null
-            'Bz':    *self.Bz    = !Null
-            'Ex':    *self.Ex    = !Null
-            'Ey':    *self.Ey    = !Null
-            'Ez':    *self.Ez    = !Null
-            'ne':    *self.n_e   = !Null
-            'ni':    *self.n_i   = !Null
-            'Pe-xx': *self.Pe_xx = !Null
-            'Pe-xy': *self.Pe_xy = !Null
-            'Pe-xz': *self.Pe_xz = !Null
-            'Pe-yx': *self.Pe_yx = !Null
-            'Pe-yy': *self.Pe_yy = !Null
-            'Pe-yz': *self.Pe_yz = !Null
-            'Pe-zx': *self.Pe_zx = !Null
-            'Pe-zy': *self.Pe_zy = !Null
-            'Pe-zz': *self.Pe_zz = !Null
-            'Pi-xx': *self.Pi_xx = !Null
-            'Pi-xy': *self.Pi_xy = !Null
-            'Pi-xz': *self.Pi_xz = !Null
-            'Pi-yx': *self.Pi_yx = !Null
-            'Pi-yy': *self.Pi_yy = !Null
-            'Pi-yz': *self.Pi_yz = !Null
-            'Pi-zx': *self.Pi_zx = !Null
-            'Pi-zy': *self.Pi_zy = !Null
-            'Pi-zz': *self.Pi_zz = !Null
-            'Uex':   *self.Uex   = !Null
-            'Uey':   *self.Uey   = !Null
-            'Uez':   *self.Uez   = !Null
-            'Uix':   *self.Uix   = !Null
-            'Uiy':   *self.Uiy   = !Null
-            'Uiz':   *self.Uiz   = !Null
-            else: ;Do nothing
-        endcase
-    endforeach
+    ;Defaults
+    x = keyword_set(x)
+    y = keyword_set(y)
+    z = keyword_set(z)
+    if x + y + z eq 0 then x = 1
+    if x + y + z gt 1 then message, 'X, Y, and Z are mutually exclusive.'
+
+    ;Get the location
+    case 1 of
+        x: cell = value_locate(*self.xSim, coord)
+        y: cell = value_locate(*self.ySim, coord)
+        z: cell = value_locate(*self.zSim, coord)
+    endcase
+    
+    return, cell
 end
 
 
@@ -329,6 +433,10 @@ end
 ;   The purpose of this method is to retrieve data from the info file.
 ;
 ; :Keywords:
+;       ECOUNTFACTOR:       out, optional, type=long
+;                           Bill Daughton does not save every particle, only every-other.
+;                               When dealing with electron counts, you must multiply by
+;                               this factor to obtain the actual total counts.
 ;       L_DI:               out, optional, type=double
 ;                           Harris sheet thickness over ion inertial length
 ;       L_DE:               out, optional, type=double
@@ -371,6 +479,9 @@ end
 pro MrSim2::GetInfo, $
 ;Derive Info
 UNITS=units, $
+ECOUNTFACTOR=eCountFactor, $
+DTXWCI=dtxwci, $
+INFO_DTXWCI=dtxwci_info, $
 
 ;From INFO file
 B0=b0, $
@@ -379,7 +490,6 @@ COURANT=courant, $
 DAMP=damp, $
 DI=di, $
 DTXWCE=dtxwce, $
-DTXWCI=dtxwci, $
 DTXWPE=dtxwpe, $
 DX_RHOI=dx_rhoi, $
 DX_RHOE=dx_rhoe, $
@@ -438,73 +548,88 @@ WPE_WCE=wpe_wce
     endif
     
     ;Derived INFO
-    if arg_present(units) then if self.ion_scale then units = 'di' else units = 'de'
+    ;   - See MrSim_Which
+    if arg_present(units)        then units = self.ion_scale ? 'di' : 'de'
+    if arg_present(eCountFactor) then MrSim_Which, self.simname, TINDEX=self.time, ECOUNTFACTOR=eCountFactor
+    if arg_present(dtxwci)       then MrSim_Which, self.simname, TINDEX=self.time, DTXWCI=dtxwci
     
-    ;Density asymmetry: n_MSP / n_MSH
-    if arg_present(n1_n2) then begin
-        message, 'A hard-coded value of n2/n1 = 0.125 has been set.', /INFORMATIONAL
-        ni_ne = 0.125
-    endif
+    ;Make sure the info file has been read
+    if n_elements(*self.info) eq 0 then return
     
-    ;Magnetic field asymmetry B_MSP / B_MSH
-    if arg_present(B1_B2) then begin
-        message, 'B2/B1 = 1.37 has been hard-coded.', /INFORMATIONAL
-        B2_B1 = 1.27
-    endif
-    
-    ;Data from the INFO file.
-    if arg_present(L_di)       then L_di       = (*self.info).L_di
-    if arg_present(L_de)       then L_de       = (*self.info).L_de
-    if arg_present(Ti_Te)      then Ti_Te      = (*self.info).Ti_Te
-    if arg_present(Tbi_Ti)     then Tbi_Ti     = (*self.info).Tbi_Ti
-    if arg_present(Tbe_Te)     then Tbe_Te     = (*self.info).Tbe_Te
-    if arg_present(wpe_wce)    then wpe_wce    = (*self.info).wpe_wce
-    if arg_present(mi_me)      then mi_me      = (*self.info).mi_me
-    if arg_present(theta)      then theta      = (*self.info).theta
-    if arg_present(taui)       then taui       = (*self.info).taui
-    if arg_present(num_step)   then num_step   = (*self.info).num_step
-    if arg_present(Lx_de)      then Lx_de      = (*self.info).Lx_de
-    if arg_present(Ly_de)      then Ly_de      = (*self.info).Ly_de
-    if arg_present(Lz_de)      then Lz_de      = (*self.info).Lz_de
-    if arg_present(Lx_di)      then Lx_di      = (*self.info).Lx_di
-    if arg_present(Ly_di)      then Ly_di      = (*self.info).Ly_di
-    if arg_present(Lz_di)      then Lz_di      = (*self.info).Lz_di
+    ;
+    ; Binary Info file
+    ;   - The parameters are also in the ASCII info file
+    ;
     if arg_present(nx)         then nx         = (*self.info).nx
     if arg_present(ny)         then ny         = (*self.info).ny
     if arg_present(nz)         then nz         = (*self.info).nz
-    if arg_present(damp)       then damp       = (*self.info).damp
-    if arg_present(courant)    then courant    = (*self.info).courant
-    if arg_present(nproc)      then nproc      = (*self.info).nproc
-    if arg_present(nppc)       then nppc       = (*self.info).nppc
-    if arg_present(b0)         then b0         = (*self.info).b0
-    if arg_present(v_A)        then v_A        = (*self.info).v_A
-    if arg_present(di)         then di         = (*self.info).di
-    if arg_present(N_e)        then N_e        = (*self.info).N_e
-    if arg_present(Ne_sheet)   then Ne_sheet   = (*self.info).Ne_sheet
-    if arg_present(Ne_back)    then Ne_back    = (*self.info).Ne_back
-    if arg_present(N_total)    then N_total    = (*self.info).N_total
-    if arg_present(dtxwpe)     then dtxwpe     = (*self.info).dtxwpe
-    if arg_present(dtxwce)     then dtxwce     = (*self.info).dtxwce
-    if arg_present(dtxwci)     then dtxwci     = (*self.info).dtxwci
-    if arg_present(E_interval) then E_interval = (*self.info).E_interval
-    if arg_present(dx_de)      then dx_de      = (*self.info).dx_de
-    if arg_present(dy_de)      then dy_de      = (*self.info).dy_de
-    if arg_present(dz_de)      then dz_de      = (*self.info).dz_de
-    if arg_present(L_debye)    then L_debye    = (*self.info).L_debye
-    if arg_present(dx_rhoi)    then dx_rhoi    = (*self.info).dx_rhoi
-    if arg_present(dx_rhoe)    then dx_rhoe    = (*self.info).dx_rhoe
-    if arg_present(dx_debye)   then dx_debye   = (*self.info).dx_debye
-    if arg_present(n0)         then n0         = (*self.info).n0
-    if arg_present(vthi_c)     then vthi_c     = (*self.info).vthi_c
-    if arg_present(vthe_c)     then vthe_c     = (*self.info).vthe_c
-    if arg_present(vdri_c)     then vdri_c     = (*self.info).vdri_c
-    if arg_present(vdre_c)     then vdre_c     = (*self.info).vdre_c
-    if arg_present(nfac)       then nfac       = (*self.info).nfac
+    if arg_present(Lx_de)      then Lx_de      = (*self.info).Lx_de
+    if arg_present(Ly_de)      then Ly_de      = (*self.info).Ly_de
+    if arg_present(Lz_de)      then Lz_de      = (*self.info).Lz_de
+    
+    ;
+    ; ASCII Info file
+    ;   - Make sure it has been read.
+    ;
+    if has_tag(*self.info, 'MI_ME') eq 0 then return
+    
+    ; 3D-specific
+    if self.dimension eq '3D' then begin
+        ;Data has been downsampled (see comments in the INIT method). Calculate the modified
+        ;size of each cell in de (the true size is stored in (*self.info).dx_de).
+        if arg_present(dx_de) then dx_de = (*self.info).lx_de / (*self.info).nx
+        if arg_present(dy_de) then dy_de = (*self.info).ly_de / (*self.info).ny
+        if arg_present(dz_de) then dz_de = (*self.info).lz_de / (*self.info).nz
+    endif else begin
+        if arg_present(dx_de) then dx_de = (*self.info).dx_de
+        if arg_present(dy_de) then dy_de = (*self.info).dy_de
+        if arg_present(dz_de) then dz_de = (*self.info).dz_de
+    endelse
+    
+    if arg_present(L_di)               then L_di       = (*self.info).L_di
+    if arg_present(L_de)               then L_de       = (*self.info).L_de
+    if arg_present(Ti_Te)              then Ti_Te      = (*self.info).Ti_Te
+    if arg_present(Tbi_Ti)             then Tbi_Ti     = (*self.info).Tbi_Ti
+    if arg_present(Tbe_Te)             then Tbe_Te     = (*self.info).Tbe_Te
+    if arg_present(wpe_wce)            then wpe_wce    = (*self.info).wpe_wce
+    if arg_present(mi_me)              then mi_me      = (*self.info).mi_me
+    if arg_present(theta)              then theta      = (*self.info).theta
+    if arg_present(taui)               then taui       = (*self.info).taui
+    if arg_present(num_step)           then num_step   = (*self.info).num_step
+    if arg_present(Lx_di)              then Lx_di      = (*self.info).Lx_di
+    if arg_present(Ly_di)              then Ly_di      = (*self.info).Ly_di
+    if arg_present(Lz_di)              then Lz_di      = (*self.info).Lz_di
+    if arg_present(damp)               then damp       = (*self.info).damp
+    if arg_present(courant)            then courant    = (*self.info).courant
+    if arg_present(nproc)              then nproc      = (*self.info).nproc
+    if arg_present(nppc)               then nppc       = (*self.info).nppc
+    if arg_present(b0)                 then b0         = (*self.info).b0
+    if arg_present(v_A)                then v_A        = (*self.info).v_A
+    if arg_present(di)                 then di         = (*self.info).di
+    if arg_present(N_e)                then N_e        = (*self.info).N_e
+    if arg_present(Ne_sheet)           then Ne_sheet   = (*self.info).Ne_sheet
+    if arg_present(Ne_back)            then Ne_back    = (*self.info).Ne_back
+    if arg_present(N_total)            then N_total    = (*self.info).N_total
+    if arg_present(dtxwpe)             then dtxwpe     = (*self.info).dtxwpe
+    if arg_present(dtxwce)             then dtxwce     = (*self.info).dtxwce
+    if arg_present(dtxwci_info)        then dtxwci     = (*self.info).dtxwci
+    if arg_present(E_interval)         then E_interval = (*self.info).E_interval
+    if arg_present(L_debye)            then L_debye    = (*self.info).L_debye
+    if arg_present(dx_rhoi)            then dx_rhoi    = (*self.info).dx_rhoi
+    if arg_present(dx_rhoe)            then dx_rhoe    = (*self.info).dx_rhoe
+    if arg_present(dx_debye)           then dx_debye   = (*self.info).dx_debye
+    if arg_present(n0)                 then n0         = (*self.info).n0
+    if arg_present(vthi_c)             then vthi_c     = (*self.info).vthi_c
+    if arg_present(vthe_c)             then vthe_c     = (*self.info).vthe_c
+    if arg_present(vdri_c)             then vdri_c     = (*self.info).vdri_c
+    if arg_present(vdre_c)             then vdre_c     = (*self.info).vdre_c
+    if arg_present(nfac)               then nfac       = (*self.info).nfac
     if arg_present(e_weight_sheet)     then e_weight_sheet     = (*self.info).e_weight_sheet
     if arg_present(e_weight_bckgrnd)   then e_weight_bckgrnd   = (*self.info).e_weight_bckgrnd
     if arg_present(ion_weight_sheet)   then ion_weight_sheet   = (*self.info).ion_weight_sheet
     if arg_present(ion_weight_bckgrnd) then ion_weight_bckgrnd = (*self.info).ion_weight_bckgrnd
     if arg_present(funct_diagnostics_interval) then funct_diagnostics_interval = (*self.info).funct_diagnostics_interval
+    
 end
 
 
@@ -518,10 +643,14 @@ end
 pro MrSim2::GetProperty, $
 AXIS_LABELS = axis_labels, $
 COORD_SYSTEM = coord_system, $
+DIMENSION = dimension, $
 DIRECTORY = directory, $
 ION_SCALE = ion_scale, $
 MVA_FRAME = mva_frame, $
 ORIENTATION = orientation, $
+SIMNAME = simname, $
+SIMNUM = simnum, $
+SYMMETRIC = symmetric, $
 TIME = time, $
 
 ;SIMULATION DOMAIN
@@ -531,7 +660,6 @@ IZRANGE = izrange, $
 XRANGE = xrange, $
 XSIM = XSim, $
 YRANGE = yrange, $
-YSLICE = yslice, $
 YSIM = YSim, $
 ZRANGE = zrange, $
 ZSIM = ZSim
@@ -547,6 +675,7 @@ ZSIM = ZSim
     
     if arg_present(axis_labels)  then axis_labels  = self.axis_labels
     if arg_present(coord_system) then coord_system = self.coord_system
+    if arg_present(dimension)    then dimension    = self.dimension
     if arg_present(directory)    then directory    = self.directory
     if arg_present(ion_scale)    then ion_scale    = self.ion_scale
     if arg_present(ixrange)      then ixrange      = getIndexRange(*self.XSim, self.xrange)
@@ -554,10 +683,12 @@ ZSIM = ZSim
     if arg_present(izrange)      then izrange      = getIndexRange(*self.ZSim, self.zrange)
     if arg_present(mva_frame)    then mva_frame    = self.mva_frame
     if arg_present(orientation)  then orientation  = self.orientation
+    if arg_present(simname)      then simname      = self.simname
+    if arg_present(simnum)       then simnum       = self.simnum
+    if arg_present(symmetric)    then symmetric    = self.symmetric
     if arg_present(time)         then time         = self.time
     if arg_present(xrange)       then xrange       = self.xrange
     if arg_present(yrange)       then yrange       = self.yrange
-    if arg_present(yslice)       then yslice       = (*self.YSim)[self.yslice]
     if arg_present(zrange)       then zrange       = self.zrange
 
     ;Simulation Domain
@@ -566,15 +697,122 @@ ZSIM = ZSim
         XSim = (*self.XSim)[ix[0]:ix[1]]
     endif
     
-    if arg_present(YSim) && n_elements(*self.YSim) gt 0 then begin
-        iy = getIndexRange(*self.YSim, self.yrange)
-        YSim = (*self.YSim)[iy[0]:iy[1]]
+    ;2D simulations have only 1 grid cell in Y
+    if arg_present(YSim) then begin
+        if n_elements(*self.YSim) gt 1 then begin
+            iy = getIndexRange(*self.YSim, self.yrange)
+            YSim = (*self.YSim)[iy[0]:iy[1]]
+        endif else begin
+            YSim = (*self.YSim)
+        endelse
     endif
 
     if arg_present(ZSim) && n_elements(*self.ZSim) gt 0 then begin
         iz = getIndexRange(*self.ZSim, self.zrange)
         ZSim = (*self.ZSim)[iz[0]:iz[1]]
     endif
+end
+
+
+;+
+;   The purpose of this program is to read data from a ".gda" file produced by 
+;   one of Bill Daughton's simulation runs.
+;
+; :Params:
+;       DATA_PRODUCT:           in, required, type=string, default=
+;                               The name of the data product to be read. For a list of
+;                                   available data product, call mr_readSIM without any
+;                                   arguments.
+;
+; :Returns:
+;       DATA:                   The requested data. If the data product does not exist,
+;                                   then !Null will be returned.
+;-
+function MrSim2::GridLine, r0, r1, $
+COORDS=coords
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ;Determine the size of a grid cell in DE
+    self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de
+    
+    ;Number of grid cells between r0 and r1
+    dr = sqrt( total( (r1 - r0)^2 ) )
+    n  = dr * dx_de
+    
+    ;Coordinates of each point on the line.
+    coords = MrLine3D(r0, r1, NPOINTS=n)
+    
+    ;Find the cells
+    cells = coords
+    cells[0,*] = self -> GetCell(coords[0,*], /X)
+    cells[1,*] = self -> GetCell(coords[1,*], /Y)
+    cells[2,*] = self -> GetCell(coords[2,*], /Z)
+
+    return, cells
+end
+
+
+;+
+;   Create a series of point along a line in 3D space, given to points that define the line.
+;
+; :Params:
+;       R0:             in, required, type=fltarr(3)
+;                       A point in cartesian space through which the plane should pass.
+;       R1:             in, required, type=fltarr(3)
+;                       A point in cartesian space through which the plane should pass.
+;       R2:             in, required, type=fltarr(3)
+;                       A point in cartesian space through which the plane should pass.
+;
+; :Keywords:
+;       NX:             in, optional, type=integer, default=100
+;                       In the frame of the plane, the number of points along the
+;                           horizontal dimension.
+;       NY:             in, optional, type=integer, default=100
+;                       In the frame of the plane, the number of points along the
+;                           vetical dimension.
+;
+; :Returns:
+;       PLANE:          out, required, type=flaot(3\,`NX`*`NY`)
+;                       Points on the plane containing `R0`, `R1`, and `R2`.
+;-
+function MrSim2::GridPlane, r0, r1, r2, $
+NX=nx, $
+NY=ny
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ;Determine the size of a grid cell in DE
+    self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de
+    
+    ;Number of grid cells between r0 and r1
+    dr = sqrt( total( (r1 - r0)^2 ) )
+    n  = dr * dx_de
+    
+    ;Coordinates of each point on the line.
+    coords = MrPlane3D(r0, r1, r2, NX=nx, NY=ny)
+    
+    ;Find the cells
+    cells = coords
+    cells[0,*] = self -> GetCell(coords[0,*], /X)
+    cells[1,*] = self -> GetCell(coords[1,*], /Y)
+    cells[2,*] = self -> GetCell(coords[2,*], /Z)
+
+    return, cells
 end
 
 
@@ -597,28 +835,861 @@ pro MrSim2::MakeSimDomain
         zsize /= sqrt(mi_me)
     endif
 
-    ;Set the simulation domain    
-    case self.coord_system of
+    ;Set the simulation domain
+    ;   - See comments in ::ReadGDA_FilePos for effects of COORD_SYSTEM property.
+    case strupcase(self.coord_system) of
         'SIMULATION': begin
             *self.XSim = linspace(0, xsize, nx)
-            *self.YSim = linspace(0, ysize, ny)
+            *self.YSim = linspace(0, ysize, ny) - ysize/2.0
             *self.ZSim = linspace(0, zsize, nz) - zsize/2.0
         endcase
         
         'MAGNETOPAUSE': begin
             *self.ZSim =   linspace(0, xsize, nx)
-            *self.YSim =   linspace(0, ysize, ny)
+            *self.YSim =   linspace(0, ysize, ny) - ysize/2.0
             *self.XSim = -(linspace(0, zsize, nz) - zsize/2.0)
         endcase
         
         'MAGNETOTAIL': begin
             *self.XSim = -linspace(0, xsize, nx)
-            *self.YSim =  linspace(0, ysize, ny)
+            *self.YSim =  linspace(0, ysize, ny) - ysize/2.0
             *self.ZSim =  linspace(0, zsize, nz) - zsize/2.0
         endcase
         
-        else: ;Nothing
+        else: message, 'Coordinate system unknown: "' + self.coord_system + '".'
     endcase
+end
+
+
+;+
+;   The purpose of this program is to compute the Z-derivative of a data array.
+;
+; :Params:
+;       DATA:               in, required, type=NxM float
+;                           The data of which the derivative will be taken.
+;
+; :Keywords:
+;       OVERWRITE:          in, optional, type=boolean, default=0
+;                           If set, the derivative will overwrite `DATA` and avoids
+;                               having an extra copy in memory.
+;
+; :Returns:
+;       DERIVATIVE:         The derivative of `DATA` with respect to Z
+;-
+function MrSim2::ReadGDA_FilePos, coords, $
+COORD_SYSTEM=coord_system, $
+RANGES=ranges
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ranges  = keyword_set(ranges)
+    _system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
+
+;-------------------------------------------------------
+; Grid Points in Current System ////////////////////////
+;-------------------------------------------------------
+    ;Cell location in the current coordinate system.
+    if ranges then begin
+        ix = MrIndexRange(*self.xSim, self.xrange)
+        iy = MrIndexRange(*self.ySim, self.yrange)
+        iz = MrIndexRange(*self.zSim, self.zrange)
+    endif else begin
+        ix = value_locate(*self.xSim, coords[0,*]) > 0
+        iy = value_locate(*self.ySim, coords[1,*]) > 0
+        iz = value_locate(*self.zSim, coords[2,*]) > 0 
+    endelse
+
+;-------------------------------------------------------
+; From Simulation //////////////////////////////////////
+;-------------------------------------------------------
+    ;We must convert from the current coordinate system back
+    ;to simulation coordinates. Coordinate transformations from simulation to
+    ;whatever are described below.
+    case _system of
+        'SIMULATION': ;Do nothing
+    
+        ; The entire transformation results in
+        ;   x -> -z
+        ;   y -> +y
+        ;   z -> +x
+        ; and takes place in in three stages. The first is here.
+        ;
+        ;
+        ; The x- and z-axis need to be interchanged.
+        ;   - The reverse occurs here.
+        ;
+        ;           MSP                         MSP
+        ; +z  *--------------|       ++x *--------------|
+        ;     |              |  ==>      |              |
+        ; -z  |--------------+        +x |--------------+
+        ;     +x    MSH    ++x           -z     MSH    +z
+        ;
+        ; To complete the transformation
+        ;   - Transpose data (::CoordTransform)
+        ;
+        ;                            ++z +--------|
+        ;                                |        |
+        ;           MSP                  |        |
+        ; +x  *--------------|         M |        | M
+        ;     |              |  ===>   S |        | S
+        ; -x  |--------------+         H |        | P
+        ;     +z    MSH    ++z           |        |
+        ;                                |        |
+        ;                             +z |--------*
+        ;                               -x       +x
+        ;
+        ; And finally
+        ;   - Reverse x-axis (::MakeSimDomain)
+        ;
+        ;  ++z +--------|        ++z +--------|
+        ;      |        |            |        |
+        ;      |        |            |        |
+        ;    M |        | M        M |        | M
+        ;    S |        | S  ===>  S |        | S
+        ;    H |        | P        H |        | P
+        ;      |        |            |        |
+        ;      |        |            |        |
+        ;   +z |--------*         +z |--------*
+        ;     -x       +x           +x       -x
+        ;
+        'MAGNETOPAUSE': begin
+            ;Interchange x and z
+            iTemp = ix
+            ix    = iz
+            iz    = temporary(iTemp)
+        endcase
+    
+        ;
+        ; The entire transformation results in
+        ;   x -> -x
+        ; and takes place in one stage, none of which occur here.
+        ;
+        ; Reverse the direction of vectors pointing in the x-direction
+        ;   - ::CoordTransform
+        ;
+        ;          North                       North
+        ; +z  *--------------|        +z *--------------|
+        ;     |              |  ==>      |              |
+        ; -z  |--------------+        -z |--------------+
+        ;     +x   South    ++x         -x     South   --x
+        ;
+        'MAGNETOTAIL': ;Do nothing
+    
+        else: message, 'Coordinate system not recognized: "' + _system + '".'
+    endcase
+    
+;-------------------------------------------------------
+; From Simulation //////////////////////////////////////
+;-------------------------------------------------------
+    ;Sort ranges
+    if ranges then begin
+        if ix[0] gt ix[1] then ix = ix[[1,0]]
+        if iy[0] gt iy[1] then iy = iy[[1,0]]
+        if iz[0] gt iz[1] then iz = iz[[1,0]]
+    endif
+    
+    return, transpose([[ix], [iy], [iz]])
+end
+
+
+;+
+;   The purpose of this program is to compute the Z-derivative of a data array.
+;
+; :Params:
+;       DATA:               in, required, type=NxM float
+;                           The data of which the derivative will be taken.
+;
+; :Keywords:
+;       OVERWRITE:          in, optional, type=boolean, default=0
+;                           If set, the derivative will overwrite `DATA` and avoids
+;                               having an extra copy in memory.
+;
+; :Returns:
+;       DERIVATIVE:         The derivative of `DATA` with respect to Z
+;-
+pro MrSim2::ReadGDA_TransformData, name, data, $
+COORD_SYSTEM=coord_system, $
+ORIENTATION=orientation
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return
+    endif
+
+    _name   = strupcase(name)
+    _orient = n_elements(orientation)  eq 0 ? self.orientation  : strupcase(orientation)
+    _system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
+
+;-------------------------------------------------------
+; Change from SIMULATION Coordinates? //////////////////
+;-------------------------------------------------------
+    ;See ::ReadGDA_FilePos for detailed comments about
+    ;transformations.
+
+    case strupcase(_system) of
+        'SIMULATION': ;Do nothing
+        
+        'MAGNETOPAUSE': begin
+            case _orient of
+                'XY': ;Do nothing
+                'XZ': data = transpose(data)
+                else: message, 'Orienatation "' + _orient + '" not recognized.'
+            endcase
+
+            ;Now reverse the z-axes
+            ;   Single negate Bz, Uiz, Pe-xz, Pe-yz, etc.
+            case 1 of
+                stregex(_name, '[A-Z][a-z]*z$',   /BOOLEAN): data = -data
+                stregex(_name, '-(z[yx]|[xy]z)$', /BOOLEAN): data = -data
+                else: ;Do nothing
+            endcase
+        end
+        
+        'MAGNETOTAIL': begin
+            case _orient of
+                'XY': ;Do nothing
+                'XZ': ;Do nothing
+                else: message, 'Orienatation "' + _orient + '" not recognized.'
+            endcase
+
+            ;Now reverse the x-axes
+            ;   Single negate Bx, Uix, Pe-xz, Pe-xy, etc.
+            case 1 of
+                stregex(_name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
+                stregex(_name, '-(y|z)[x]$',      /BOOLEAN): data = -data
+                stregex(_name, '-[x](y|z)$',      /BOOLEAN): data = -data
+                else: ;Do nothing
+            endcase
+        end
+    endcase
+end
+
+
+;+
+;   The purpose of this method is to read data. If the data file does not exist, an
+;   informational message will be printed and no data will be read.
+;
+; :Params:
+;       NAME:           in, required, type=string
+;                       Name of the data product to be read.
+;
+;-
+function MrSim2::ReadGDA_Cells, cells, name, tIndex, $
+COORD_SYSTEM=coord_system, $
+COORDINATES=coordinates, $
+DIRECTORY=directory, $
+NSMOOTH=nSmooth, $
+ORIENTATION=orientation
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if n_elements(lun) gt 0 then free_lun, lun
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+;-------------------------------------------------------
+; Defaults /////////////////////////////////////////////
+;-------------------------------------------------------
+    if n_elements(directory)   eq 0 then directory   = self.directory
+    if n_elements(nSmooth)     eq 0 then nSmooth     = self.nSmooth
+    if n_elements(orientation) eq 0 then orientation = self.orientation
+    if n_elements(tindex)      eq 0 then tindex      = self.time
+    coord_system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
+
+    ;Create file name and test for the file
+    ;   - If file does not exist, create dialog to pick the file.
+    ;   - If dialog is cancelled, return nothing.
+    filename = filepath(name + '_' + string(tindex, FORMAT='(i0)') + '.gda', ROOT_DIR=directory)
+    if file_test(filename) eq 0 then begin
+        if filename ne '' then message, 'Choose a file. Given file not found: "' + filename + '".', /INFORMATIONAL
+        filename = cgPickFile(TITLE='Choose .gda Field or Moment File.', /READ)
+        if filename eq '' then return, !Null
+    endif
+
+;-------------------------------------------------------
+; Read the Data ////////////////////////////////////////
+;-------------------------------------------------------
+    ;File size
+    self -> GetInfo, NX=nx, NY=ny, NZ=nz
+
+    ;Allocate memory
+    _cells = ulong64(cells)
+    nCells = n_elements(cells[0,*])
+    data   = fltarr(nCells)
+    record = 0.0
+
+    ;Open the file
+    openr, lun, filename, /GET_LUN
+
+    ;Step through each record.
+    for i = 0ULL, nCells-1 do begin
+        ;Get the cell locations.
+        ix = _cells[0,i]
+        iy = _cells[1,i]
+        iz = _cells[2,i]
+        
+        ;Jump to the desired cell
+        offset = 4ULL * (ix + nx*iy + nx*ny*iz)
+        
+        ;Read and store the record.
+        point_lun, lun, offset
+        readu, lun, record
+        data[i] = record
+    endfor
+    
+    ;Free the file
+    free_lun, lun
+
+;-------------------------------------------------------
+; Cleanup //////////////////////////////////////////////
+;-------------------------------------------------------
+    ;Return the coordinates at which the grid-cells are located
+    if arg_present(coordinates) then begin
+        coordinates = cells
+        coordinates[0,*] = (*self.xSim)[cells[0,*]]
+        coordinates[1,*] = (*self.ySim)[cells[1,*]]
+        coordinates[2,*] = (*self.zSim)[cells[2,*]]
+    endif
+
+    ;Smooth data 
+    if nSmooth gt 0 then data = smooth(data, nSmooth, /EDGE_TRUNCATE)  
+
+    ;Store the data so that it does not have to be read again.
+    return, data
+end
+
+
+;+
+;   Read a 2D slice of data in the XY plane. Data is assumed to be stored in as
+;   floating point values ordered in the same as an [nx, ny, xz] array.
+;
+; :Private:
+;
+; :Params:
+;       FILE:               in, required, type=string
+;                           Name of the file to be read.
+;       IXRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the x-dimension.
+;       IYRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the y-dimension.
+;       IZ                  in, required, type=intarr(2)
+;                           Grid cell along the z-direction at which to read the 2D slice.
+;
+; :Keywords:
+;       NX:                 in, optional, type=integer
+;                           Number of total grid cells along the x-direction.
+;       NY:                 in, optional, type=integer
+;                           Number of total grid cells along the y-direction.
+;       NZ:                 in, optional, type=integer
+;                           Number of total grid cells along the z-direction.
+;
+; :Returns:
+;       DATA:               Data extracted from the file.
+;-
+function MrSim2::ReadGDA_XY, file, ixrange, iyrange, iz, $
+NX=nx, $
+NY=ny, $
+NZ=nz
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if n_elements(lun) gt 0 then free_lun, lun
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get/Set defaults
+    self -> GetInfo, NX=_nx, NY=_ny, NZ=_nz
+    if n_elements(nx) eq 0 then nx = _nx
+    if n_elements(ny) eq 0 then ny = _ny
+    if n_elements(nz) eq 0 then nz = _nz
+
+    ;Minimum and maximum grid cells to read
+    ixMin = min(ixrange, MAX=ixMax)
+    iyMin = min(iyrange, MAX=iyMax)
+    
+    ;Open File and read data
+    openr, lun, file, /GET_LUN
+    
+    ;Declare array for data
+    data = fltarr(ixMax-ixMin+1, iyMax-iyMin+1)
+    temp = fltarr(ixMax-ixMin+1)
+
+;-------------------------------------------------------
+; Read Data ////////////////////////////////////////////
+;-------------------------------------------------------
+    
+    ;How to read:
+    ;   - Z is fixed
+    ;   - Step through each row (y)
+    ;   - Read all columns (x) in each row
+    ix      = ulong64(ixMin)
+    zOffset = iz*nx*ny*4ULL
+    
+    ;Read the data
+    for iy = ulong64(iyMin), iyMax do begin
+        point_lun, lun, zOffset + 4ULL*(ix + iy*nx)
+        readu, lun, temp
+        data[*,iy] = temp
+    endfor
+    
+    ;Free the file
+    free_lun, lun
+    
+    return, data
+end
+
+
+;+
+;   Read a 2D slice of data in the XZ plane. Data is assumed to be stored in as
+;   floating point values ordered in the same as an [nx, ny, xz] array.
+;
+; :Private:
+;
+; :Params:
+;       FILE:               in, required, type=string
+;                           Name of the file to be read.
+;       IXRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the x-dimension.
+;       IZRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the z-dimension.
+;       IY                  in, required, type=intarr(2)
+;                           Grid cell along the y-direction at which to read the 2D slice.
+;
+; :Keywords:
+;       NX:                 in, optional, type=integer
+;                           Number of total grid cells along the x-direction.
+;       NY:                 in, optional, type=integer
+;                           Number of total grid cells along the y-direction.
+;       NZ:                 in, optional, type=integer
+;                           Number of total grid cells along the z-direction.
+;
+; :Returns:
+;       DATA:               Data extracted from the file.
+;-
+function MrSim2::ReadGDA_XZ, file, ixrange, izrange, iy, $
+NX=nx, $
+NY=ny, $
+NZ=nz
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if n_elements(lun) gt 0 then free_lun, lun
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get/Set defaults
+    self -> GetInfo, NX=_nx, NY=_ny, NZ=_nz
+    if n_elements(nx) eq 0 then nx = _nx
+    if n_elements(ny) eq 0 then ny = _ny
+    if n_elements(nz) eq 0 then nz = _nz
+
+    ;Minimum and maximum grid cells to read
+    ixMin = min(ixrange, MAX=ixMax)
+    izMin = min(izrange, MAX=izMax)
+
+    ;Open File and read data
+    openr, lun, file, /GET_LUN
+    
+    ;Declare output array for data
+    data = fltarr(ixMax-ixMin+1, izMax-izMin+1)
+
+    ;Read this many elements from a row.
+    temp = fltarr(ixMax-ixMin+1)
+
+;-------------------------------------------------------
+; Read Data ////////////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Offset in time
+    ;   - Each time slice consists of an [nx,ny,nz] data array.
+    ;   - 2D files contain many time slices and one y-slice.
+    ;   - 3D files contain a single time, but many y-slices.
+    if self.dimension eq '2D' $
+        then tOffset = (ulong64(nx)*ulong64(nz) + 2ULL) * self.time * 4ULL $
+        else tOffset = 0ULL
+
+    ;How to read:
+    ;   - Row (y) is fixed is fixed
+    ;   - Jump from z to z
+    ;   - Read all columns (x) at each z
+    ix = ulong64(ixMin)
+    for iz = ulong64(izMin), izMax do begin
+        ;Offset to first record.
+        ;   ix       = column offset
+        ;   iy*ny    = row offset
+        ;   iz*nx*ny = 3rd dimension offset
+        ;   4        = Bytes per element
+        offset = 4ULL * (ix + iy*nx + iz*nx*ny) + tOffset
+        
+        ;Read and save the records.
+        point_lun, lun, offset
+        readu, lun, temp
+        data[*,iz-izMin] = temp
+    endfor
+    
+    ;Free the file
+    free_lun, lun
+
+    return, data
+end
+
+
+;+
+;   Read a 2D slice of data in the YZ plane. Data is assumed to be stored in as
+;   floating point values ordered in the same as an [nx, ny, xz] array.
+;
+; :Private:
+;
+; :Params:
+;       FILE:               in, required, type=string
+;                           Name of the file to be read.
+;       IXRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the x-dimension.
+;       IYRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the y-dimension.
+;       IZ                  in, required, type=intarr(2)
+;                           Grid cell along the z-direction at which to read the 2D slice.
+;
+; :Keywords:
+;       NX:                 in, optional, type=integer
+;                           Number of total grid cells along the x-direction.
+;       NY:                 in, optional, type=integer
+;                           Number of total grid cells along the y-direction.
+;       NZ:                 in, optional, type=integer
+;                           Number of total grid cells along the z-direction.
+;
+; :Returns:
+;       DATA:               Data extracted from the file.
+;-
+function MrSim2::ReadGDA_YZ, file, iyrange, izrange, ix, $
+NX=nx, $
+NY=ny, $
+NZ=nz
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if n_elements(lun) gt 0 then free_lun, lun
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get/Set defaults
+    self -> GetInfo, NX=_nx, NY=_ny, NZ=_nz
+    if n_elements(nx) eq 0 then nx = _nx
+    if n_elements(ny) eq 0 then ny = _ny
+    if n_elements(nz) eq 0 then nz = _nz
+
+    ;Minimum and maximum grid cells to read
+    iyMin = min(iyrange, MAX=iyMax)
+    izMin = min(izrange, MAX=izMax)
+
+    ;Open File and read data
+    openr, lun, file, /GET_LUN
+    
+    ;Declare array for data
+    data = fltarr(iyMax-iyMin+1, izMax-izMin+1)
+    temp = fltarr(1)
+
+;-------------------------------------------------------
+; Read Data ////////////////////////////////////////////
+;-------------------------------------------------------
+    
+    ;How to read
+    ;   - X is fixed
+    ;   - Jump to desired row (y)
+    ;   - Jump to desired depth (z)
+    ;   - y and z are not adjacent, so each element must be read
+    for iz = ulong64(izMin), izMax do begin
+        for iy = ulong64(iyMin), iyMax do begin
+            ;Offset to first record.
+            ;   ix       = column offset
+            ;   iy*ny    = row offset
+            ;   iz*nx*ny = 3rd dimension offset
+            ;   4        = Bytes per element
+            offset = 4ULL * (ix + iy*nx + iz*nx*ny)
+        
+            ;Read and save the records.
+            point_lun, lun, offset
+            readu, lun, temp
+            data[iy-iyMin, iz-izMin] = temp
+        endfor
+    endfor
+    
+    ;Free the file
+    free_lun, lun
+    
+    return, data
+end
+
+
+;+
+;   Read a 3D slice of data. Data is assumed to be stored in as floating point values
+;   ordered in the same as an [nx, ny, xz] array.
+;
+; :Private:
+;
+; :Params:
+;       FILE:               in, required, type=string
+;                           Name of the file to be read.
+;       IXRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the x-dimension.
+;       IYRANGE             in, required, type=intarr(2)
+;                           Range of grid cells to be read along the y-dimension.
+;       IZ                  in, required, type=intarr(2)
+;                           Grid cell along the z-direction at which to read the 2D slice.
+;
+; :Keywords:
+;       NX:                 in, optional, type=integer
+;                           Number of total grid cells along the x-direction.
+;       NY:                 in, optional, type=integer
+;                           Number of total grid cells along the y-direction.
+;       NZ:                 in, optional, type=integer
+;                           Number of total grid cells along the z-direction.
+;
+; :Returns:
+;       DATA:               Data extracted from the file.
+;-
+function MrSim2::ReadGDA_XYZ, file, ixrange, iyrange, izrange, $
+NX=nx, $
+NY=ny, $
+NZ=nz
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if n_elements(lun) gt 0 then free_lun, lun
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Get/Set defaults
+    self -> GetInfo, NX=_nx, NY=_ny, NZ=_nz
+    if n_elements(nx) eq 0 then nx = _nx
+    if n_elements(ny) eq 0 then ny = _ny
+    if n_elements(nz) eq 0 then nz = _nz
+
+    ;Minimum and maximum grid cells to read
+    ixMin = min(ixrange, MAX=ixMax)
+    iyMin = min(iyrange, MAX=iyMax)
+    izMin = min(izrange, MAX=izMax)
+    
+    ;Open File and read data
+    openr, lun, file, /GET_LUN
+    
+    ;Declare array for data
+    data = fltarr(ixMax-ixMin+1, iyMax-iyMin+1, izMax-izMin+1)
+    temp = fltarr(ixMax-ixMin+1)
+
+;-------------------------------------------------------
+; Read Data ////////////////////////////////////////////
+;-------------------------------------------------------
+    
+    ;How to read:
+    ;   - Advance to the first desired column
+    ;   - Read all desired columns(x)
+    ;   - Advance row (y) and repeat.
+    ;   - When a full xy-plane is read, advance depth, repeat.
+    ix = ulong64(ixMin)
+    
+    ;Read the data
+    for iz = ulong64(izMin), izMax do begin
+        for iy = ulong64(iyMin), iyMax do begin
+            point_lun, lun, 4ULL*(ix + iy*nx + iz*nx*ny)
+            readu, lun, temp
+            data[*, iy, iz] = temp
+        endfor
+    endfor
+    
+    ;Free the file
+    free_lun, lun
+    
+    return, data
+end
+
+
+;+
+;   The purpose of this method is to read data. If the data file does not exist, an
+;   informational message will be printed and no data will be read.
+;
+; :Params:
+;       NAME:           in, required, type=string
+;                       Name of the data product to be read.
+;
+;-
+function MrSim2::ReadGDA, name, tIndex, $
+COORD_SYSTEM=coord_system, $
+DIRECTORY=directory, $
+NSMOOTH=nSmooth, $
+ORIENTATION=orientation, $
+SIM_OBJECT=oSim, $
+XRANGE=xrange, $
+YRANGE=yrange, $
+ZRANGE=zrange
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+;-------------------------------------------------------
+; Defaults /////////////////////////////////////////////
+;-------------------------------------------------------
+    ;Change Pe_xx to Pe-xx
+    _name = strpos(name, '_') eq -1 ? name : strjoin(strsplit(name, '_', /EXTRACT), '-')
+
+    ;Defaults
+    if n_elements(directory)   eq 0 then directory   = self.directory
+    if n_elements(nSmooth)     eq 0 then nSmooth     = self.nSmooth
+    if n_elements(orientation) eq 0 then orientation = self.orientation
+    if n_elements(tindex)      eq 0 then tindex      = self.time
+    if n_elements(xrange)      eq 0 then xrange      = self.xrange
+    if n_elements(yrange)      eq 0 then yrange      = self.yrange
+    if n_elements(zrange)      eq 0 then zrange      = self.zrange
+    coord_system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
+
+    ;Create file name.
+    if self.dimension eq '2D' $
+        then file = filepath(_name + '.gda', ROOT_DIR=directory) $
+        else file = filepath(_name + '_' + string(tindex, FORMAT='(i0)') + '.gda', ROOT_DIR=directory)
+        
+    ;Ensure file exists.
+    if file_test(file) eq 0 then begin
+        if file ne '' then message, 'Choose a file. Given file not found: "' + file + '".', /INFORMATIONAL
+        file = cgPickFile(TITLE='Choose .gda Field or Moment File.', /READ)
+        if file eq '' then return, !Null
+    endif
+
+;-------------------------------------------------------
+; Read the Data ////////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Data in the gda files are stored in simulation coordinates
+    ;   - Translate from COORD_SYSTEM to SIMULATION cell locations.
+    cells = self -> ReadGDA_FilePos(/RANGES, COORD_SYSTEM=coord_system)
+
+    case orientation of
+        'XY':  data = self -> ReadGDA_XY( file, cells[0,*], cells[1,*], cells[2,0])
+        'XZ':  data = self -> ReadGDA_XZ( file, cells[0,*], cells[2,*], cells[1,0])
+        'YZ':  data = self -> ReadGDA_YZ( file, cells[1,*], cells[2,*], cells[0,0])
+        'XYZ': data = self -> ReadGDA_XYZ(file, cells[1,*], cells[2,*], cells[3,*])
+        else: message, 'Orientation "' + orientation + '" not recognized.'
+    endcase
+
+    ;Manipulate data from SIMULATION to COORD_SYSTEM coordinates.
+    self -> ReadGDA_TransformData, _name, data
+
+;-------------------------------------------------------
+; Cleanup //////////////////////////////////////////////
+;-------------------------------------------------------
+    ;Smooth data 
+    if nSmooth gt 0 then data = smooth(data, nSmooth, /EDGE_TRUNCATE)  
+
+    ;Store the data so that it does not have to be read again.
+    return, data
+end
+
+
+;+
+;   The purpose of this method is to read the ASCII "info" file relating to Bill
+;   Daughton's simulations.
+;
+; :Private:
+;
+; :Params:
+;       FILENAME:           in, required, type=string
+;                           Name of the file containing particle data.
+;
+; :Keywords:
+;       ENERGY:             in, optional, type=boolean, default=0
+;                           If set, momentum will be converted to energy.
+;       FMAP_DIR:           in, optional, type=string, default=pwd
+;                           Directory in which to find an fMap. See MrSim_Create_fMap.pro.
+;       VELOCITY:           in, optional, type=boolean, default=0
+;                           If set, momentum will be converted to velocity.
+;       VERBOSE:            in, optional, type=boolean, default=0
+;                           If set, information about particle will be printed data to
+;                               the command window.
+;       XRANGE:             in, required, type=fltarr(2)
+;                           X-range (in de) over which particle data is to be kept.
+;       YRANGE:             in, required, type=fltarr(2)
+;                           Y-range (in de) over which particle data is to be kept.
+;       ZRANGE:             in, required, type=fltarr(2)
+;                           Z-range (in de) over which particle data is to be kept.
+;
+; :Returns:
+;       DATA:               Electron particle data.
+;-
+function MrSim2::ReadElectrons, filename, $
+ENERGY=energy, $
+FMAP_DIR=fmap_dir, $
+VELOCITY=velocity, $
+VERBOSE=verbose, $
+XRANGE=xrange, $
+YRANGE=yrange, $
+ZRANGE=zrange
+    compile_opt strictarr
+    
+    ;catch errors
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+    ;Create defaults
+    yslice = self -> GetCell(self.yrange[0], /Y)
+    MrSim_Which, self.simname, DIST3D=dist3D, EFILE=filename, FMAP_DIR=fMap_dir, $
+                 TINDEX=self.time, YSLICE=yslice
+    
+    ;Set defaults
+    if n_elements(filename) eq 0 then filename = eFile
+    if n_elements(fmap_dir) eq 0 then fmap_dir = fmap
+    if n_elements(xrange)   eq 0 then xrange   = self.xrange
+    if n_elements(yrange)   eq 0 then yrange   = self.yrange
+    if n_elements(zrange)   eq 0 then zrange   = self.zrange
+    
+    ;Read the simulation info file
+    data = MrSim_ReadParticles(filename, xrange, yrange, zrange, $
+                               DIST3D   = dist3D, $
+                               ENERGY   = energy, $
+                               FMAP_DIR = fMap_dir, $
+                               VELOCITY = velocity, $
+                               VERBOSE  = verbose)
+    
+    return, data
 end
 
 
@@ -631,27 +1702,26 @@ end
 ; :Params:
 ;       FILENAME:           in, required, type=string
 ;                           Name of the "info" file to be read.
+;
+; :Keywords:
+;       ASCII_VERSION:  in, optional, type=integer, default=1
+;                       Version of the ASCII info file. See MrSim_Which.pro.
 ;-
-pro MrSim2::ReadAsciiInfo, filename
+pro MrSim2::ReadInfo_Ascii, filename, $
+VERSION=version
     compile_opt strictarr
     
     ;catch errors
     catch, the_error
     if the_error ne 0 then begin
-        catch, /cancel
-        
-        ;close the file and free its logical unit number
-        if n_elements(lun) ne 0 then close, lun
-        
+        catch, /CANCEL
+        void = temporary(*self.info)
         void = cgErrorMsg()
         return
     endif
     
     ;Read the simulation info file
-    info = MrSim2_ReadInfoAscii(filename)
-
-    ;Store the information
-    *self.info = info
+    *self.info = MrSim_ReadInfoAscii(filename, VERSION=version)
 end
 
 
@@ -669,18 +1739,19 @@ end
 ;                                   0   -   File was read without error.
 ;                                   1   -   An error occured while reading the file.
 ;-
-pro MrSim2::ReadBinaryInfo, info_file, status
+pro MrSim2::ReadInfo_Binary, info_file, status
     compile_opt strictarr
 
     catch, the_error
     if the_error ne 0 then begin
-        catch, /cancel
+        catch, /CANCEL
         void = cgErrorMSG()
         return
     endif
 
     status = 0
-    if n_elements(info_file) eq 0 then info_file = self.directory + path_sep() + 'info'
+    if n_elements(info_file) eq 0 $
+        then info_file = filepath('info', ROOT_DIR=self.directory)
 
 ;---------------------------------------------------------------------
 ;Check Inputs ////////////////////////////////////////////////////////
@@ -757,6 +1828,99 @@ end
 ;+
 ;   The purpose of this method is to set object properties.
 ;
+;   NOTE:
+;       More than likely, you will have to set the TIME, [XYZ]Range and possibly the
+;       YSLICE properties after switching simulations.
+;
+; :Params:
+;       SIM_ID:         in, optional, type=string/integer
+;                       Either the name or the number of the simulation. If not given, a
+;                           list of simulations is printed to the command window.
+;
+; :Keywords:
+;       BINARY:         in, optional, type=boolean, default=0
+;                       If set, `INFO_FILE` points to the binary info file.
+;       DIRECTORY:      in, optional, type=string, default=pwd
+;                       Directory in which to find the ".gda" data.
+;       INFO_FILE:      in, optional, type=string, default=`DIRECTORY`/../info`
+;                       The ASCII info file containing information about the simulation
+;                           setup. If `BINARY` is set, the default file will be
+;                           `DIRECTORY`/info.
+;-
+pro MrSim2::SetSim, sim_id, $
+BINARY=binary, $
+DIRECTORY=directory, $
+INFO_FILE=info_file
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return
+    endif
+    
+    ;If no simulation was given, print info to command window.
+    if n_elements(sim_id) eq 0 then begin
+        MrSim_Which
+        return
+    endif
+    
+    ;Get the simulation name, number, etc.
+    MrSim_Which, sim_id, NAME=name, NUMBER=number, $
+                         ASCII_INFO=ascii_info, BINARY_INFO=binary_info, DIRECTORY=dir
+    
+    ;Is the simulation different?
+    if number eq self.simnum then return
+    
+    ;Defaults
+    binary = keyword_set(binary)
+    if n_elements(directory) eq 0 then directory = dir
+    if n_elements(info_file) eq 0 then begin
+        if binary $ 
+            then info_file = binary_info $
+            else info_file = ascii_info
+    endif
+    
+    ;Make sure the info file exists.
+    if file_test(info_file) eq 0 then $
+        message, 'Cannot find info file: "' + info_file + '"'
+    
+    ;Clear all data
+    self -> Clear_Data
+    void = temporary(*self.info)
+    void = temporary(*self.xSim)
+    void = temporary(*self.ySim)
+    void = temporary(*self.zSim)
+    void = -1
+    
+    ;Binary info file
+    if binary then begin
+        if keyword_set(ion_scale) then $
+            message, 'ION_SCALE is only possible with ASCII info file. ' + $
+                     'Setting ION_SCALE=0', /INFORMATIONAL
+        ion_scale = 0
+        self -> ReadInfo_Binary, info_file
+        
+    ;Ascii info file
+    endif else begin
+        self -> ReadInfo_Ascii, info_file
+    endelse
+    
+    ;Create the simulation domain
+    self -> MakeSimDomain
+    
+    ;Properties
+    self.simname   = name
+    self.simnum    = number
+    self.directory = directory
+end
+
+
+;+
+;   The purpose of this method is to set object properties.
+;
 ; :Keywords:
 ;       ION_SCALE:      in, optional, type=boolean, default=0
 ;                       If set, the unit of measurement will be the ion skin depth (di).
@@ -780,20 +1944,25 @@ ION_SCALE=ion_scale
     ;Set the scale size and get the mass ratio    
     self.ion_scale = ion_scale
     self -> GetInfo, MI_ME=mi_me
-    
+    if n_elements(mi_me) eq 0 then begin
+        message, 'MI_ME not defined. Cannot change scale.', /INFORMATIONAL
+        self.ion_scale = 0
+        return
+    endif
+
     ;Convert to "di" units
     if ion_scale then begin
         self -> MakeSimDomain
-        self.xrange /= mi_me
-        self.yrange /= mi_me
-        self.zrange /= mi_me
+        self.xrange /= sqrt(mi_me)
+        self.yrange /= sqrt(mi_me)
+        self.zrange /= sqrt(mi_me)
         
     ;Convert to "de" units
     endif else begin
         self -> MakeSimDomain
-        self.xrange *= mi_me
-        self.yrange *= mi_me
-        self.zrange *= mi_me
+        self.xrange *= sqrt(mi_me)
+        self.yrange *= sqrt(mi_me)
+        self.zrange *= sqrt(mi_me)
     endelse
 end
 
@@ -847,48 +2016,86 @@ ZRANGE = zrange
     if n_elements(axis_labels) gt 0 then self.axis_labels = axis_labels
     if n_elements(directory)   gt 0 then self.directory   = directory
     if n_elements(nsmooth)     gt 0 then self.nsmooth     = nsmooth
+    if n_elements(time)        gt 0 then self.time        = time
+    if n_elements(xrange)      gt 0 then self.xrange      = xrange
+    if n_elements(yrange)      gt 0 then self.yrange      = yrange
+    if n_elements(yslice)      gt 0 then self.yslice      = yslice
+    if n_elements(zrange)      gt 0 then self.zrange      = zrange
 
-    ;The following properties require the data to be cleared
-    nTime   = n_elements(time)
-    nXRange = n_elements(xrange)
-    nYRange = n_elements(yrange)
-    nYSlice = n_elements(yslice)
-    nZRange = n_elements(zrange)
-    nOrient = n_elements(orientation)
-    nCoord  = n_elements(coord_system)
-    nMVA    = n_elements(mva_frame)
-    if nTime + nXRange = nYRange + nYSlice + nZRange + nOrient + nCoord + nMVA gt 0 $
-        then self -> Clear_Data
-        
-    if nTime   gt 0 then self.time   = time
-    if nXRange gt 0 then self.xrange = xrange
-    if nYRange gt 0 then self.yrange = yrange
-    if nYSlice gt 0 then self.yslice = yslice
-    if NZRange gt 0 then self.zrange = zrange
-    
     ;ORIENTATION
-    if nOrient gt 0 then begin
+    if n_elements(orientation) gt 0 then begin
         _orientation = strupcase(orientation)
-        planes = ['XY', 'XZ']
-        if max(_orientation eq planes) $
-            then self.orientation = orientation $
-            else message, 'Orientation "' + orientation + '" not recognized.', /INFORMATIONAL
+        planes = ['XY', 'XZ', 'YZ']
+        if max(_orientation eq planes) eq 0 $
+            then message, 'Orientation "' + orientation + '" not recognized.', /INFORMATIONAL
+        
+        ;Set the orientation    
+        self.orientation = orientation
     endif
-    
+
     ;COORDINATE SYSTEM
-    if nCoord gt 0 then begin
+    if n_elements(coord_system) gt 0 then begin
         _coord_system = strupcase(coord_system)
-        systems = ['SIMULATION', 'MAGNETPAUSE', 'MAGNETOTAIL']
-        if max(_coord_system eq systems) $
-            then self.coord_system = _coord_system $
-            else message, 'Coordinate system "' + coord_system + '" not recognized.', /INFORMATIONAL
+        old_sys       = strupcase(self.coord_system)
+
+        ;Translate range from current system to new system
+        case old_sys of
+            'SIMULATION': begin
+                case _coord_system of
+                    'SIMULATION':   ;Do nothing
+                    'MAGNETOPAUSE': begin
+                        xrange = reverse(self.zrange)
+                        zrange = self.xrange
+                    endcase
+                    'MAGNETOTAIL': begin
+                        xrange = -self.xrange
+                        zrange =  self.zrange
+                    endcase
+                endcase
+            endcase
+            
+            'MAGNETOPAUSE': begin
+                case _coord_system of
+                    'SIMULATION': begin
+                        xrange = self.zrange
+                        zrange = reverse(self.xrange)
+                    endcase
+                    'MAGNETOPAUSE': ;Do nothing
+                    'MAGNETOTAIL': begin
+                        xrange = -self.zrange
+                        zrange = reverse(self.xrange)
+                    endcase
+                endcase
+            endcase
+            
+            'MAGNETOTAIL': begin
+                case _coord_system of
+                    'SIMULATION': begin
+                        xrange = -self.xrange
+                        zrange =  self.zrange
+                    endcase
+                    'MAGNETOPAUSE': begin
+                        xrange = reverse(self.zrange)
+                        zrange = -self.xrange
+                    endcase
+                    'MAGNETOTAIL': ;Do nothing
+                endcase
+            endcase
+            
+            else: message, 'Coordinate system not recognized:"' + coord_system + '".'
+        endcase
+        
+        ;Set object properties
+        self.xrange       = xrange
+        self.zrange       = zrange
+        self.coord_system = coord_system
         
         ;Remake the simulation domain
         self -> MakeSimDomain
     endif
     
     ;MVA_FRAME
-    if nMVA gt 0 then begin
+    if n_elements(mva_frame) gt 0 then begin
         self.mva_frame = keyword_set(mva_frame)
         
         ;Pick the axis labels
@@ -899,358 +2106,11 @@ ZRANGE = zrange
         endcase
     endif
     
-    if clear_flag then self -> Clear_Data
-end
-
-
-;+
-;   The purpose of this program is to make horizontal and vertical cuts through the data.
-;   'XZ' and 'XY' cuts are determined by the value of the ORIENTATION property.
-;
-; :Params:
-;       DATA_PRODUCT:       in, required, type=string
-;                       The name of the data product to be read. For a list of
-;                           available data product, call mr_readSIM without any
-;                           arguments.
-;       LOCATIONS:          in, required, type=lonarr
-;                       The locations along the X-axis where vertical cuts are to
-;                           be taken. Locations are povided in units of "di", the
-;                           simulation lenght-scale. If `NCUTS` is provided, then
-;                           this parameter outputs the locations of `NCUT` number
-;                           of cuts equally spaced throughout `CUT_XRANGE`.
-;       POS:                out, optional, type=fltarr
-;                       The positions along the cut-axis corresponding to
-;                               [XYZ]SIM[`IRANGE`[0]:`IRANGE`[1]].
-; :Keywords:
-;       HCUT_RANGE:     in, optional, type=fltarr(2)
-;                       The horizontal range, in data coordinates, over which to cut.
-;                           "Horizontal" is defined by the `HORIZONTAL` keyword. Data
-;                           coordinates are determined by the "ion_scale" property.
-;                           The default is to take the appropriate simulation range.
-;       HORIZONTAL:     in, optional, type=boolean, default=0
-;                       If set, a horizontal cut will be taken. The default is
-;                           to take a vertical cut. For an "XY" orientation, "X" is
-;                           horizontal, "Y" is vertical. Similar for "XZ", etc.
-;       ICUTS:              out, optional, type=intarr
-;                       The index values within [XYZ]Sim that define the cut-axis.
-;       IRANGE:         out, optional, type=intarr
-;                       The index values within [XYZ]Sim that span `HCUT_RANGE` or
-;                           `VCUT_RANGE`.
-;       NCUTS:          in, optional, type=int
-;                       If provided, the [HV]CUT_RANGE perpendicutlar to the direction
-;                           indicated by `HORIZONTAL` will be divided into NCUT evenly
-;                           spaced locations. The `LOCATIONS` keyword will be ignored
-;                           and these locations will be used for cuts.
-;       VCUT_RANGE:     in, optional, type=fltarr(2)
-;                       The verical range, in data coordinates, over which to cut.
-;                           "Vertical" is defined by the `HORIZONTAL` keyword. Data
-;                           coordinates are determined by the "ion_scale" property.
-;                           The default is to take the appropriate simulation range.
-;       _REF_EXTRA:     in, optional, type=any
-;                       Any keyword accepted by the GetData method is also accepted
-;                           via keyword inheritance.
-;
-; :Returns:
-;       CUT:            The data along the vertical or horizontal cut. If the data
-;                           requested does not exist, !Null will be returned.
-;-
-function MrSim2::LineCuts, data_product, locations, pos, $
-HCUT_RANGE=hcut_range, $
-HORIZONTAL=horizontal, $
-ICUTS=icuts, $
-IRANGE=iRange, $
-NCUTS=ncuts, $
-VCUT_RANGE=vcut_range, $
-_REF_EXTRA=extra
-    compile_opt strictarr
-
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        void = cgErrorMSG()
-        return, -1
-    endif
-
-    case self.orientation of
-        'XY': cut = self -> XYCuts(data_product, locations, pos, NCUTS=nCuts, $
-                                   CUT_XRANGE=hcut_range, CUT_YRANGE=vcut_range, $
-                                   HORIZONTAL=horizontal, ICUTS=iCuts, IRANGE=iRange, $
-                                   _EXTRA=extra)
-                
-        'XZ': cut = self -> XZCuts(data_product, locations, pos, NCUTS=nCuts, $
-                                   CUT_XRANGE=hcut_range, CUT_ZRANGE=vcut_range, $
-                                   HORIZONTAL=horizontal, ICUTS=iCuts, IRANGE=irange, $
-                                   _EXTRA=extra)
-    endcase
-    
-    return, cut
-end
-
-
-;+
-;   The purpose of this program is to make vertical cuts through image data.
-;
-;   Note that if `CUT_[XZ]RANGE` fall outside of the current data range, they will
-;   be set equal to the end points of the data range: [XZ]Range.
-;
-; :Private:
-;
-; :Params:
-;       DATA_PRODUCT:       in, required, type=string
-;                           The name of the data product to be read. For a list of
-;                               available data product, call mr_readSIM without any
-;                               arguments.
-;       LOCATIONS:          in, required, type=lonarr
-;                           The locations along the X-axis where vertical cuts are to
-;                               be taken. Locations are povided in units of "di", the
-;                               simulation lenght-scale. If `NCUTS` is provided, then
-;                               this parameter outputs the locations of `NCUT` number
-;                               of cuts equally spaced throughout `CUT_XRANGE`.
-;       POS:                out, optional, type=fltarr
-;                           The positions along the cut-axis corresponding to
-;                               [XYZ]SIM[`IRANGE`[0]:`IRANGE`[1]].
-; :Keywords:
-;       CUT_XRANGE:         in, optional, type=fltarr(2), default=`XRANGE`
-;                           The x-range over which to take vertical cuts. Use this in
-;                               combination with `NCUTS`.
-;       CUT_YRANGE:         in, optional, type=fltarr(2), default=`YRANGE`
-;                           The z-range over which the vertical cut extents.
-;       HORIZONTAL:         in, optional, type=boolean, default=0
-;                           If set, a horizontal cut will be taken. The default is
-;                               to take a vertical cut.
-;       ICUTS:              out, optional, type=intarr
-;                           The index values within XSim at which the vertical cuts
-;                               were taken.
-;       IRANGE:             out, optional, type=intarr
-;                           The index values within [XYZ]Sim that span `CUT_XRANGE` or
-;                               `CUT_YRANGE`.
-;       NCUTS:              in, optional, type=int
-;                           If provided, this specifies the number of equally spaced
-;                               cuts to take between CUT_XRANGE[0] and CUT_XRANGE[1].
-;                               When this keyword is used, `LOCATIONS` is ignored.
-;       _REF_EXTRA:         in, optional, type=any
-;                           Any keyword accepted by the GetData method is also accepted
-;                               via keyword inheritance.
-;
-; :Returns:
-;   CUT:                    The data along the vertical or horizontal cut. If the data
-;                               product does not exist or an error occurs, !NULL will
-;                               be returned.
-;-
-function MrSim2::XYCuts, data_product, locations, pos, $
- CUT_XRANGE = cut_xrange, $
- CUT_YRANGE = cut_yrange, $
- HORIZONTAL = horizontal, $
- ICUTS = iCuts, $
- IRANGE = iRange, $
- NCUTS = ncuts, $
-_REF_EXTRA = extra
-    compile_opt strictarr
-
-    ;Make sure the data suites our needs.
-    if self.orientation ne 'XY' then $
-        message, 'The orientation is "' + self.orientation + '". Cannot take XYCut.'
-
-;-------------------------------------------------------
-;Define Ranges /////////////////////////////////////////
-;-------------------------------------------------------
-    ;By using the GetProperty method, we limit ourselves to the
-    ;range from which the data was taken.
-    self -> GetProperty, XSIM=XSim, YSIM=YSim
-
-    ;Set defaults
-    horizontal = keyword_set(horizontal)
-    if n_elements(cut_xrange) eq 0 then self -> GetProperty, XRANGE=cut_xrange
-    if n_elements(cut_yrange) eq 0 then self -> GetProperty, YRANGE=cut_yrange
-    if n_elements(ncuts) gt 0 then begin
-        if horizontal $
-            then locations = linspace(cut_yrange[0], cut_yrange[1], ncuts) $
-            else locations = linspace(cut_xrange[0], cut_xrange[1], ncuts)
-    endif
-
-    ;How many cuts are being taken?
-    ncuts = n_elements(locations)
-    
-;-------------------------------------------------------
-;Read Data /////////////////////////////////////////////
-;-------------------------------------------------------
-
-    ;Get the data
-    data = self -> GetData(data_product, _STRICT_EXTRA=extra)
-    if data eq !Null then return, !Null
-
-;-------------------------------------------------------
-;Vertical Cut //////////////////////////////////////////
-;-------------------------------------------------------
-    if horizontal eq 0 then begin
-        ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(YSim, cut_yrange)
-        pos = YSim[iRange[0]:iRange[1]]
-
-        ;X-locations of the subset of vertical cuts to be displayed. If matches are
-        ;not exact, round up instead of down.
-        iCuts = value_locate(XSim, locations)
-        void = ismember(XSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
-        if n_elements(bumpThese) ne 0 then iCuts[bumpThese] += 1
-    
-        ;data as a function of z along the vertical line.
-        ;   Transpose to be consistent with vertical cuts: [pos, locations]
-        cut = transpose(data[icuts, iRange[0]:iRange[1]])
-
-;-------------------------------------------------------
-;Horizontal Cut ////////////////////////////////////////
-;-------------------------------------------------------
-    endif else begin
-        ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(XSim, cut_xrange)
-        pos = XSim[iRange[0]:iRange[1]]
-
-        ;Z-locations of the subset of vertical cuts to be displayed. If matches are
-        ;not exact, round up instead of down.
-        iCuts = value_locate(YSim, locations)
-        void = ismember(YSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
-        if n_elements(bumpThese) ne 0 then icut_pts[bumpThese] += 1
-
-        ;data as a function of x along the horizontal line.
-        cut = data[iRange[0]:iRange[1], iCuts]
-    endelse
-    
-    return, cut
-end
-
-
-;+
-;   The purpose of this program is to make vertical cuts through image data.
-;
-;   Note that if `CUT_[XZ]RANGE` fall outside of the current data range, they will
-;   be set equal to the end points of the data range: [XZ]Range.
-;
-; :Private:
-;
-; :Params:
-;       DATA_PRODUCT:   in, required, type=string
-;                       The name of the data product to be read. For a list of
-;                           available data product, call mr_readSIM without any
-;                           arguments.
-;       LOCATIONS:      in, required, type=lonarr
-;                       The locations along the X-axis where vertical cuts are to
-;                           be taken. Locations are povided in units of "di", the
-;                           simulation lenght-scale. If `NCUTS` is provided, then
-;                           this parameter outputs the locations of `NCUT` number
-;                           of cuts equally spaced throughout `CUT_XRANGE`.
-;       POS:            out, optional, type=fltarr
-;                       The positions along the cut-axis corresponding to
-;                                   [XYZ]SIM[`IRANGE`[0]:`IRANGE`[1]].
-; :Keywords:
-;       CUT_XRANGE:     in, optional, type=fltarr(2), default=`XRANGE`
-;                       The x-range over which to take vertical cuts. Use this in
-;                           combination with `NCUTS`.
-;       CUT_ZRANGE:     in, optional, type=fltarr(2), default=`ZRANGE`
-;                       The z-range over which the vertical cut extents.
-;       HORIZONTAL:     in, optional, type=boolean, default=0
-;                       If set, a horizontal cut will be taken. The default is
-;                           to take a vertical cut.
-;       ICUTS:          out, optional, type=intarr
-;                       The index values within XSim at which the vertical cuts
-;                           were taken.
-;       IRANGE:         out, optional, type=intarr
-;                       The index values within [XYZ]Sim that span `CUT_XRANGE` or
-;                                   `CUT_YRANGE`.
-;       NCUTS:          in, optional, type=int
-;                       If provided, this specifies the number of equally spaced
-;                           cuts to take between CUT_XRANGE[0] and CUT_XRANGE[1].
-;                           When this keyword is used, `LOCATIONS` is ignored.
-;       _REF_EXTRA:     in, optional, type=any
-;                       Any keyword accepted by the GetData method is also accepted
-;                           via keyword inheritance.
-;
-; :Returns:
-;       CUT:            The data along the vertical or horizontal cut. If the data
-;                           product does not exist or an error occurs, !NULL will
-;                           be returned.
-;-
-function MrSim2::XZCuts, data_product, locations, pos, $
- CUT_XRANGE = cut_xrange, $
- CUT_ZRANGE = cut_zrange, $
- HORIZONTAL = horizontal, $
- ICUTS = iCuts, $
- IRANGE = iRange, $
- NCUTS = ncuts, $
-_REF_EXTRA = extra
-    compile_opt strictarr
-
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        void = cgErrorMSG()
-        return, !Null
-    endif
-
-    ;Make sure the data suites our needs.
-    if self.orientation ne 'XZ' then $
-        message, 'The orientation is "' + self.orientation + '". Cannot take XZCut.'
-    
-;-------------------------------------------------------
-;Define Ranges /////////////////////////////////////////
-;-------------------------------------------------------
-    ;By using the GetProperty method, we limit ourselves to the
-    ;range from which the data was taken.
-    self -> GetProperty, XSIM=XSim, ZSIM=ZSim
-
-    ;Set defaults
-    horizontal = keyword_set(horizontal)
-    if n_elements(cut_xrange) eq 0 then self -> GetProperty, XRANGE=cut_xrange
-    if n_elements(cut_zrange) eq 0 then self -> GetProperty, ZRANGE=cut_zrange
-    if n_elements(ncuts) gt 0 then locations = linspace(cut_xrange[0], cut_xrange[1], ncuts)
-
-    ;How many cuts are being taken?
-    ncuts = n_elements(locations)
-    
-;-------------------------------------------------------
-;Read Data /////////////////////////////////////////////
-;-------------------------------------------------------
-
-    ;Get the data
-    data = self -> GetData(data_product, _STRICT_EXTRA=extra)
-    if data eq !Null then return, !Null
-
-;-------------------------------------------------------
-;Horizontal Cut ////////////////////////////////////////
-;-------------------------------------------------------
-    if horizontal then begin
-        ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(XSim, cut_xrange, STRIDE=stride)
-        pos = XSim[iRange[0]:iRange[1]:stride]
-
-        ;Z-locations of the subset of vertical cuts to be displayed. If matches are
-        ;not exact, round up instead of down.
-        iCuts = value_locate(ZSim, locations)
-        void = ismember(ZSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
-        if n_elements(bumpThese) ne 0 then icuts[bumpThese] += 1
-
-        ;data as a function of x along the horizontal line.
-        cut = data[iRange[0]:iRange[1]:stride, iCuts]
-
-;-------------------------------------------------------
-;Vertical Cut //////////////////////////////////////////
-;-------------------------------------------------------
-    endif else begin
-        ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(ZSim, cut_zrange, STRIDE=stride)
-        pos = ZSim[iRange[0]:iRange[1]:stride]
-
-        ;X-locations of the subset of vertical cuts to be displayed. If matches are
-        ;not exact, round up instead of down.
-        iCuts = value_locate(XSim, locations)
-        void = ismember(XSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
-        if n_elements(bumpThese) ne 0 then icuts[bumpThese] += 1
-    
-        ;data as a function of z along the vertical line.
-        ;   Transpose to be consistent with vertical cuts: [pos, locations]
-        cut = transpose(data[icuts, iRange[0]:iRange[1]:stride])
-    endelse
-    
-    return, cut
+    ;Clear all of the data
+    ;   - Data is read for a particular time, [xyz]-range, orientation, etc.
+    ;   - Data needs to be cleared if any of this changes (so that it is read with the
+    ;       new parameters).
+    self -> Clear_Data
 end
 
 
@@ -1286,6 +2146,7 @@ pro MrSim2__DEFINE, class
              
               ;Object Properties
               axis_labels:  ['', '', ''], $
+              dimension:    '', $
               directory:    '', $
               info:         ptr_new(), $
               ion_scale:    0B, $
@@ -1293,16 +2154,18 @@ pro MrSim2__DEFINE, class
               mva_frame:    0B, $
               nSmooth:      0L, $
               orientation:  '', $
+              simnum:       0, $
+              simname:      '', $
+              symmetric:    0B, $
               time:         0L, $
               coord_system: '', $
               
               ;Sim Domain
               XRANGE: [0D, 0D], $
               XSim:   ptr_new(), $
-              YSlice: 0L, $
               YRANGE: [0D, 0D], $
               YSim:   ptr_new(), $
               ZRANGE: [0D, 0D], $
-              ZSim:   ptr_new(), $
+              ZSim:   ptr_new() $
             }
 end

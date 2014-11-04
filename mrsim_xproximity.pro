@@ -196,17 +196,20 @@ _REF_EXTRA = extra
         else title = 't$\Omega$$\downci$=' + string(time*dtxwci, FORMAT='(f0.1)') + '  ' + cutLoc
 
     ;Plot the individual cuts.
-    !Null = MrSim_LineCut('Bx',  cuts, /CURRENT, HORIZONTAL=horizontal, SIM_OBJECT=oSim, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
-    !Null = MrSim_LineCut('By',  cuts, /CURRENT, HORIZONTAL=horizontal, SIM_OBJECT=oSim, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
-    !Null = MrSim_LineCut('ni',  cuts, /CURRENT, HORIZONTAL=horizontal, SIM_OBJECT=oSim, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
-    !Null = MrSim_LineCut('Uix', cuts, /CURRENT, HORIZONTAL=horizontal, SIM_OBJECT=oSim, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
-    !Null = MrSim_LineCut('Ez',  cuts, /CURRENT, HORIZONTAL=horizontal, SIM_OBJECT=oSim, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
+    !Null = MrSim_LineCut(oSim, 'Bx',  cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
+    !Null = MrSim_LineCut(oSim, 'By',  cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
+    !Null = MrSim_LineCut(oSim, 'ni',  cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
+    !Null = MrSim_LineCut(oSim, 'Uix', cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
+    !Null = MrSim_LineCut(oSim, 'Ez',  cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
     
     ;Create a legend
     if nCuts gt 1 then begin
-        !Null = MrLegend(TARGET=drWin[0], LOCATION=4, NAME='Legend: Cuts', $
-                         /CURRENT, TITLE=legendLabl + '=' + string(cuts, FORMAT='(f0.1)') + units, $
-                         LENGTH=0, TCOLORS=['Blue', 'Forest Green', 'Red'])
+        !Null = MrLegend(LENGTH   = 0, $
+                         LOCATION = 4, $
+                         NAME     ='Legend: Cuts', $
+                         TITLE    = legendLabl + '=' + string(cuts, FORMAT='(f0.1)') + units, $
+                         TARGET   = drWin[0], $
+                         TCOLORS  = ['Blue', 'Forest Green', 'Red'])
     endif
 
     ;Destroy the object.

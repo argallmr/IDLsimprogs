@@ -67,6 +67,7 @@
 ;    Modification History::
 ;       2014/08/28  -   Written by Matthew Argall
 ;       2014/10/14  -   Added the VELOCITY and ENERGY keywords. - MRA
+;       2014/10/30  -   Added DIST3D keyword. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -230,11 +231,17 @@ end
 ;+
 ;   Read particle data.
 ;
+;   CALLING SEQUENCE:
+;       data = MrSim_ReadParticles(filename, xrange, zrange)
+;       data = MrSim_ReadParticles(filename, xrange, yrange, zrange)
+;
 ; :Params:
 ;       FILENAME:           in, required, type=string
 ;                           Name of the file containing particle data.
 ;       XRANGE:             in, required, type=fltarr(2)
 ;                           X-range (in de) over which particle data is to be kept.
+;       YRANGE:             in, optional, type=fltarr(2), default=[0,0]
+;                           Y-range (in de) over which particle data is to be kept.
 ;       ZRANGE:             in, required, type=fltarr(2)
 ;                           Z-range (in de) over which particle data is to be kept.
 ;
@@ -244,6 +251,9 @@ end
 ;                               of this size (units of de), and `DATA` will contain the
 ;                               particle counts in each bin. If a scalar, the x- and z-
 ;                               dimensions will have the same binsize.
+;       DIST3D:             in, optioanl, type=boolean, default=0
+;                           If set, the data file is ordered as [x, y, z, ux, uy, uz], i.e.
+;                               it has 3D coordinates in both space and momentum.
 ;       ENERGY:             in, optional, type=boolean, default=0
 ;                           If set, momentum will be converted to energy.
 ;       FMAP_DIR:           in, optional, type=string, default=pwd
@@ -274,12 +284,11 @@ end
 ;                               location of the center of each row in `DATA`.
 ;
 ; :Returns:
-;       DATA:               MrWindow graphic window containing the requested graphics.
-;                                   If the image data does not exist, an invalid object
-;                                   will be returned.
+;       DATA:               Electron distribution data.
 ;-
-function MrSim_ReadParticles, filename, xrange, zrange, $
+function MrSim_ReadParticles, filename, xrange, yrange, zrange, $
 BINSIZE=binSize, $
+DIST3D=dist3D, $
 ENERGY=energy, $
 FMAP_DIR=fMap_dir, $
 N_RECS_PER_CHUNK=n_rec_per_chunk, $
@@ -295,8 +304,18 @@ ZLOC=zloc
     if the_error ne 0 then begin
         catch, /CANCEL
         if n_elements(lun) gt 0 then free_lun, lun
+        if nParams eq 3 then yrange = zrange
         void = cgErrorMSG()
         return, !Null
+    endif
+
+;---------------------------------------------------------------------
+; Inputs /////////////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    nParams = n_params()
+    if nParams eq 3 then begin
+        zrange = yrange
+        yrange = [0,0]
     endif
 
     ;Make sure the file exists
@@ -313,11 +332,13 @@ ZLOC=zloc
     ;Defaults
     ;   - There are five 4-byte numbers associated with each particle.
     energy   = keyword_set(energy)
+    dist3D   = keyword_set(dist3D)
     velocity = keyword_set(velocity)
     verbose  = keyword_set(verbose)
     if n_elements(fMap_dir)         eq 0 then fMap_dir         = file_dirname(filename)
     if n_elements(n_recs_per_chunk) eq 0 then n_recs_per_chunk = 1000000ULL
-    if n_elements(rec_sample)       eq 0 then rec_sample       = fltarr(5)
+    if n_elements(rec_sample)       eq 0 then rec_sample       = dist3D ? fltarr(6) : fltarr(5)
+    if n_elements(yrange)           eq 0 then yrange           = [0, 0]
     
     ;Make a histogram?
     if n_elements(binsize) + n_elements(nBins) gt 0 $
@@ -327,13 +348,14 @@ ZLOC=zloc
     ;Dependencies
     if energy + velocity gt 1 then message, 'ENERGY and VELOCITY are mutually exclusive.'
 ;---------------------------------------------------------------------
-;Record Info /////////////////////////////////////////////////////////
+; Record Info ////////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
+    ;Number and type of records.
     n_per_rec = n_elements(rec_sample)
     tname     = size(rec_sample, /TNAME)
     type      = size(rec_sample, /TYPE)
     
-    ;Bytes for IDL data types
+    ;Bytes of storage used by IDL data types
     case tname of
         'BYTE':    nBytes = 1
         'INT':     nBytes = 1
@@ -361,26 +383,36 @@ ZLOC=zloc
 ;---------------------------------------------------------------------
 ; How to Read File ///////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    ;Check for a save file
+    ;fMap?
     fbase = cgRootName(filename)
-    ftest = filepath(fbase + '_mrfMap.sav', ROOT_DIR=fMap_dir)
+    fname = fbase + '_mrfMap' + (dist3D ? '3d' : '2d') + '.sav'
+    ftest = filepath(fname, ROOT_DIR=fMap_dir)
     if file_test(ftest) then begin
         restore, ftest
-        iChunks = where(map_entry.d1_range[0] lt xrange[1] and $
-                        map_entry.d1_range[1] gt xrange[0] and $
-                        map_entry.d2_range[0] lt zrange[1] and $
-                        map_entry.d2_range[1] gt zrange[0],    $
+        iChunks = where(map_entry.d1_range[0] le xrange[1] and $
+                        map_entry.d1_range[1] ge xrange[0] and $
+                        map_entry.d2_range[0] le yrange[1] and $
+                        map_entry.d2_range[1] ge yrange[0] and $
+                        map_entry.d3_range[0] le zrange[1] and $
+                        map_entry.d3_range[1] ge zrange[0],    $
                         n_chunks)
+        
+        ;No chunks found
+        if n_chunks eq 0 then begin
+            msg = string(FORMAT='(%"No particles found in range x=[%i, %i], y=[%i, %i], z=[%i, %i]")', $
+                         xrange, yrange, zrange)
+            message, msg
+        endif
         
         n_per_chunk  = map_entry[iChunks].nRecs
         byte_offsets = map_entry[iChunks].pos
         map_entry    = !Null
         
-    ;Determine how many chunks to use.
+    ;Read through the entire file.
     endif else begin
         message, 'fMap not found: "' + ftest + '".', /INFORMATIONAL
     
-        ;Number and size of chunks
+        ;Number and size of data chunks to read per loop
         n_recs       = ulong64(finfo.size / rec_size)       ; number of records in the file
         n_chunks     = n_recs / n_recs_per_chunk            ; integer divide
         n_last_chunk = n_recs mod n_recs_per_chunk
@@ -406,7 +438,7 @@ ZLOC=zloc
     for i = 0ULL, n_chunks - 1ULL do begin
         if verbose then if ((i+1) mod 10 eq 0) || (i eq n_chunks - 1) $
             then print, FORMAT='(%"Chunk %i of %i")', i+1, n_chunks
-        
+
         ;Last chunk may be a different size
         if i gt 0 then if n_per_chunk[i] ne n_per_chunk[i-1] $
             then region = fltarr(n_per_rec, n_per_chunk[i])
@@ -416,10 +448,19 @@ ZLOC=zloc
         readu, lun, region
 
         ;Are we within the range?
-        iGood = where(region[0,*] ge xrange[0] and $
-                      region[0,*] le xrange[1] and $
-                      region[1,*] ge zrange[0] and $
-                      region[1,*] le zrange[1], nGood)
+        if dist3D then begin
+            iGood = where(region[0,*] ge xrange[0] and $
+                          region[0,*] le xrange[1] and $
+                          region[1,*] ge yrange[0] and $
+                          region[1,*] le yrange[1] and $
+                          region[2,*] ge zrange[0] and $
+                          region[2,*] le zrange[1], nGood)
+        endif else begin
+            iGood = where(region[0,*] ge xrange[0] and $
+                          region[0,*] le xrange[1] and $
+                          region[1,*] ge zrange[0] and $
+                          region[1,*] le zrange[1], nGood)
+        endelse
         
         ;Were there good points?
         if nGood gt 0 then begin
@@ -452,8 +493,13 @@ ZLOC=zloc
 
     ;Convert to velocity
     if velocity then begin
-        e_gamma = sqrt(1.0 + total(data[2:4, *]^2, 1))
-        data[2:4, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
+        if dist3D then begin
+            e_gamma = sqrt(1.0 + total(data[2:4, *]^2, 1))
+            data[2:4, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
+        endif else begin
+            e_gamma = sqrt(1.0 + total(data[3:5, *]^2, 1))
+            data[3:5, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
+        endelse
     endif
     
     ;Convert to energy
@@ -479,6 +525,7 @@ ZLOC=zloc
         if arg_present(zloc) then zloc = linspace(zrange[0], zrange[1], binsize[1], /INTERVAL)
     endif
     
+    if nParams eq 3 then yrange = zrange
     return, data
 end
 

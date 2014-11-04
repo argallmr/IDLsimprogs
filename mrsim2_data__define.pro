@@ -1,12 +1,5 @@
 ; docformat = 'rst'
 ;
-;+
-;   The purpose of this program is to provide a base class for 2D and 3D simulation
-;   data provided by Bill Daughton from Los Alamos National Laboratory.
-;
-;   MrSim2_Data is meant to be subclassed by a class that over-rides the ReadData method.
-;   At the end of the new ReadData method, ::SetData should be called.
-;
 ;*****************************************************************************************
 ;   Copyright (c) 2014, Matthew Argall                                                   ;
 ;   All rights reserved.                                                                 ;
@@ -34,6 +27,13 @@
 ;   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH  ;
 ;   DAMAGE.                                                                              ;
 ;*****************************************************************************************
+;
+; PURPOSE
+;+
+;   The purpose of this program is to provide a base class for 2D and 3D simulation
+;   data provided by Bill Daughton from Los Alamos National Laboratory.
+;
+;   MrSim2_Data is meant to be subclassed by a class that over-rides the ReadGDA method.
 ;
 ; :Categories:
 ;   Pic Simulation, Data Reader, Bill Daughton
@@ -74,40 +74,36 @@ function MrSim2_Data::INIT
 ;-------------------------------------------------------
 
     ;Data Products
+    self.answer    = ptr_new(/ALLOCATE_HEAP)
     self.electrons = ptr_new(/ALLOCATE_HEAP)
-    self.Ay = ptr_new(/ALLOCATE_HEAP)
-    self.Bx = ptr_new(/ALLOCATE_HEAP)
-    self.By = ptr_new(/ALLOCATE_HEAP)
-    self.Bz = ptr_new(/ALLOCATE_HEAP)
-    self.Ex = ptr_new(/ALLOCATE_HEAP)
-    self.Ey = ptr_new(/ALLOCATE_HEAP)
-    self.Ez = ptr_new(/ALLOCATE_HEAP)
-    self.n_e = ptr_new(/ALLOCATE_HEAP)
-    self.n_i = ptr_new(/ALLOCATE_HEAP)
-    self.Pe_xx = ptr_new(/ALLOCATE_HEAP)
-    self.Pe_xy = ptr_new(/ALLOCATE_HEAP)
-    self.Pe_xz = ptr_new(/ALLOCATE_HEAP)
-    self.Pe_yx = ptr_new(/ALLOCATE_HEAP)
-    self.Pe_yy = ptr_new(/ALLOCATE_HEAP)
-    self.Pe_yz = ptr_new(/ALLOCATE_HEAP)
-    self.Pe_zx = ptr_new(/ALLOCATE_HEAP)
-    self.Pe_zy = ptr_new(/ALLOCATE_HEAP)
-    self.Pe_zz = ptr_new(/ALLOCATE_HEAP)
-    self.Pi_xx = ptr_new(/ALLOCATE_HEAP)
-    self.Pi_xy = ptr_new(/ALLOCATE_HEAP)
-    self.Pi_xz = ptr_new(/ALLOCATE_HEAP)
-    self.Pi_yx = ptr_new(/ALLOCATE_HEAP)
-    self.Pi_yy = ptr_new(/ALLOCATE_HEAP)
-    self.Pi_yz = ptr_new(/ALLOCATE_HEAP)
-    self.Pi_zx = ptr_new(/ALLOCATE_HEAP)
-    self.Pi_zy = ptr_new(/ALLOCATE_HEAP)
-    self.Pi_zz = ptr_new(/ALLOCATE_HEAP)
-    self.Uex = ptr_new(/ALLOCATE_HEAP)
-    self.Uey = ptr_new(/ALLOCATE_HEAP)
-    self.Uez = ptr_new(/ALLOCATE_HEAP)
-    self.Uix = ptr_new(/ALLOCATE_HEAP)
-    self.Uiy = ptr_new(/ALLOCATE_HEAP)
-    self.Uiz = ptr_new(/ALLOCATE_HEAP)
+    self.Ay        = ptr_new(/ALLOCATE_HEAP)
+    self.Bx        = ptr_new(/ALLOCATE_HEAP)
+    self.By        = ptr_new(/ALLOCATE_HEAP)
+    self.Bz        = ptr_new(/ALLOCATE_HEAP)
+    self.electrons = ptr_new(/ALLOCATE_HEAP)
+    self.Ex        = ptr_new(/ALLOCATE_HEAP)
+    self.Ey        = ptr_new(/ALLOCATE_HEAP)
+    self.Ez        = ptr_new(/ALLOCATE_HEAP)
+    self.n_e       = ptr_new(/ALLOCATE_HEAP)
+    self.n_i       = ptr_new(/ALLOCATE_HEAP)
+    self.Pe_xx     = ptr_new(/ALLOCATE_HEAP)
+    self.Pe_xy     = ptr_new(/ALLOCATE_HEAP)
+    self.Pe_xz     = ptr_new(/ALLOCATE_HEAP)
+    self.Pe_yy     = ptr_new(/ALLOCATE_HEAP)
+    self.Pe_yz     = ptr_new(/ALLOCATE_HEAP)
+    self.Pe_zz     = ptr_new(/ALLOCATE_HEAP)
+    self.Pi_xx     = ptr_new(/ALLOCATE_HEAP)
+    self.Pi_xy     = ptr_new(/ALLOCATE_HEAP)
+    self.Pi_xz     = ptr_new(/ALLOCATE_HEAP)
+    self.Pi_yy     = ptr_new(/ALLOCATE_HEAP)
+    self.Pi_yz     = ptr_new(/ALLOCATE_HEAP)
+    self.Pi_zz     = ptr_new(/ALLOCATE_HEAP)
+    self.Uex       = ptr_new(/ALLOCATE_HEAP)
+    self.Uey       = ptr_new(/ALLOCATE_HEAP)
+    self.Uez       = ptr_new(/ALLOCATE_HEAP)
+    self.Uix       = ptr_new(/ALLOCATE_HEAP)
+    self.Uiy       = ptr_new(/ALLOCATE_HEAP)
+    self.Uiz       = ptr_new(/ALLOCATE_HEAP)
 
     return, 1
 end
@@ -128,6 +124,7 @@ pro MrSim2_Data::CLEANUP
     endif
     
     ;Data products
+    ptr_free, self.answer
     ptr_free, self.Ay
     ptr_free, self.Bx
     ptr_free, self.By
@@ -159,6 +156,72 @@ pro MrSim2_Data::CLEANUP
 end
 
 
+;+
+;   The purpose of this method is to release memory taken up by simulation data.
+;
+; :Private:
+;
+; :Params:
+;       DATA_PRODUCT:           in, optional, type=string
+;                               The name of the data product whose data is to be released.
+;                                   If not given, the data for all data products is freed.
+;-
+pro MrSim2_Data::Clear_Data, data_product
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return
+    endif
+    
+    ;Free all of the data
+    if n_params() eq 0 then begin
+        data_product = ['Ans', 'Ay', 'Bx', 'By', 'Bz', 'E-', 'Ex', 'Ey', 'Ez', 'ne', 'ni', $
+                        'Pe_xx', 'Pe_xy', 'Pe_xz', 'Pe_yy', 'Pe_yz', 'Pe_zz', $
+                        'Pi_xx', 'Pi_xy', 'Pi_xz', 'Pi_yy', 'Pi_yz', 'Pi_zz', $
+                        'Uex', 'Uey', 'Uez', 'Uix', 'Uiy', 'Uiz']
+    endif
+    
+    ;Step through all of the data products given and free the data
+    foreach name, data_product do begin
+        case name of
+            'Ans':   *self.answer    = !Null
+            'Ay':    *self.Ay        = !Null
+            'Bx':    *self.Bx        = !Null
+            'By':    *self.By        = !Null
+            'Bz':    *self.Bz        = !Null
+            'E-':    *self.electrons = !Null
+            'Ex':    *self.Ex        = !Null
+            'Ey':    *self.Ey        = !Null
+            'Ez':    *self.Ez        = !Null
+            'ne':    *self.n_e       = !Null
+            'ni':    *self.n_i       = !Null
+            'Pe_xx': *self.Pe_xx     = !Null
+            'Pe_xy': *self.Pe_xy     = !Null
+            'Pe_xz': *self.Pe_xz     = !Null
+            'Pe_yy': *self.Pe_yy     = !Null
+            'Pe_yz': *self.Pe_yz     = !Null
+            'Pe_zz': *self.Pe_zz     = !Null
+            'Pi_xx': *self.Pi_xx     = !Null
+            'Pi_xy': *self.Pi_xy     = !Null
+            'Pi_xz': *self.Pi_xz     = !Null
+            'Pi_yy': *self.Pi_yy     = !Null
+            'Pi_yz': *self.Pi_yz     = !Null
+            'Pi_zz': *self.Pi_zz     = !Null
+            'Uex':   *self.Uex       = !Null
+            'Uey':   *self.Uey       = !Null
+            'Uez':   *self.Uez       = !Null
+            'Uix':   *self.Uix       = !Null
+            'Uiy':   *self.Uiy       = !Null
+            'Uiz':   *self.Uiz       = !Null
+            else: message, 'Data product "' + name + '" does not exist.', /INFORMATIONAL
+        endcase
+    endforeach
+end
+
 
 ;+
 ;   Take the cross product of two quantities.
@@ -186,7 +249,7 @@ end
 ;                           NxMx3 array will be retured, where the last demension
 ;                           corresponds to the x-, y-, and z-components.
 ;-
-function MrSim2::CrossProduct, v1, v2, $
+function MrSim2_Data::CrossProduct, v1, v2, $
 MAGNITUDE=magnitude, $
 X=x, $
 Y=y, $
@@ -233,6 +296,88 @@ end
 
 
 ;+
+;   A helper method for the ::GetData method. Used to retrieve single data products when
+;   no operation is specified.
+;
+; :Private:
+;
+; :Params:
+;       NAME:               in, required, type=string, default=
+;                           The name of the data product to be read. For a list of
+;                               available data product, call mr_readSIM without any
+;                               arguments.
+;
+; :Returns:
+;       DATA:               The requested data. If the data product does not exist,
+;                               then !Null will be returned.
+;-
+function MrSim2_Data::DataGet, name
+    compile_opt strictarr
+    on_error, 2
+
+    ;If no parameters were given, print a list of available data products.
+    if n_params() eq 0 then begin
+        message, 'Use: data = mySim -> GetData(name)'
+        MrSim -> ListProducts
+        return, !Null
+    endif
+
+    ;Check to see if the data has already been read first.
+    case strupcase(name) of
+        'ANS':    data = *self.answer
+        'AY':     data = self -> A(/Y)
+        'BX':     data = self -> B(/X)
+        'BY':     data = self -> B(/Y)
+        'BZ':     data = self -> B(/Z)
+        'E-':     data = *self.electrons
+        'EX':     data = self -> E(/X)
+        'EY':     data = self -> E(/Y)
+        'EZ':     data = self -> E(/Z)
+        'NE':     data = self -> n_i()
+        'NI':     data = self -> n_e()
+        'PE_XX':  data = self -> Pe(/TXX)
+        'PE_XY':  data = self -> Pe(/TXY)
+        'PE_XZ':  data = self -> Pe(/TXZ)
+        'PE_YX':  data = self -> Pe(/TXY)
+        'PE_YY':  data = self -> Pe(/TYY)
+        'PE_YZ':  data = self -> Pe(/TYZ)
+        'PE_ZX':  data = self -> Pe(/TXZ)
+        'PE_ZY':  data = self -> Pe(/TYZ)
+        'PE_ZZ':  data = self -> Pe(/TZZ)
+        'PI_XX':  data = self -> Pi(/TXX)
+        'PI_XY':  data = self -> Pi(/TXY)
+        'PI_XZ':  data = self -> Pi(/TXZ)
+        'PI_YX':  data = self -> Pi(/TXY)
+        'PI_YY':  data = self -> Pi(/TYY)
+        'PI_YZ':  data = self -> Pi(/TYZ)
+        'PI_ZX':  data = self -> Pi(/TXZ)
+        'PI_ZY':  data = self -> Pi(/TYZ)
+        'PI_ZZ':  data = self -> Pi(/TZZ)
+        'UEX':    data = self -> Ue(/X)
+        'UEY':    data = self -> Ue(/Y)
+        'UEZ':    data = self -> Ue(/Z)
+        'UIX':    data = self -> Ui(/X)
+        'UIY':    data = self -> Ui(/Y)
+        'UIZ':    data = self -> Ui(/Z)
+        
+        ;Custom Data Products
+        'B':      data = self ->  B(/VECTOR)
+        'E':      data = self ->  E(/VECTOR)
+        'PE':     data = self -> Pe(/TENSOR)
+        'PI':     data = self -> Pi(/TENSOR)
+        'Ue':     data = self -> Ue(/VECTOR)
+        'Ui':     data = self -> Ui(/VECTOR)
+        'A0_E':   data = self -> A0_e()
+        'AN_E':   data = self -> An_e()
+        'DNG_E':  data = self -> Dng_e()
+        else: message, 'Data product not available: "' + name + '".'
+    endcase
+    
+    return, data
+end
+
+
+;+
 ;   Take the dot product of two quantities.
 ;
 ; :Params:
@@ -254,7 +399,7 @@ end
 ; :Returns:
 ;       V1DOTV2:        Dot product of `V1` and `V2`.
 ;-
-function MrSim2::DotProduct, v1, v2, $
+function MrSim2_Data::DotProduct, v1, v2, $
 X=x, $
 Y=y, $
 Z=z
@@ -308,7 +453,7 @@ end
 ; :Returns:
 ;       D_DX:           The derivative of `DATA` with respect to X
 ;-
-function MrSim2::D_DX, data
+function MrSim2_Data::d_dx, data
     compile_opt strictarr
     
     ;Error handling
@@ -365,7 +510,7 @@ end
 ; :Returns:
 ;       D_DY:           The derivative of `DATA` with respect to Y.
 ;-
-function MrSim2::D_DY, data
+function MrSim2_Data::d_dy, data
     compile_opt strictarr
     
     ;Error handling
@@ -422,7 +567,7 @@ end
 ; :Returns:
 ;       D_DZ:           The derivative of `DATA` with respect to Z.
 ;-
-function MrSim2::D_DZ, data
+function MrSim2_Data::d_dz, data
     compile_opt strictarr
     
     ;Error handling
@@ -490,7 +635,10 @@ end
 ;       DATA:               The requested data. If the data product does not exist,
 ;                               then !Null will be returned.
 ;-
-function MrSim2::GetData, name, $
+function MrSim2_Data::GetData, expression, $
+SHOW=show, $
+TEST=test, $
+DIAGONAL=diagonal, $
 DX=dx, $
 DY=dy, $
 DZ=dz, $
@@ -516,6 +664,7 @@ Z=z
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
+        if n_elements(expr) gt 0 then message, 'Error evaluating: "' + expr + '".', /INFORMATIONAL
         void = cgErrorMSG()
         return, !Null
     endif
@@ -527,112 +676,55 @@ Z=z
     endif
 
     ;Defaults
-    d_dx         = keyword_set(d_dx)
-    d_dy         = keyword_set(d_dy)
-    d_dz         = keyword_set(d_dz)
-    magnitude    = keyword_set(magnitude)
-    parallel     = keyword_set(parallel)
-    perpendicuar = keyword_set(perpendicular)
-    pointer      = keyword_set(pointer)
-    Txx          = keyword_set(Txx)
-    Txy          = keyword_set(Txy)
-    Txz          = keyword_set(Txz)
-    Tyy          = keyword_set(Tyy)
-    Tyz          = keyword_set(Tyz)
-    Tzz          = keyword_set(Tzz)
-    x            = keyword_set(x)
-    y            = keyword_set(y)
-    z            = keyword_set(z)
-    if (magnitude + x + y + z)             gt 1 then message, 'MAGNITUDE, X, Y, Z are mutually exclusive.'
-    if (parallel + perpendicular)          gt 1 then message, 'PARALLEL and PERPENDICULAR are mutually exclusive.'
-    if (d_dx + d_dz)                       gt 1 then message, 'D_DX and D_DZ are mutually exclusive.'
-    if (Txx + Txy + Txz + Tyy + Tyz + Tzz) gt 1 then message, 'TXX, TXY, TXZ, TYY, TYZ, and TZZ are mutually exclusive.'
+    show = keyword_set(show)
+    test = keyword_set(test)
 
-;-------------------------------------------------------
-; Parse the NAME String ////////////////////////////////
-;-------------------------------------------------------
-    ;Operations are separated by spaces
-    parts = strsplit(name, ' ', /EXTRACT, COUNT=nParts)
-    _name = strupcase(parts[0])
-    
-    ;Perform an operation on the data?
-    if nParts eq 3 then begin
-        case strupcase(parts[1]) of
-            'DOT':           data = self -> DotProduct(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-            'CROSS':         data = self -> CrossProduct(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-            'X':             data = self -> CrossProduct(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-            '||':            data = self -> Parallel(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-            'PAR':           data = self -> Parallel(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-            'PARALLEL':      data = self -> Parallel(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-            'PERP':          data = self -> Perpendicular(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-            'PERPENDICULAR': data = self -> Perpendicular(parts[0], parts[2], X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-            else: message, 'Operation not recognized: "' + parts[1] + '".'
-        endcase
-        
-        return, data
+    ;Determine order of operations
+    expr = self -> Op_Parser(expression, OPERATIONS=ops, COUNT=nOps)
+    if expr eq '' $
+        then message, 'Unable to parse expression: "' + expression + '".' $
+        else if show then print, expr
+
+    ;Test expression and return
+    if test then begin
+        print, expr
+        return, !Null
     endif
 
-
-;-------------------------------------------------------
-;Had Data been Read? ///////////////////////////////////
-;-------------------------------------------------------
+    ;If no operations are present, then EXPR is a data product
+    if nOps eq 0 then return, self -> DataGet(expr)
     
-    ;If the data has not been read, then try to read it from a file.
-    if self -> HasData(name) eq 0 then self -> ReadData, name
-    
-    ;Check to see if the data has already been read first.
-    case strupcase(data_product) of
-        'AY':     data = self -> A(/Y)
-        'BX':     data = self -> B(/X)
-        'BY':     data = self -> B(/Y)
-        'BZ':     data = self -> B(/Z)
-        'EX':     data = self -> E(/X)
-        'EY':     data = self -> E(/Y)
-        'EZ':     data = self -> E(/Z)
-        'NE':     data = self -> n_e()
-        'NI':     data = self -> n_i()
-        'PE-XX':  data = self -> Pe(/TXX)
-        'PE-XY':  data = self -> Pe(/TXY)
-        'PE-XZ':  data = self -> Pe(/TXZ)
-        'PE-YX':  data = self -> Pe(/TXY)
-        'PE-YY':  data = self -> Pe(/TYY)
-        'PE-YZ':  data = self -> Pe(/TYZ)
-        'PE-ZX':  data = self -> Pe(/TXZ)
-        'PE-ZY':  data = self -> Pe(/TYZ)
-        'PE-ZZ':  data = self -> Pe(/TZZ)
-        'PI-XX':  data = self -> Pi(/TXX)
-        'PI-XY':  data = self -> Pi(/TXY)
-        'PI-XZ':  data = self -> Pi(/TXZ)
-        'PI-YX':  data = self -> Pi(/TXY)
-        'PI-YY':  data = self -> Pi(/TYY)
-        'PI-YZ':  data = self -> Pi(/TYZ)
-        'PI-ZX':  data = self -> Pi(/TXZ)
-        'PI-ZY':  data = self -> Pi(/TYZ)
-        'PI-ZZ':  data = self -> Pi(/TZZ)
-        'UEX':    data = self -> Ue(/X)
-        'UEY':    data = self -> Ue(/Y)
-        'UEZ':    data = self -> Ue(/Z)
-        'UIX':    data = self -> Ui(/X)
-        'UIY':    data = self -> Ui(/Y)
-        'UIZ':    data = self -> Ui(/Z)
+    ;Step through each operation
+    for i = 0, nOps - 1 do begin
+        lhs = self -> DataGet(ops[0,i])
+        rhs = self -> DataGet(ops[2,i])
         
-        ;Custom Data Products
-        'B':     data = self ->  B(X=x, Y=y, Z=z, MAG=magnitude, PAR=parallel, PERP=perpendicular)
-        'E':     data = self ->  E(X=x, Y=y, Z=z, MAG=magnitude, PAR=parallel, PERP=perpendicular)
-        'UE':    data = self -> Ue(X=x, Y=y, Z=z, MAG=magnitude, PAR=parallel, PERP=perpendicular)
-        'UI':    data = self -> Ui(X=x, Y=y, Z=z, MAG=magnitude, PAR=parallel, PERP=perpendicular)
-        'PE':    data = self -> Pe(TXX=Txx, TXY=Txy, TXZ=Txz, TYY=Tyy, TYZ=Tyz, TZZ=Tzz, MAG=magnitude, PAR=parallel, PERP=perpendicular)
-        'PI':    data = self -> Pi(TXX=Txx, TXY=Txy, TXZ=Txz, TYY=Tyy, TYZ=Tyz, TZZ=Tzz, MAG=magnitude, PAR=parallel, PERP=perpendicular)
-        'DNG_E': data = self -> Dng_e()
-        else: message, 'Data product not available: "' + data_product + '".'
-    endcase
+        ;Show the computation
+        if show then begin
+            ;The "what"
+            print, FORMAT='(%"ans = %s %s %s")', ops[*,i]
+            
+            ;The "how"
+            lhs_dims = strjoin(strtrim(size(lhs, /DIMENSIONS), 2), 'x')
+            rhs_dims = strjoin(strtrim(size(rhs, /DIMENSIONS), 2), 'x')
+            print, FORMAT='(%"ans = %s %s %s")', lhs_dims, ops[1,i], rhs_dims
+        endif
+        
+        ;Execute the operation
+        case ops of
+            '+': *self.answer = lhs + rhs
+            '-': *self.answer = lhs - rhs
+            '*': *self.answer = lhs * rhs
+            '/': *self.answer = lhs / rhs
+            '^': *self.answer = lhs ^ rhs
+            '.': *self.answer = self -> DotProduct(  lhs, rhs, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            'X': *self.answer = self -> CrossProduct(lhs, rhs, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            else: message, 'Operation invalid: "' + ops[1,i] + '".'
+        endcase
+    endfor
     
-    ;Take the derivative?
-    if dx then data = self -> D_DX(data)
-    if dy then data = self -> D_DY(data)
-    if dz then data = self -> D_DZ(data)
-    
-    return, data
+    ;Return the result
+    return, *self.answer
 end
 
 
@@ -654,7 +746,7 @@ end
 ;                                   data product does not exist as a '.gda' data file,
 ;                                   then -1 is returned.
 ;-
-function MrSim2::HasData, data_product
+function MrSim2_Data::HasData, data_product
     compile_opt strictarr
     
     ;Error handling
@@ -672,44 +764,110 @@ function MrSim2::HasData, data_product
     
     ;Check to see if the data has already been read first.
     case strupcase(data_product) of
-        'AY':    if n_elements(*self.Ay)        gt 0 then tf_has = 1B
-        'BX':    if n_elements(*self.Bx)        gt 0 then tf_has = 1B
-        'BY':    if n_elements(*self.By)        gt 0 then tf_has = 1B
-        'BZ':    if n_elements(*self.Bz)        gt 0 then tf_has = 1B
-        'E-':    if n_elements(*self.electrons) gt 0 then tf_has = 1B
-        'EX':    if n_elements(*self.Ex)        gt 0 then tf_has = 1B
-        'EY':    if n_elements(*self.Ey)        gt 0 then tf_has = 1B
-        'EZ':    if n_elements(*self.Ez)        gt 0 then tf_has = 1B
-        'NE':    if n_elements(*self.n_e)       gt 0 then tf_has = 1B
-        'NI':    if n_elements(*self.n_i)       gt 0 then tf_has = 1B
-        'PE-XX': if n_elements(*self.Pe_xx)     gt 0 then tf_has = 1B
-        'PE-XY': if n_elements(*self.Pe_xy)     gt 0 then tf_has = 1B
-        'PE-XZ': if n_elements(*self.Pe_xz)     gt 0 then tf_has = 1B
-        'PE-YX': if n_elements(*self.Pe_yx)     gt 0 then tf_has = 1B
-        'PE-YY': if n_elements(*self.Pe_yy)     gt 0 then tf_has = 1B
-        'PE-YZ': if n_elements(*self.Pe_yz)     gt 0 then tf_has = 1B
-        'PE-ZX': if n_elements(*self.Pe_zx)     gt 0 then tf_has = 1B
-        'PE-ZY': if n_elements(*self.Pe_zy)     gt 0 then tf_has = 1B
-        'PE-ZZ': if n_elements(*self.Pe_zz)     gt 0 then tf_has = 1B
-        'PI-XX': if n_elements(*self.Pi_xx)     gt 0 then tf_has = 1B
-        'PI-XY': if n_elements(*self.Pi_xy)     gt 0 then tf_has = 1B
-        'PI-XZ': if n_elements(*self.Pi_xz)     gt 0 then tf_has = 1B
-        'PI-YX': if n_elements(*self.Pi_yx)     gt 0 then tf_has = 1B
-        'PI-YY': if n_elements(*self.Pi_yy)     gt 0 then tf_has = 1B
-        'PI-YZ': if n_elements(*self.Pi_yz)     gt 0 then tf_has = 1B
-        'PI-ZX': if n_elements(*self.Pi_zx)     gt 0 then tf_has = 1B
-        'PI-ZY': if n_elements(*self.Pi_zy)     gt 0 then tf_has = 1B
-        'PI-ZZ': if n_elements(*self.Pi_zz)     gt 0 then tf_has = 1B
-        'UEX':   if n_elements(*self.Uex)       gt 0 then tf_has = 1B
-        'UEY':   if n_elements(*self.Uey)       gt 0 then tf_has = 1B
-        'UEZ':   if n_elements(*self.Uez)       gt 0 then tf_has = 1B
-        'UIX':   if n_elements(*self.Uix)       gt 0 then tf_has = 1B
-        'UIY':   if n_elements(*self.Uiy)       gt 0 then tf_has = 1B
-        'UIZ':   if n_elements(*self.Uiz)       gt 0 then tf_has = 1B
+        'ANSWER': if n_elements(*self.answer)   gt 0 then tf_has = 1B
+        'AY':     if n_elements(*self.Ay)        gt 0 then tf_has = 1B
+        'BX':     if n_elements(*self.Bx)        gt 0 then tf_has = 1B
+        'BY':     if n_elements(*self.By)        gt 0 then tf_has = 1B
+        'BZ':     if n_elements(*self.Bz)        gt 0 then tf_has = 1B
+        'E-':     if n_elements(*self.electrons) gt 0 then tf_has = 1B
+        'EX':     if n_elements(*self.Ex)        gt 0 then tf_has = 1B
+        'EY':     if n_elements(*self.Ey)        gt 0 then tf_has = 1B
+        'EZ':     if n_elements(*self.Ez)        gt 0 then tf_has = 1B
+        'NE':     if n_elements(*self.n_e)       gt 0 then tf_has = 1B
+        'NI':     if n_elements(*self.n_i)       gt 0 then tf_has = 1B
+        'PE_XX':  if n_elements(*self.Pe_xx)     gt 0 then tf_has = 1B
+        'PE_XY':  if n_elements(*self.Pe_xy)     gt 0 then tf_has = 1B
+        'PE_XZ':  if n_elements(*self.Pe_xz)     gt 0 then tf_has = 1B
+        'PE_YX':  if n_elements(*self.Pe_yx)     gt 0 then tf_has = 1B
+        'PE_YY':  if n_elements(*self.Pe_yy)     gt 0 then tf_has = 1B
+        'PE_YZ':  if n_elements(*self.Pe_yz)     gt 0 then tf_has = 1B
+        'PE_ZX':  if n_elements(*self.Pe_zx)     gt 0 then tf_has = 1B
+        'PE_ZY':  if n_elements(*self.Pe_zy)     gt 0 then tf_has = 1B
+        'PE_ZZ':  if n_elements(*self.Pe_zz)     gt 0 then tf_has = 1B
+        'PI_XX':  if n_elements(*self.Pi_xx)     gt 0 then tf_has = 1B
+        'PI_XY':  if n_elements(*self.Pi_xy)     gt 0 then tf_has = 1B
+        'PI_XZ':  if n_elements(*self.Pi_xz)     gt 0 then tf_has = 1B
+        'PI_YX':  if n_elements(*self.Pi_yx)     gt 0 then tf_has = 1B
+        'PI_YY':  if n_elements(*self.Pi_yy)     gt 0 then tf_has = 1B
+        'PI_YZ':  if n_elements(*self.Pi_yz)     gt 0 then tf_has = 1B
+        'PI_ZX':  if n_elements(*self.Pi_zx)     gt 0 then tf_has = 1B
+        'PI_ZY':  if n_elements(*self.Pi_zy)     gt 0 then tf_has = 1B
+        'PI_ZZ':  if n_elements(*self.Pi_zz)     gt 0 then tf_has = 1B
+        'UEX':    if n_elements(*self.Uex)       gt 0 then tf_has = 1B
+        'UEY':    if n_elements(*self.Uey)       gt 0 then tf_has = 1B
+        'UEZ':    if n_elements(*self.Uez)       gt 0 then tf_has = 1B
+        'UIX':    if n_elements(*self.Uix)       gt 0 then tf_has = 1B
+        'UIY':    if n_elements(*self.Uiy)       gt 0 then tf_has = 1B
+        'UIZ':    if n_elements(*self.Uiz)       gt 0 then tf_has = 1B
         else: tf_has = -1
     endcase
     
     return, tf_has
+end
+
+
+;+
+;   Print a list of data products to the command window.
+;-
+pro MrSim2_Data::ListProducts
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Operations
+    ops = [['+', 'Addition',       'Bx + By'], $
+           ['-', 'Subtraction',    'ne - ni'], $
+           ['*', 'Multiplication', 'ni * Ui'], $
+           ['/', 'Division',       'ni / ne'], $
+           ['^', 'Exponentiation', 'Uex^2'], $
+           ['.', 'Dot Product',    'E . B'], $
+           ['X', 'Cross Product',  'Ue X B']]
+    
+    ;Data products
+    products = [['Ay',    'Vector potential'], $
+                ['B',     'Magnetic field'], $
+                ['Bx',    'Magnetic field, x-component'], $
+                ['By',    'Magnetic field, y-component'], $
+                ['Bz',    'Magnetic field, z-component'], $
+                ['E',     'Electric field'], $
+                ['Ex',    'Electric field, x-component'], $
+                ['Ey',    'Electric field, y-component'], $
+                ['Ez',    'Electric field, z-component'], $
+                ['ne',    'Electron density'], $
+                ['ni',    'Ion density'], $
+                ['Pe',    'Electron pressure tensor'], $
+                ['Pe_xx', 'Electron pressure tensor, xx-component'], $
+                ['Pe_xy', 'Electron pressure tensor, xy-component'], $
+                ['Pe_xz', 'Electron pressure tensor, xz-component'], $
+                ['Pe_yy', 'Electron pressure tensor, yy-component'], $
+                ['Pe_yz', 'Electron pressure tensor, yz-component'], $
+                ['Pe_zz', 'Electron pressure tensor, zz-component'], $
+                ['Pi',    'Ion pressure tensor'], $
+                ['Pi_xx', 'Ion pressure tensor, xx-component'], $
+                ['Pi_xy', 'Ion pressure tensor, xy-component'], $
+                ['Pi_xz', 'Ion pressure tensor, xz-component'], $
+                ['Pi_yy', 'Ion pressure tensor, yy-component'], $
+                ['Pi_yz', 'Ion pressure tensor, yz-component'], $
+                ['Pi_zz', 'Ion pressure tensor, zz-component'], $
+                ['Ue',    'Electron bulk velocity'], $
+                ['Uex',   'Electron bulk velocity, x-component'], $
+                ['Uey',   'Electron bulk velocity, y-component'], $
+                ['Uez',   'Electron bulk velocity, z-component'], $
+                ['Ui',    'Ion bulk velocity'], $
+                ['Uix',   'Ion bulk velocity, x-component'], $
+                ['Uiy',   'Ion bulk velocity, y-component'], $
+                ['Uiz',   'Ion bulk velocity, z-component'], $
+                ['An_e',  'Electron anisotropy'], $
+                ['A0_e',  'Electron agyrotropy'], $
+                ['Dng_e', 'Electron non-gyrotropy']]
+    
+    ;Print Data Products
+    print, FORMAT='(%"  %s      %s")', 'NAME', 'DESCRIPTION'
+    print, FORMAT='(%"  %-6s     %s")', products
+    print, ''
+    
+    ;Print operations
+    print, FORMAT='(%"  %s      %s       %s")', 'OPERATION', 'DESCRIPTION', 'EXAMPLE'
+    print, FORMAT='(%"      %s          %-14s    %s")', ops
 end
 
 
@@ -734,7 +892,7 @@ end
 ; :Returns:
 ;       VMAG:           Magnitude of the vector quantity.
 ;-
-function MrSim2::Magnitude, vx, vy, vz
+function MrSim2_Data::Magnitude, vx, vy, vz
     compile_opt strictarr
     on_error, 2
     
@@ -754,6 +912,336 @@ function MrSim2::Magnitude, vx, vy, vz
     vmag = sqrt(_vx^2 + vy^2 + vz^2)
     
     return, vmag
+end
+
+
+;+
+;   Parse the next value from the string of operations.
+;
+; :Private:
+;
+; :Params:
+;       OPERATOR:       in, required, type=string
+;                       The operator for which the associativity is to be determined.
+;
+; :Returns:
+;       ASSOCIATIVITY:  Associativity of the given operator. Returns 1 for left-associative
+;                           and 2 for right-associative.
+;-
+function MrSim2_Data::Op_GetAssoc, operator
+    on_error, 2
+
+    ;Define order of operations.
+    case operator of
+        'EQ': associativity = 'LEFT'
+        '+':  associativity = 'LEFT'
+        '-':  associativity = 'LEFT'
+        '*':  associativity = 'LEFT'
+        '/':  associativity = 'LEFT'
+        '^':  associativity = 'LEFT'
+        '.':  associativity = 'RIGHT'
+        'X':  associativity = 'RIGHT'
+        '':   associativity = ''
+        else: message, 'Operator not recognized: "' + operator + '".'
+    endcase
+
+    return, associativity
+end
+
+
+;+
+;   Parse the next value from the string of operations.
+;
+; :Private:
+;
+; :Params:
+;       OPERATOR:       in, required, type=string
+;                       The operator for which the precedence is to be determined.
+;
+; :Returns:
+;       PRECEDENCE:     Precedence of the given operator.
+;-
+function MrSim2_Data::Op_GetPrecedence, operator
+    on_error, 2
+
+    ;Define order of operations.
+    case operator of
+        'EQ': precedence =  0   ;Equal to
+        '+':  precedence =  1   ;Addition
+        '-':  precedence =  1   ;Subtraction
+        '*':  precedence =  2   ;Multiplication
+        '/':  precedence =  2   ;Division
+        '^':  precedence =  3   ;Exponentiation
+        '.':  precedence =  4   ;Dot Product
+        'X':  precedence =  5   ;Cross Product
+        '':   precedence = -1
+        else: message, 'Operator not recognized: "' + operator + '".'
+    endcase
+
+    return, precedence
+end
+
+
+;+
+;   Parse the next value from the string of operations.
+;
+; :Private:
+;
+; :Params:
+;       OPSTR:          in, required, type=string
+;                       A string from which the value is extracted. The operator is
+;                           expected to begin at the first character in the string.
+;       REMAINDER:      out, optional, type=string
+;                       The remainder of `OPSTR` after the operator has been extracted.
+;
+; :Returns:
+;       ATOM:           The extracted value.
+;-
+function MrSim2_Data::Op_NextAtom, opStr, remainder, $
+COUNT=count, $
+OPERATIONS=operations
+    on_error, 2
+
+    _opStr = strtrim(opStr, 2)
+;-------------------------------------------------------
+; Subexpression ////////////////////////////////////////
+;-------------------------------------------------------
+    ;Is the first character a parentheses?
+    char = strmid(_opStr, 0, 1)
+
+    if char eq '(' then begin
+        pos   = 1
+        nOpen = 1
+        nChars = strlen(_opStr)
+    
+        ;Find the matching close parens
+        ;   - Continue until
+        ;       o The parenthesis is closed
+        ;       o We reach the end of the string
+        while (char ne ')' && nOpen gt 0) || (pos lt nChars) do begin
+            ;Get the next character
+            char = strmid(_opStr, pos, pos+1)
+            
+            ;A parenthesis?
+            case char of
+                '(': nOpen += 1
+                ')': nOpen -= 1
+                else: ;Ignore
+            endcase
+            
+            ;Next character
+            pos += 1
+        endwhile
+        
+        ;Parentheses not balanced?
+        if nOpen ne 0 then message, 'Parentheses are not balanced.'
+
+        ;Evaluate the subexpression within parentheses
+        ;   - Extract the expression
+        ;   - Evaluate the expression -- it is the next atom.
+        expression = strmid(_opStr, 1, pos-2)
+        atom       = self -> Op_Parser(expression, COUNT=count, OPERATIONS=operations)
+
+;-------------------------------------------------------
+; Any Non-Operator Sequence ////////////////////////////
+;-------------------------------------------------------
+    endif else begin
+        ;Find the next operator
+        opRegEx = '(EQ|\+|-|\*|/|\^|\.|X)'
+        pos     = stregex(_opStr, opRegEx)
+    
+        ;Extract the atom
+        ;   - Anything that is not an operator
+        ;   - If no operator was found, take the whole string
+        ;   - Otherwise, take up to the next operator.
+        if pos eq -1 $
+            then atom = _opStr $
+            else atom = strtrim(strmid(_opStr, 0, pos), 2)
+    endelse
+    
+    ;Extract the remainder
+    remainder = strtrim(strmid(_opStr, pos), 2)
+    return, atom
+end
+
+
+;+
+;   Parse the next operation from the string.
+;
+; :Private:
+;
+; :Params:
+;       OPSTR:          in, required, type=string
+;                       A string from which the operator is extracted. The operator is
+;                           expected to begin at the first character in the string.
+;       REMAINDER:      out, optional, type=string
+;                       The remainder of `OPSTR` after the operator has been extracted.
+;
+; :Returns:
+;       NEXTOP:         The extracted operator.
+;-
+function MrSim2_Data::Op_NextOp, opStr, remainder, $
+PRECEDENCE=precedence, $
+ASSOCIATIVITY=associativity
+    on_error, 2
+    
+    ;Extract the next operator
+    opRegEx = '(EQ|\+|-|\*|/|\^|\.|X)'
+    pos     = stregex(strtrim(opStr, 2), opRegEx, LEN=len)
+
+    ;Extract the operator
+    if pos eq -1 $
+        then nextOp = '' $
+        else nextOp = strmid(opStr, pos, len)
+
+    ;Extract the remainder
+    remainder = strmid(opStr, len)
+    
+    ;Get other features?
+    if arg_present(precedence)    then precedence    = self -> Op_GetPrecedence(nextOp)
+    if arg_present(associativity) then associativity = self -> Op_GetAssoc(nextOp)
+
+    return, nextOp
+end
+
+
+;+
+;   Evaluate the expression.
+;
+; :Params:
+;       EXPRESSION:     in, required, type=string
+;                       The expression to be evaluated.
+;       MIN_PREC:       in, private, required, type=string
+;                       Minimum precedence at which operations should be evaluated.
+;       REMAINDER:      in, out, private, required, type=string
+;                       When recursing, the part of `EXPRESSION` yet to be evaluated.
+;
+; :Keywords:
+;       COUNT:          out, optional, type=integer
+;                       Number of operations evaluated.
+;       OPERATIONS:     out, optional, type=strarr(3\,`COUNT`)
+;                       The [lhs, op, rhs] of each operation, in the order they are to
+;                           be evaluated. "ans" refers to the answer computed in the
+;                           previous operation.
+;
+; :Returns:
+;       LHS:            A string joining each operation, parenthesized to demonstrate
+;                           the order in which operations should be executed.
+;-
+function MrSim2_Data::Op_Parser, expression, min_prec, remainder, $
+COUNT=count, $
+OPERATIONS=operations
+    compile_opt strictarr
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        void = cgErrorMSG(/QUIET)
+        return, ''
+    endif
+
+;-------------------------------------------------------
+; Initial Conditions ///////////////////////////////////
+;-------------------------------------------------------
+    ;Initial conditions of recursion.
+    ;   - Extract the left-hand side of the first expression.
+    ;   - Precedence starts at 0.
+    if n_elements(min_prec) eq 0 then begin
+        lhs      = self -> Op_NextAtom(expression, remainder)
+        min_prec = 0
+        count    = 0
+        if n_elements(operations) ne 0 then void = temporary(operations)
+    endif else begin
+        lhs = expression
+    endelse
+    
+    ;Initial conditions of while loop
+    ;   - First operator and the value on which it acts.
+    this_op = self -> Op_NextOp(remainder, tempRemain, $
+                                PRECEDENCE    = this_prec, $
+                                ASSOCIATIVITY = this_assoc)
+    rhs     = self -> Op_NextAtom(tempRemain, rhs_remain, $
+                                  COUNT=count, OPERATIONS=operations)
+
+;-------------------------------------------------------
+; Evaluate Expressions /////////////////////////////////
+;-------------------------------------------------------
+    ;Example: 2 + 1 + 2
+    ;   - Since the minimum precedence of all operators is 0, we will
+    ;       loop through all operators until we find one that is < 0
+    ;       (i.e. the end-of-expression empty string).
+    while this_prec ge min_prec do begin
+        ;Look ahead to the next operator.
+        next_op = self -> Op_NextOp(rhs_remain, $
+                                    PRECEDENCE    = next_prec, $
+                                    ASSOCIATIVITY = next_assoc)
+
+    ;-------------------------------------------------------
+    ; Next Operation Takes Precedence to Current? //////////
+    ;-------------------------------------------------------
+        ;Example: 2 + 1 * 2
+        ;   - Evaluate as 2 + (1 * 2)
+        while next_prec gt this_prec do begin
+            ;Example: 2 * 3 * 4
+            ;   - 'LEFT':  => ((2 * 3) * 4) = 24
+            ;   - 'RIGHT': => (2 * (3 * 2)) = 12
+            ;   - Bump up the precedence for left-associative operators so that
+            ;       a look-ahead addition does not supercede an earlier addition.
+            if this_assoc eq 'LEFT' $
+                then next_min_prec = this_prec + 1 $
+                else next_min_prec = this_prec
+        
+            ;Recurse and evaluate the next operation
+            rhs = self -> Op_Parser(rhs, next_min_prec, rhs_remain, $
+                                    COUNT=count, OPERATIONS=operations)
+
+            ;Next iteration
+            ;   - "Look Ahead" to the next operator.
+            la_op   = self -> Op_NextOp(rhs_remain, $
+                                        PRECEDENCE    = la_prec, $
+                                        ASSOCIATIVITY = la_assoc)
+
+            ;Example: 2 + 3^2 * 6
+            ;   - Both ^ and * must be evaluated before returning to +
+            this_prec = next_prec
+            next_prec = la_prec
+            if la_prec gt next_prec then lhs = rhs
+        endwhile
+
+    ;-------------------------------------------------------
+    ; Record Results ///////////////////////////////////////
+    ;-------------------------------------------------------
+        ;Count and store operations in order.
+        if n_elements(operations) eq 0 then begin
+            operations = [lhs, this_op, rhs]
+            count      = 1
+        endif else begin
+            ;Substitute "ans" for the part of the expression that is already evaluated.
+            if stregex(rhs, '[()]', /BOOLEAN) $
+                then operations = [[operations], [ lhs,  this_op, 'ans']] $
+                else operations = [[operations], ['ans', this_op,  rhs ]]
+            count++
+        endelse
+
+        ;Form the operation
+        lhs = '(' + lhs + ' ' + this_op + ' ' + rhs + ')'
+
+    ;-------------------------------------------------------
+    ; Next Iteration ///////////////////////////////////////
+    ;-------------------------------------------------------
+        ;Update the remainder to chop of parts that have been evaluated.
+        remainder = rhs_remain
+
+        ;Next iteration
+        ;   - Get the next operator and value
+        this_op   = self -> Op_NextOp(rhs_remain, tempRemain, $
+                                      PRECEDENCE    = this_prec, $
+                                      ASSOCIATIVITY = this_assoc)
+        rhs       = self -> Op_NextAtom(tempRemain, rhs_remain, $
+                                        COUNT=count, OPERATIONS=operations)
+    endwhile
+    
+    return, lhs
 end
 
 
@@ -779,7 +1267,7 @@ end
 ; :Returns:
 ;       V1_PAR:         The component of `V1` parallel to `V2`.
 ;-
-function MrSim2::Parallel, v1, v2, $
+function MrSim2_Data::Parallel, v1, v2, $
 X=x, $
 Y=y, $
 Z=z
@@ -812,9 +1300,9 @@ Z=z
     ;   par_y = vy * fy_hat
     ;   par_z = vz * fz_hat
     case 1 of
-        x:    v_par =   (*_v1)[*,*,0] * (*_v2)[*,*,0] / temporary(v2_mag))
-        y:    v_par =   (*_v1)[*,*,1] * (*_v2)[*,*,1] / temporary(v2_mag))
-        z:    v_par =   (*_v1)[*,*,2] * (*_v2)[*,*,2] / temporary(v2_mag))
+        x:    v_par =   (*_v1)[*,*,0] * (*_v2)[*,*,0] / temporary(v2_mag)
+        y:    v_par =   (*_v1)[*,*,1] * (*_v2)[*,*,1] / temporary(v2_mag)
+        z:    v_par =   (*_v1)[*,*,2] * (*_v2)[*,*,2] / temporary(v2_mag)
         else: v_par = ( (*_v1)[*,*,0] * (*_v2)[*,*,0] + $
                         (*_v1)[*,*,1] * (*_v2)[*,*,1] + $
                         (*_v1)[*,*,2] * (*_v2)[*,*,2] ) / temporary(v2_mag)
@@ -843,7 +1331,7 @@ end
 ; :Returns:
 ;       DERIVATIVE:         The derivative of `DATA` with respect to X
 ;-
-function MrSim2::Perpendicular, v1, v2, $
+function MrSim2_Data::Perpendicular, v1, v2, $
 FIELD=field
     compile_opt strictarr
     
@@ -895,7 +1383,7 @@ end
 ;                                   file extension). GDA files are typically named after
 ;                                   the parameter whose data they contain.
 ;-
-pro MrSim2::ReadData, name
+pro MrSim2_Data::ReadGDA, name
     compile_opt strictarr
 
     ;Catch any errors
@@ -920,10 +1408,11 @@ end
 ;                       The name of the ".gda" data file (without the ".gda"
 ;                           file extension). GDA files are typically named after
 ;                           the parameter whose data they contain.
-;       DATA:           in, required, type=any
-;                       The data to be stored.
+;       DATA:           in, optional, type=any
+;                       The data to be stored. If not provided, data will be read from
+;                           the appropriate .gda file.
 ;-
-pro MrSim2::SetData, name, data
+pro MrSim2_Data::SetData, name, data
     compile_opt strictarr
 
     ;Catch any errors
@@ -933,44 +1422,312 @@ pro MrSim2::SetData, name, data
         void = cgErrorMSG()
         return
     endif
+
+    ;Read data from file
+    if n_elements(data) eq 0 then data = self -> ReadGDA(name)
     
     ;Store the data in the proper location
     case strupcase(name) of
-        'AY':    *self.Ay = data
-        'BX':    *self.Bx = data
-        'BY':    *self.By = data
-        'BZ':    *self.Bz = data
-        'EX':    *self.Ex = data
-        'EY':    *self.Ey = data
-        'EZ':    *self.Ez = data
-        'NE':    *self.n_e = data
-        'NI':    *self.n_i = data
-        'PE-XX': *self.Pe_xx = data
-        'PE-XY': *self.Pe_xy = data
-        'PE-XZ': *self.Pe_xz = data
-        'PE-YX': *self.Pe_yx = data
-        'PE-YY': *self.Pe_yy = data
-        'PE-YZ': *self.Pe_yz = data
-        'PE-ZX': *self.Pe_zx = data
-        'PE-ZY': *self.Pe_zy = data
-        'PE-ZZ': *self.Pe_zz = data
-        'PI-XX': *self.Pi_xx = data
-        'PI-XY': *self.Pi_xy = data
-        'PI-XZ': *self.Pi_xz = data
-        'PI-YX': *self.Pi_yx = data
-        'PI-YY': *self.Pi_yy = data
-        'PI-YZ': *self.Pi_yz = data
-        'PI-ZX': *self.Pi_zx = data
-        'PI-ZY': *self.Pi_zy = data
-        'PI-ZZ': *self.Pi_zz = data
-        'UEX':   *self.Uex = data
-        'UEY':   *self.Uey = data
-        'UEZ':   *self.Uez = data
-        'UIX':   *self.Uix = data
-        'UIY':   *self.Uiy = data
-        'UIZ':   *self.Uiz = data
-        else: message, 'Data "' + name + '" is cannot be set.'
+        'ANSWER': *self.answer    = data
+        'AY':     *self.Ay        = data
+        'BX':     *self.Bx        = data
+        'BY':     *self.By        = data
+        'BZ':     *self.Bz        = data
+        'E-':     *self.electrons = data
+        'EX':     *self.Ex        = data
+        'EY':     *self.Ey        = data
+        'EZ':     *self.Ez        = data
+        'NE':     *self.n_e       = data
+        'NI':     *self.n_i       = data
+        'PE_XX':  *self.Pe_xx     = data
+        'PE_XY':  *self.Pe_xy     = data
+        'PE_XZ':  *self.Pe_xz     = data
+        'PE_YX':  *self.Pe_yx     = data
+        'PE_YY':  *self.Pe_yy     = data
+        'PE_YZ':  *self.Pe_yz     = data
+        'PE_ZX':  *self.Pe_zx     = data
+        'PE_ZY':  *self.Pe_zy     = data
+        'PE_ZZ':  *self.Pe_zz     = data
+        'PI_XX':  *self.Pi_xx     = data
+        'PI_XY':  *self.Pi_xy     = data
+        'PI_XZ':  *self.Pi_xz     = data
+        'PI_YX':  *self.Pi_yx     = data
+        'PI_YY':  *self.Pi_yy     = data
+        'PI_YZ':  *self.Pi_yz     = data
+        'PI_ZX':  *self.Pi_zx     = data
+        'PI_ZY':  *self.Pi_zy     = data
+        'PI_ZZ':  *self.Pi_zz     = data
+        'UEX':    *self.Uex       = data
+        'UEY':    *self.Uey       = data
+        'UEZ':    *self.Uez       = data
+        'UIX':    *self.Uix       = data
+        'UIY':    *self.Uiy       = data
+        'UIZ':    *self.Uiz       = data
+        else: message, 'Data cannot be set: "' + name + '".'
     endcase
+end
+
+
+;+
+;   Compute the component of a vector parallel to another vector.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           for which the component parallel to `V2` is to be determined.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity indicating
+;                           the parallel direction.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, only the x-components will be used.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, only the y-components will be used.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, only the z-components will be used.
+;
+; :Returns:
+;       V1_PAR:         The component of `V1` parallel to `V2`.
+;-
+function MrSim2_Data::Tensor_Grad, tensor
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_T) then ptr_free, _T
+        if ptr_valid(_V) then ptr_free, _V
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Was a name or data given?
+    if MrIsA(tensor, 'STRING') $
+        then _T = ptr_new(self -> GetData(T)) $
+        else _T = ptr_new(T)
+    
+    return, div_T
+end
+
+
+;+
+;   Compute the divergence of a tensor::
+;
+;       \nabla_{i} T_{ij} = \frac {\partial Tij} {\partial xi}
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           for which the component parallel to `V2` is to be determined.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity indicating
+;                           the parallel direction.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, only the x-components will be used.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, only the y-components will be used.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, only the z-components will be used.
+;
+; :Returns:
+;       V1_PAR:         The component of `V1` parallel to `V2`.
+;-
+function MrSim2_Data::Tensor_Div, tensor, $
+VECTOR=vec, $
+X=x, $
+Z=z
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(T) then ptr_free, T
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    vec = keyword_set(vec)
+    x   = keyword_set(x)
+    z   = keyword_set(z)
+    
+    vec = vec || x + z gt 0
+    if vec then begin
+        x = 1
+        z = 1
+    endif
+    
+    ;Was a name or data given?
+    if MrIsA(tensor, 'STRING') $
+        then T = ptr_new(self -> GetData(tensor)) $
+        else T = ptr_new(T)
+
+;-------------------------------------------------------
+;Get Data //////////////////////////////////////////////
+;-------------------------------------------------------
+    
+    dims = size(*T, /DIMENSIONS)
+    
+    ;Get the x-size of a grid cell in electron skin depth
+    self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de
+
+;-------------------------------------------------------
+;Take Derivative ///////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Allocate memory
+    divT = self.dimension eq '2D' ? fltarr(dims[0:1],2) : fltarr(dims[0:1],3)
+    
+    ;Component 1
+    divT[1:dims[0]-2,*,0] = ((*T)[2:dims[0]-1,*,0] - (*T)[0:dims[0]-3,*,0]) + $
+                            ((*T)[2:dims[0]-1,*,1] - (*T)[0:dims[0]-3,*,1]) + $
+                            ((*T)[2:dims[0]-1,*,2] - (*T)[0:dims[0]-3,*,2])
+    
+    ;Component 2
+    divT[1:dims[0]-2,*,1] = ((*T)[*,2:dims[1]-1,1] - (*T)[*,0:dims[1]-3,1]) + $
+                            ((*T)[*,2:dims[1]-1,3] - (*T)[*,0:dims[1]-3,3]) + $
+                            ((*T)[*,2:dims[1]-1,4] - (*T)[*,0:dims[1]-3,4])
+    
+    ;Divide by the proper width.idl
+    case self.orientation of
+        'XY': begin
+            divT[*,*,0] /= (2.0 * dx_de)
+            divT[*,*,1] /= (2.0 * dy_de)
+        endcase
+        
+        'XZ': begin
+            divT[*,*,0] /= (2.0 * dx_de)
+            divT[*,*,1] /= (2.0 * dz_de)
+        endcase
+        
+        'YZ': begin
+            divT[*,*,0] /= (2.0 * dy_de)
+            divT[*,*,1] /= (2.0 * dz_de)
+        endcase
+    endcase
+    
+    ;Return
+    case 1 of
+        vec: return, divT
+        x:   return, divT[*,*,0]
+        z:   return, divT[*,*,1]
+    endcase
+end
+
+
+;+
+;   Compute the component of a vector parallel to another vector.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           for which the component parallel to `V2` is to be determined.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity indicating
+;                           the parallel direction.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, only the x-components will be used.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, only the y-components will be used.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, only the z-components will be used.
+;
+; :Returns:
+;       V1_PAR:         The component of `V1` parallel to `V2`.
+;-
+function MrSim2_Data::Tensor_Par, T, V
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_T) then ptr_free, _T
+        if ptr_valid(_V) then ptr_free, _V
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Was a name or data given?
+    if MrIsA(T, 'STRING') $
+        then _T = ptr_new(self -> GetData(T)) $
+        else _T = ptr_new(T)
+        
+    if MrIsA(V, 'STRING') $
+        then _V = ptr_new(self -> GetData(V)) $
+        else _V = ptr_new(V)
+    
+    ;Get Data
+    v_hat = _V / sqrt(total(*_V^2, 3))
+    ptr_free, _V
+    
+    ;Parallel pressure.
+    ;   - Pressure tensor is symmetric, hence, the multiple of 2.0
+    ;   - P_par = integral f (v dot b) (v dot b) d3v
+    T_par = _T[*,*,0] * v_hat[*,*,0]^2 + 2.0 * _T[*,*,1] * v_hat[*,*,0] * v_hat[*,*,1] + 2.0 * _T[*,*,2] * v_hat[*,*,0] * v_hat[*,*,2] + $
+            _T[*,*,3] * v_hat[*,*,1]^2 + 2.0 * _T[*,*,4] * v_hat[*,*,1] * v_hat[*,*,2] + $
+            _T[*,*,5] * v_hat[*,*,2]^2
+    ptr_free, _T
+    
+    return, T_par
+end
+
+
+;+
+;   Compute the component of a vector parallel to another vector.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           for which the component parallel to `V2` is to be determined.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity indicating
+;                           the parallel direction.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, only the x-components will be used.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, only the y-components will be used.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, only the z-components will be used.
+;
+; :Returns:
+;       V1_PAR:         The component of `V1` parallel to `V2`.
+;-
+function MrSim2_Data::Tensor_Perp, T, V
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_T) then ptr_free, _T
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Was a name or data given?
+    T_par = self -> Tensor_Par(T, V)    
+    
+    if MrIsA(T, 'STRING') $
+        then _T = ptr_new(self -> GetData(T, /DIAGONAL)) $
+        else _T = ptr_new(T)
+
+    ;Perpendicular pressure
+    ;   - Assuming the pressure tensor is mostly gyrotropic, P = P_par + 2 P_perp
+    T_perp = (_T[*,*,0] + _T[*,*,0] + _T[*,*,0] - T_par) / 2.0
+    
+    ;Free the pointers
+    ptr_free, _T
+    
+    return, T_perp
 end
 
 
@@ -1004,13 +1761,13 @@ Z=z
     x             = keyword_set(x)
     y             = keyword_set(y)
     z             = keyword_set(z)
-    
+
     ;Ay is the only component
     if perpendicular + parallel + x + z + magnitude + vec gt 1 $
         then message, 'Only the y-component of the vector potential is available.'
     
     ;Ay
-    if n_elements(*self.Ay) eq 0 then self -> ReadData, 'Ay'
+    if n_elements(*self.Ay) eq 0 then self -> SetData, 'Ay'
     return, *self.Ay
 end
 
@@ -1061,7 +1818,7 @@ DOT=dot, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
-VECTOR=vec
+VECTOR=vec, $
 X=x, $
 Y=y, $
 Z=z
@@ -1094,17 +1851,17 @@ Z=z
     perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
     ;[XYZ]-Components
-    if x then if n_elements(*self.Bx) eq 0 then self -> ReadData, 'Bx'
-    if y then if n_elements(*self.By) eq 0 then self -> ReadData, 'By'
-    if z then if n_elements(*self.Bz) eq 0 then self -> ReadData, 'Bz'
+    if x then if n_elements(*self.Bx) eq 0 then self -> SetData, 'Bx'
+    if y then if n_elements(*self.By) eq 0 then self -> SetData, 'By'
+    if z then if n_elements(*self.Bz) eq 0 then self -> SetData, 'Bz'
     
     ;Return the proper quantity
     case 1 of
-        magnitude: return, self -> Magnitude('B')
-        tf_cross:  return, self -> CrossProduct('B', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
-        tf_dot:    return, self -> DotProduct('B', dotName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
-        tf_par:    return, self -> Parallel( 'B', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        tf_perp:   return, self -> Perpendicular('B', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        magnitude: return, self -> Magnitude(    'B')
+        tf_cross:  return, self -> CrossProduct( 'B', crossName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_dot:    return, self -> DotProduct(   'B', dotName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_par:    return, self -> Parallel(     'B', parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Perpendicular('B', perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
         vec:       return, [[[*self.Bx]], [[*self.By]], [[*self.Bz]]]
         x:         return, *self.Bx
         y:         return, *self.By
@@ -1199,9 +1956,9 @@ Z=z
     perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
     ;Components
-    if x then if n_elements(*self.Ex) eq 0 then self -> ReadData, 'Ex'
-    if y then if n_elements(*self.Ey) eq 0 then self -> ReadData, 'Ey'
-    if z then if n_elements(*self.Ez) eq 0 then self -> ReadData, 'Ez'
+    if x then if n_elements(*self.Ex) eq 0 then self -> SetData, 'Ex'
+    if y then if n_elements(*self.Ey) eq 0 then self -> SetData, 'Ey'
+    if z then if n_elements(*self.Ez) eq 0 then self -> SetData, 'Ez'
     
     ;Return
     ;   - The order is crucial.
@@ -1233,7 +1990,7 @@ function MrSim2_Data::n_i
     on_error, 2
     
     ;ni
-    if n_elements(*self.n_i) eq 0 then self -> ReadData, 'ni'
+    if n_elements(*self.n_i) eq 0 then self -> SetData, 'ni'
     return, *self.n_i
 end
 
@@ -1251,7 +2008,7 @@ function MrSim2_Data::n_e
     on_error, 2
     
     ;ne
-    if n_elements(*self.n_e) eq 0 then self -> ReadData, 'ne'
+    if n_elements(*self.n_e) eq 0 then self -> SetData, 'ne'
     return, *self.n_e
 end
 
@@ -1297,6 +2054,7 @@ end
 ;       DATA:               Electron pressure tensor data.
 ;-
 function MrSim2_Data::Pe, $
+DIAGONAL=diagonal, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
@@ -1312,6 +2070,7 @@ TZZ=Tzz
     on_error, 2
     
     ;Defaults
+    diagonal  = keyword_set(diagonal)
     magnitude = keyword_set(magnitude)
     tf_par    = keyword_set(parallel)
     tf_perp   = keyword_set(perpendicular)
@@ -1328,8 +2087,13 @@ TZZ=Tzz
     perpName = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
     ;If nothing was chosen, return the tensor.
-    tensor = tensor || (Txx + Txy + Txz + Tyy + Tyz + Tzz + tf_par + tf_perp + magnitude) eq 0
-    if vec then begin
+    tensor = tensor || (diagonal + Txx + Txy + Txz + Tyy + Tyz + Tzz + tf_par + tf_perp + magnitude) eq 0
+    if diagonal then begin
+        Txx = 1
+        Tyy = 1
+        Tzz = 1
+    endif
+    if tensor then begin
         Txx = 1
         Txy = 1
         Txz = 1
@@ -1339,37 +2103,48 @@ TZZ=Tzz
     endif
     
     ;Tensor components
-    if Txx then if n_elements(*self.Pe_xx) eq 0 then self -> ReadData, 'Pe-xx'
-    if Txy then if n_elements(*self.Pe_xy) eq 0 then self -> ReadData, 'Pe-xy'
-    if Txz then if n_elements(*self.Pe_xz) eq 0 then self -> ReadData, 'Pe-xz'
-    if Tyy then if n_elements(*self.Pe_yy) eq 0 then self -> ReadData, 'Pe-yy'
-    if Tyz then if n_elements(*self.Pe_yz) eq 0 then self -> ReadData, 'Pe-yz'
-    if Tzz then if n_elements(*self.Pe_zz) eq 0 then self -> ReadData, 'Pe-zz'
+    if Txx then if n_elements(*self.Pe_xx) eq 0 then self -> SetData, 'Pe_xx'
+    if Txy then if n_elements(*self.Pe_xy) eq 0 then self -> SetData, 'Pe_xy'
+    if Txz then if n_elements(*self.Pe_xz) eq 0 then self -> SetData, 'Pe_xz'
+    if Tyy then if n_elements(*self.Pe_yy) eq 0 then self -> SetData, 'Pe_yy'
+    if Tyz then if n_elements(*self.Pe_yz) eq 0 then self -> SetData, 'Pe_yz'
+    if Tzz then if n_elements(*self.Pe_zz) eq 0 then self -> SetData, 'Pe_zz'
     
     ;Return
     ;   - The order is crucial.
     case 1 of
-        parallel:      return, self -> Tensor_Par('Pe', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        perpendicular: return, self -> Tensor_Perp('Pe', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        magnitude:     return, self -> Tensor_Mag('Pe')
-        Txx:           return, *self.Pe_xx
-        Txy:           return, *self.Pe_xy
-        Txz:           return, *self.Pe_xz
-        Tyy:           return, *self.Pe_yy
-        Tyz:           return, *self.Pe_yz
-        Tzz:           return, *self.Pe_zz
+        tf_par:    return, self -> Tensor_Par('Pe', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Tensor_Perp('Pe', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        magnitude: return, self -> Tensor_Mag('Pe')
+        Txx:       return, *self.Pe_xx
+        Txy:       return, *self.Pe_xy
+        Txz:       return, *self.Pe_xz
+        Tyy:       return, *self.Pe_yy
+        Tyz:       return, *self.Pe_yz
+        Tzz:       return, *self.Pe_zz
+        diagonal: begin
+            ;Allocate memory
+            dims = size(*self.Pe_xx, /DIMENSIONS)
+            data = fltarr(dims[0], dims[1], 3)
+            
+            ;Return the diagonal
+            data[*,*,0] = *self.Pe_xx
+            data[*,*,1] = *self.Pe_yy
+            data[*,*,2] = *self.Pe_zz
+            return, data
+        endcase
         tensor: begin
             ;Allocate memory
             dims = size(*self.Pe_xx, /DIMENSIONS)
-            data = fltarr(dims[0], dims[1], 3, 3)
+            data = fltarr(dims[0], dims[1], 6)
             
             ;Create the data product
-            data[*,0,0] = *self.Pe_xx
-            data[*,0,1] = *self.Pe_xy
-            data[*,0,2] = *self.Pe_xz
-            data[*,1,1] = *self.Pe_yy
-            data[*,1,2] = *self.Pe_yz
-            data[*,2,2] = *self.Pe_zz
+            data[*,*,0] = *self.Pe_xx
+            data[*,*,1] = *self.Pe_xy
+            data[*,*,2] = *self.Pe_xz
+            data[*,*,3] = *self.Pe_yy
+            data[*,*,4] = *self.Pe_yz
+            data[*,*,5] = *self.Pe_zz
             return, data
         endcase
     endcase
@@ -1417,6 +2192,7 @@ end
 ;       DATA:               Ion pressure tensor data.
 ;-
 function MrSim2_Data::Pi, $
+DIAGONAL=diagonal, $
 MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
@@ -1432,6 +2208,7 @@ TZZ=Tzz
     on_error, 2
     
     ;Defaults
+    diagonal  = keyword_set(diagonal)
     magnitude = keyword_set(magnitude)
     tf_par    = keyword_set(parallel)
     tf_perp   = keyword_set(perpendicular)
@@ -1448,8 +2225,13 @@ TZZ=Tzz
     perpName = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
     ;If nothing was chosen, return the tensor.
-    tensor = tensor || (Txx + Txy + Txz + Tyy + Tyz + Tzz + tf_par + tf_perp + magnitude) eq 0
-    if vec then begin
+    tensor = tensor || (diagonal + Txx + Txy + Txz + Tyy + Tyz + Tzz + tf_par + tf_perp + magnitude) eq 0
+    if diagonal then begin
+        Txx = 1
+        Tyy = 1
+        Tzz = 1
+    endif
+    if tensor then begin
         Txx = 1
         Txy = 1
         Txz = 1
@@ -1459,12 +2241,12 @@ TZZ=Tzz
     endif
     
     ;Tensor components
-    if Txx then if n_elements(*self.Pi_xx) eq 0 then self -> ReadData, 'Pi-xx'
-    if Txy then if n_elements(*self.Pi_xy) eq 0 then self -> ReadData, 'Pi-xy'
-    if Txz then if n_elements(*self.Pi_xz) eq 0 then self -> ReadData, 'Pi-xz'
-    if Tyy then if n_elements(*self.Pi_yy) eq 0 then self -> ReadData, 'Pi-yy'
-    if Tyz then if n_elements(*self.Pi_yz) eq 0 then self -> ReadData, 'Pi-yz'
-    if Tzz then if n_elements(*self.Pi_zz) eq 0 then self -> ReadData, 'Pi-zz'
+    if Txx then if n_elements(*self.Pi_xx) eq 0 then self -> SetData, 'Pi_xx'
+    if Txy then if n_elements(*self.Pi_xy) eq 0 then self -> SetData, 'Pi_xy'
+    if Txz then if n_elements(*self.Pi_xz) eq 0 then self -> SetData, 'Pi_xz'
+    if Tyy then if n_elements(*self.Pi_yy) eq 0 then self -> SetData, 'Pi_yy'
+    if Tyz then if n_elements(*self.Pi_yz) eq 0 then self -> SetData, 'Pi_yz'
+    if Tzz then if n_elements(*self.Pi_zz) eq 0 then self -> SetData, 'Pi_zz'
     
     ;Return
     ;   - The order is crucial.
@@ -1478,18 +2260,29 @@ TZZ=Tzz
         Tyy:           return, *self.Pi_yy
         Tyz:           return, *self.Pi_yz
         Tzz:           return, *self.Pi_zz
+        diagonal: begin
+            ;Allocate memory
+            dims = size(*self.Pi_xx, /DIMENSIONS)
+            data = fltarr(dims[0], dims[1], 3)
+            
+            ;Return the diagonal
+            data[*,*,0] = *self.Pi_xx
+            data[*,*,1] = *self.Pi_yy
+            data[*,*,2] = *self.Pi_zz
+            return, data
+        endcase
         tensor: begin
             ;Allocate memory
             dims = size(*self.Pi_xx, /DIMENSIONS)
             data = fltarr(dims[0], dims[1], 3, 3)
             
             ;Create the data product
-            data[*,0,0] = *self.Pi_xx
-            data[*,0,1] = *self.Pi_xy
-            data[*,0,2] = *self.Pi_xz
-            data[*,1,1] = *self.Pi_yy
-            data[*,1,2] = *self.Pi_yz
-            data[*,2,2] = *self.Pi_zz
+            data[*,*,0] = *self.Pi_xx
+            data[*,*,1] = *self.Pi_xy
+            data[*,*,2] = *self.Pi_xz
+            data[*,*,3] = *self.Pi_yy
+            data[*,*,4] = *self.Pi_yz
+            data[*,*,5] = *self.Pi_zz
             return, data
         endcase
     endcase
@@ -1581,9 +2374,9 @@ Z=z
     perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
     ;[XYZ]-Components
-    if x then if n_elements(*self.Uix) eq 0 then self -> ReadData, 'Uix'
-    if y then if n_elements(*self.Uiy) eq 0 then self -> ReadData, 'Uiy'
-    if z then if n_elements(*self.Uiz) eq 0 then self -> ReadData, 'Uiz'
+    if x then if n_elements(*self.Uix) eq 0 then self -> SetData, 'Uix'
+    if y then if n_elements(*self.Uiy) eq 0 then self -> SetData, 'Uiy'
+    if z then if n_elements(*self.Uiz) eq 0 then self -> SetData, 'Uiz'
     
     ;Which to return?
     ;   - The order is crucial.
@@ -1683,9 +2476,9 @@ Z=z
     parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
     perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
-    if x then if n_elements(*self.Uex) eq 0 then self -> ReadData, 'Uex'
-    if y then if n_elements(*self.Uey) eq 0 then self -> ReadData, 'Uey'
-    if z then if n_elements(*self.Uez) eq 0 then self -> ReadData, 'Uez'
+    if x then if n_elements(*self.Uex) eq 0 then self -> SetData, 'Uex'
+    if y then if n_elements(*self.Uey) eq 0 then self -> SetData, 'Uey'
+    if z then if n_elements(*self.Uez) eq 0 then self -> SetData, 'Uez'
     
     ;Which to return?
     ;   - The order is crucial.
@@ -1708,7 +2501,7 @@ end
 ;
 ;       An_{e} = \frac{ P_{e \bot} } { P_{e \parallel} }
 ;-
-function MrSim::An_e
+function MrSim2_Data::An_e
     compile_opt strictarr, hidden
     on_error, 2
     
@@ -1733,7 +2526,7 @@ end
 ;           collisionless magnetic reconnection using electron agyrotropy, 
 ;           J. Geophys. Res., 113, A06222, doi:10.1029/2008JA013035.
 ;-
-function MrSim::A0_e
+function MrSim2_Data::A0_e
     compile_opt strictarr, hidden
     on_error, 2
     
@@ -1741,12 +2534,12 @@ function MrSim::A0_e
     Bx = self -> GetData('Bx')
     By = self -> GetData('By')
     Bz = self -> GetData('Bz')
-    Pe_xx = self -> GetData('Pe-xx')
-    Pe_xy = self -> GetData('Pe-xy')
-    Pe_xz = self -> GetData('Pe-xz')
-    Pe_yy = self -> GetData('Pe-yy')
-    Pe_yz = self -> GetData('Pe-yz')
-    Pe_zz = self -> GetData('Pe-zz')
+    Pe_xx = self -> GetData('Pe_xx')
+    Pe_xy = self -> GetData('Pe_xy')
+    Pe_xz = self -> GetData('Pe_xz')
+    Pe_yy = self -> GetData('Pe_yy')
+    Pe_yz = self -> GetData('Pe_yz')
+    Pe_zz = self -> GetData('Pe_zz')
     
     ;Magnitude and direction of magnetic field
     Bmag  = sqrt(Bx^2 + By^2 + Bz^2)
@@ -1783,7 +2576,7 @@ end
 ;           collisionless magnetic reconnection, Phys. Plasmas 20, 092903 (2013)
 ;           http://dx.doi.org/10.1063/1.4820953
 ;-
-function MrSim::Dng_e
+function MrSim2_Data::Dng_e
     compile_opt strictarr, hidden
     on_error, 2
     
@@ -1791,15 +2584,15 @@ function MrSim::Dng_e
     Bx    = self -> GetData('Bx')
     By    = self -> GetData('By')
     Bz    = self -> GetData('Bz')
-    Pe_xx = self -> GetData('Pe-xx')
-    Pe_xy = self -> GetData('Pe-xy')
-    Pe_xz = self -> GetData('Pe-xz')
-    Pe_yy = self -> GetData('Pe-yy')
-    Pe_yz = self -> GetData('Pe-yz')
-    Pe_zz = self -> GetData('Pe-zz')
+    Pe_xx = self -> GetData('Pe_xx')
+    Pe_xy = self -> GetData('Pe_xy')
+    Pe_xz = self -> GetData('Pe_xz')
+    Pe_yy = self -> GetData('Pe_yy')
+    Pe_yz = self -> GetData('Pe_yz')
+    Pe_zz = self -> GetData('Pe_zz')
     
     ;Magnitude and direction of magnetic field
-    Bmag  = sqrt(Bx^2 + By^2 + Bz^2)
+    Bmag   = sqrt(Bx^2 + By^2 + Bz^2)
     bx_hat = temporary(Bx) / Bmag
     by_hat = temporary(By) / Bmag
     bz_hat = temporary(Bz) / temporary(Bmag)
@@ -1877,27 +2670,22 @@ X=x, $
 Y=y, $
 Z=z
     compile_opt strictarr, hidden
+    on_error, 2
 	
 	;Get the data
 	;   - Number density
 	;   - Bulk velocity
     n_e = self -> GetData('ne')
-    n_e = self -> GetData('ni')
+    n_i = self -> GetData('ni')
     Ue  = self -> GetData('Ue', MAGNITUDE=magnitude, X=x, Y=y, Z=z, VECTOR=vec, $
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
     Ui  = self -> GetData('Ui', MAGNITUDE=magnitude, X=x, Y=y, Z=z, VECTOR=vec, $
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
 
     ;Total Current
-    if vec then begin
-        J = Ui
-        J[*,*,0] = (-n_e * Ue[*,*,0]) + (n_i * Ui[*,*,0])
-        J[*,*,1] = (-n_e * Ue[*,*,1]) + (n_i * Ui[*,*,1])
-        J[*,*,2] = (-n_e * Ue[*,*,2]) + (n_i * Ui[*,*,2])
-    endif else begin
-        J = (-n_e * Ue) + (n_i * Ui)
-    endelse
-    
+    J = (-temporary(n_e) * temporary(Ue)) + $
+        ( temporary(n_i) * temporary(Ui))
+
     return, J
 end
 
@@ -1932,14 +2720,7 @@ Z=z
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
     
     ;Compute the current
-    if vec then begin
-        Je = Ue
-        Je[*,*,0] = -n_e * Ue[*,*,0]
-        Je[*,*,1] = -n_e * Ue[*,*,1]
-        Je[*,*,2] = -n_e * Ue[*,*,2]
-    endif else begin
-        Je = -1.0 * temporary(n_e) * temporary(Ue)
-    endelse
+    Je = -1.0 * temporary(n_e) * temporary(Ue)
     
     return, Je
 end
@@ -2009,7 +2790,7 @@ Z=z
     ;Calculate the magnitude of ExB
     V = (mi*Ui + me*Ue) / (mi + me)
     
-    return, Vx
+    return, V
 end
 
 
@@ -2126,602 +2907,6 @@ Z=z
     endcase
 end
 
-
-;+
-;   The purpose of this program is to calculate the electron plasma beta::
-;       \beta_{e} = \frac{Tr(P_{e})} {B^{2} / {2 \mu_{0}}
-;
-; :Private:
-;
-; :Returns:
-;       BETA_E:                 The electron beta.
-;-
-function MrSim2_Data::Beta_e
-    compile_opt strictarr, hidden
-    on_error, 2
-	
-	;Read the electric and magnetic field data.
-    Pe_xx = self -> getData('Pe-xx')
-    Pe_yy = self -> getData('Pe-yy')
-    Pe_zz = self -> getData('Pe-zz')
-    Bmag = self -> getData('Bmag')
-	
-	;Calculate the dot product between E and B. Divide by 3 for average.
-    Beta_e = (Pe_xx + Pe_yy + Pe_zz)  / (6.0 * Bmag^2)
-    
-    return, Beta_e
-end
-
-
-;+
-;   The purpose of this program is to calculate the ion plasma beta::
-;       \beta_{i} = \frac{Tr(P_{i})} {B^{2} / {2 \mu_{0}}
-;
-; :Private:
-;
-; :Returns:
-;       BETA_I:                 The ion beta.
-;-
-function MrSim2_Data::Beta_i
-    compile_opt strictarr, hidden
-    on_error, 2
-	
-	;Read the electric and magnetic field data.
-    Pi_xx = self -> getData('Pi-xx')
-    Pi_yy = self -> getData('Pi-yy')
-    Pi_zz = self -> getData('Pi-zz')
-    Bmag = self -> getData('Bmag')
-	
-	;Calculate the dot product between E and B. Divide by 3 for average.
-    Beta_i = (Pi_xx + Pi_yy + Pi_zz)  / (6.0 * Bmag^2)
-    
-    return, Beta_i
-end
-
-
-;+
-;   The purpose of this program is to calculate the plasma beta::
-;       \beta_{i} = \frac{Tr(P_{i})} {B^{2} / {2 \mu_{0}}
-;
-; :Private:
-;
-; :Returns:
-;       BETA_P:                 The overall plasma beta.
-;-
-function MrSim2_Data::Beta_p
-    compile_opt strictarr, hidden
-    on_error, 2
-	
-	;Read the electric and magnetic field data.
-    Pe_xx = self -> getData('Pe-xx')
-    Pe_yy = self -> getData('Pe-yy')
-    Pe_zz = self -> getData('Pe-zz')
-    Pi_xx = self -> getData('Pi-xx')
-    Pi_yy = self -> getData('Pi-yy')
-    Pi_zz = self -> getData('Pi-zz')
-    Bmag = self -> getData('Bmag')
-	
-	;Calculate the dot product between E and B. Divide by 6 for average.
-    Beta_p = (Pe_xx + Pe_yy + Pe_zz + Pi_xx + Pi_yy + Pi_zz)  / (12.0 * Bmag^2)
-    
-    return, Beta_p
-end
-
-
-;+
-;   The purpose of this program is to calculate magnitude of the divergence of the
-;   electron pressure tensor.
-;       \left| \nabla \cdot P_{e} \right| = \sqrt{ \left[ \nabla \cdot (P_{e})_{x} \right]^{2} + 
-;                                                  \left[ \nabla \cdot (P_{e})_{y} \right]^{2} + 
-;                                                  \left[ \nabla \cdot (P_{e})_{z} \right]^{2} }
-;
-; :Private:
-;
-; :Returns:
-;       divPe_mag:                The magnitude of the divergence of the electron pressure
-;                                   tensor.
-;-
-function MrSim2_Data::divPe_mag
-	compile_opt strictarr, hidden
-
-;-------------------------------------------------------
-;Get Data //////////////////////////////////////////////
-;-------------------------------------------------------
-	
-	;Get the x-components of the Electric Field and the Current Density
-    divPe_x = self -> getData('divPe_x')
-    divPe_z = self -> getData('divPe_z')
-    divPe_y = 0     ;d/dy = 0
-    
-    ;Sum the terms, dividing by electron density
-    divPe_mag = sqrt(divPe_x^2 + divPe_z^2)
-    
-    return, divPe_x
-end
-
-
-;+
-;   The purpose of this program is to calculate x-component of the divergence of the
-;   electron pressure tensor.
-;       (\nabla \cdot P_{e})_{x} = \frac{1} {n_{e}}
-;                                  \left( \frac{\partial (P_{e})_{xx}} {\partial x} +
-;                                         \frac{\partial (P_{e})_{yx}} {\partial x} +
-;                                         \frac{\partial (P_{e})_{zx}} {\partial x} \right)
-;
-; :Private:
-;
-; :Returns:
-;       divPe_x:                The x-component of the divergence of the electron pressure
-;                                   tensor.
-;-
-function MrSim2_Data::divPe_x
-	compile_opt strictarr, hidden
-	on_error, 2
-
-;-------------------------------------------------------
-;Get Data //////////////////////////////////////////////
-;-------------------------------------------------------
-	
-	;Get the electron density and the required components of the electron pressure tensor
-    Pe_xx = self -> getData('Pe-xx')
-    Pe_xy = self -> getData('Pe-xy')
-    Pe_xz = self -> getData('Pe-xz')
-    n_e = self -> getData('ne')
-    
-    dims = size(Pe_xx, /DIMENSIONS)
-    
-    ;Get the x-size of a grid cell in electron skin depth
-    self -> GetInfo, DX_DE=dx_de
-
-;-------------------------------------------------------
-;Take Derivative ///////////////////////////////////////
-;-------------------------------------------------------
-    ;Allocate memory
-    dPe_xx = fltarr(dims)
-    dPe_xy = fltarr(dims)
-    dPe_xz = fltarr(dims)
-    dPe_x  = fltarr(dims)
-    
-    ;Compute the central difference
-    dPe_xx[1:dims[0]-2,*] = (Pe_xx[2:dims[0]-1,*] - Pe_xx[0:dims[0]-3,*]) / (2.0 * dx_de)
-    dPe_xy[1:dims[0]-2,*] = (Pe_xy[2:dims[0]-1,*] - Pe_xy[0:dims[0]-3,*]) / (2.0 * dx_de)
-    dPe_xz[1:dims[0]-2,*] = (Pe_xz[2:dims[0]-1,*] - Pe_xz[0:dims[0]-3,*]) / (2.0 * dx_de)
-    
-    ;Sum the terms, dividing by electron density
-    divPe_x = (dPe_xx + dPe_xy + dPe_xz) / n_e
-    
-    return, divPe_x
-end
-
-
-;+
-;   The purpose of this program is to calculate z-component of the divergence of the
-;   electron pressure tensor.
-;       (\nabla \cdot P_{e})_{z} = \frac{1} {n_{e}}
-;                                  \left( \frac{\partial (P_{e})_{xz}} {\partial z} +
-;                                         \frac{\partial (P_{e})_{yz}} {\partial z} +
-;                                         \frac{\partial (P_{e})_{zz}} {\partial z} \right)
-;
-; :Private:
-;
-; :Params:
-;       TIME:                   in, required, type=long
-;                               The time-step at which the data is desired.
-;
-; :Keywords:
-;       XRANGE:                 in, optional, type=fltarr(2), default=[0,xmax]
-;                               The xrange over which data is to be returned.
-;       ZRANGE:                 in, optional, type=fltarr(2), default=[-zmax/2\, zmax/2]
-;                               The zrange over which data is to be returned.
-;
-; :Returns:
-;       divPe_z:                The z-component of the divergence of the electron pressure
-;                                   tensor.
-;-
-function MrSim2_Data::divPe_z
-	compile_opt strictarr, hidden
-	on_error, 2
-
-;-------------------------------------------------------
-;Get Data //////////////////////////////////////////////
-;-------------------------------------------------------
-	
-	;Get the electron density and the required components of the electron pressure tensor.
-	;Pe-zx and Pe-zy are unavailable -- assume the tensor is symmetric.
-    Pe_zx = self -> getData('Pe-xz')
-    Pe_zy = self -> getData('Pe-yz')
-    Pe_zz = self -> getData('Pe-zz')
-    n_e = self -> getData('ne')
-    
-    dims = size(Pe_zz, /DIMENSIONS)
-    
-    ;Cell size in de
-    self -> GetInfo, DZ_DE=dz_de
-
-;-------------------------------------------------------
-;Take Derivative ///////////////////////////////////////
-;-------------------------------------------------------
-    ;Allocate memory
-    dPe_zx  = fltarr(dims)
-    dPe_zy  = fltarr(dims)
-    dPe_zz  = fltarr(dims)
-    divPe_z = fltarr(dims)
-
-    ;Compute the central difference
-    dPe_zx[*,1:dims[1]-2] = (Pe_zx[*,2:dims[1]-1] - Pe_zx[*,0:dims[1]-3]) / (2.0 * dz_de)
-    dPe_zy[*,1:dims[1]-2] = (Pe_zy[*,2:dims[1]-1] - Pe_zy[*,0:dims[1]-3]) / (2.0 * dz_de)
-    dPe_zz[*,1:dims[1]-2] = (Pe_zz[*,2:dims[1]-1] - Pe_zz[*,0:dims[1]-3]) / (2.0 * dz_de)
-    
-    ;Sum the terms
-    divPe_z = (dPe_zx + dPe_zy + dPe_zz) / n_e
-    
-    return, divPe_z
-end
-
-
-;+
-;   The purpose of this program is to calculate x-component of the divergence of the
-;   electron pressure tensor.
-;       (\nabla \cdot P_{i})_{x} = \frac{1} {n_{i}}
-;                                  \left( \frac{\partial (P_{i})_{xx}} {\partial x} +
-;                                         \frac{\partial (P_{i})_{yx}} {\partial x} +
-;                                         \frac{\partial (P_{i})_{zx}} {\partial x} \right)
-;
-; :Private:
-;
-; :Returns:
-;       divPe_x:                The x-component of the divergence of the electron pressure
-;                                   tensor.
-;-
-function MrSim2_Data::divPi_x
-	compile_opt strictarr, hidden
-	on_error, 2
-
-;-------------------------------------------------------
-;Get Data //////////////////////////////////////////////
-;-------------------------------------------------------
-	
-	;Get the electron density and the required components of the electron pressure tensor
-    Pi_xx = self -> getData('Pi-xx')
-    Pi_xy = self -> getData('Pi-xy')
-    Pi_xz = self -> getData('Pi-xz')
-    n_i = self -> getData('ni')
-    
-    dims = size(Pi_xx, /DIMENSIONS)
-    
-    ;Get the x-size of a grid cell in electron skin depth
-    self -> GetInfo, DX_DE=dx_de
-
-;-------------------------------------------------------
-;Take Derivative ///////////////////////////////////////
-;-------------------------------------------------------
-    ;Allocate memory
-    dPi_xx = fltarr(dims)
-    dPi_xy = fltarr(dims)
-    dPi_xz = fltarr(dims)
-    dPi_x  = fltarr(dims)
-    
-    ;Compute the central difference
-    dPi_xx[1:dims[0]-2,*] = (Pi_xx[2:dims[0]-1,*] - Pi_xx[0:dims[0]-3,*]) / (2.0 * dx_de)
-    dPi_xy[1:dims[0]-2,*] = (Pi_xy[2:dims[0]-1,*] - Pi_xy[0:dims[0]-3,*]) / (2.0 * dx_de)
-    dPi_xz[1:dims[0]-2,*] = (Pi_xz[2:dims[0]-1,*] - Pi_xz[0:dims[0]-3,*]) / (2.0 * dx_de)
-    
-    ;Sum the terms, dividing by electron density
-    divPi_x = (dPi_xx + dPi_yx + dPi_zx) / n_i
-    
-    return, divPi_x
-end
-
-
-;+
-;   The purpose of this program is to calculate z-component of the divergence of the
-;   electron pressure tensor.
-;       (\nabla \cdot P_{i})_{z} = \frac{1} {n_{i}}
-;                                  \left( \frac{\partial (P_{i})_{xz}} {\partial z} +
-;                                         \frac{\partial (P_{i})_{yz}} {\partial z} +
-;                                         \frac{\partial (P_{i})_{zz}} {\partial z} \right)
-;
-; :Private:
-;
-; :Params:
-;       TIME:                   in, required, type=long
-;                               The time-step at which the data is desired.
-;
-; :Keywords:
-;       XRANGE:                 in, optional, type=fltarr(2), default=[0,xmax]
-;                               The xrange over which data is to be returned.
-;       ZRANGE:                 in, optional, type=fltarr(2), default=[-zmax/2\, zmax/2]
-;                               The zrange over which data is to be returned.
-;
-; :Returns:
-;       divPi_z:                The z-component of the divergence of the electron pressure
-;                                   tensor.
-;-
-function MrSim2_Data::divPi_z
-	compile_opt strictarr, hidden
-	on_error, 2
-
-;-------------------------------------------------------
-;Get Data //////////////////////////////////////////////
-;-------------------------------------------------------
-	
-	;Get the electron density and the required components of the electron pressure tensor.
-	;Pe-zx and Pe-zy are unavailable -- assume the tensor is symmetric.
-    Pi_zx = self -> getData('Pi-xz')
-    Pi_zy = self -> getData('Pi-yz')
-    Pi_zz = self -> getData('Pi-zz')
-    n_i   = self -> getData('ni')
-    
-    dims = size(Pi_zz, /DIMENSIONS)
-    
-    ;Cell size in de
-    self -> GetInfo, DZ_DE=dz_de
-
-;-------------------------------------------------------
-;Take Derivative ///////////////////////////////////////
-;-------------------------------------------------------
-    ;Allocate memory
-    dPi_zx  = fltarr(dims)
-    dPi_zy  = fltarr(dims)
-    dPi_zz  = fltarr(dims)
-    divPi_z = fltarr(dims)
-
-    ;Compute the central difference
-    dPi_zx[*,1:dims[1]-2] = (Pi_zx[*,2:dims[1]-1] - Pi_zx[*,0:dims[1]-3]) / (2.0 * dz_de)
-    dPi_zy[*,1:dims[1]-2] = (Pi_zy[*,2:dims[1]-1] - Pi_zy[*,0:dims[1]-3]) / (2.0 * dz_de)
-    dPi_zz[*,1:dims[1]-2] = (Pi_zz[*,2:dims[1]-1] - Pi_zz[*,0:dims[1]-3]) / (2.0 * dz_de)
-    
-    ;Sum the terms
-    divPi_z = (dPi_zx + dPi_zy + dPi_zz) / n_i
-    
-    return, divPi_z
-end
-
-
-;+
-;   The purpose of this program is to calculate the gradient of the scalar pressure.
-;       \nabla P_{e} = \frac{1} {n_{e}}
-;                                  \left( \frac{\partial P_{e}} {\partial x} +
-;                                         \frac{\partial P_{e}} {\partial x} +
-;                                         \frac{\partial P_{e}} {\partial x} \right)
-;
-; :Private:
-;
-; :Returns:
-;       gradPe:         The x-component of the divergence of the electron pressure
-;                           tensor.
-;-
-function MrSim2_Data::gradP
-	compile_opt strictarr, hidden
-	on_error, 2
-
-;-------------------------------------------------------
-;Get Data //////////////////////////////////////////////
-;-------------------------------------------------------
-	
-	;Get the electron density and the required components of the electron pressure tensor
-	;Pe-yx, Pe-zx are unavailable, so I am assuming the matrix is symmetric
-    Pe  = self -> Read('Pe')
-    n_e = self -> getData('ne')
-    
-    dims = size(Pe_xx, /DIMENSIONS)
-    
-    ;Make X (1D) the same size as Pe-xx (2D)
-    self -> GetProperty, XSIM=xsim
-    X = rebin(*self.XSim, dims[0], dims[1])
-
-;-------------------------------------------------------
-;Take Derivative ///////////////////////////////////////
-;-------------------------------------------------------
-    ;Allocate memory
-    delta_Pe_xx = fltarr(dims)
-    delta_Pe_yx = fltarr(dims)
-    delta_Pe_zx = fltarr(dims)
-    divPe_x = fltarr(dims)
-    
-    ;Compute the derivative
-    delta_Pe_xx[1:*,*] = (Pe_xx[1:dims[0]-1,*] - Pe_xx[0:dims[0]-2,*]) / (X[1:dims[0]-1,*] - X[0:dims[0]-2,*])
-    delta_Pe_yx[1:*,*] = (Pe_yx[1:dims[0]-1,*] - Pe_yx[0:dims[0]-2,*]) / (X[1:dims[0]-1,*] - X[0:dims[0]-2,*])
-    delta_Pe_zx[1:*,*] = (Pe_zx[1:dims[0]-1,*] - Pe_zx[0:dims[0]-2,*]) / (X[1:dims[0]-1,*] - X[0:dims[0]-2,*])
-    
-    ;Sum the terms, dividing by electron density
-    divPe_x = (delta_Pe_xx + delta_Pe_yx + delta_Pe_zx) / n_e
-    
-    return, divPe_x
-end
-
-
-;+
-;   The purpose of this program is to calculate the electron inertial length::
-;       \lambda_{e} = c / \omega_{p,e}
-;
-; :Private:
-;
-; :Returns:
-;       LAMBDA_e:               Electron inertial length (skin depth).
-;-
-function MrSim2_Data::lambda_e
-    compile_opt strictarr, hidden
-
-    ;Get the electric field and current densitz data
-    c = constants('c')
-    w_pe = self -> getData('w_pe')
-
-    ;Calculate the dot product
-    lambda_e = 1.0 / w_pe
-    
-    return, lambda_e
-end
-
-
-;+
-;   The purpose of this program is to calculate the electron inertial length::
-;       \lambda_{i} = c / \omega_{p,e}
-;
-; :Private:
-;
-; :Returns:
-;       LAMBDA_i:               Ion inertial length (skin depth).
-;-
-function MrSim2_Data::lambda_i
-    compile_opt strictarr, hidden
-
-    ;Get the electric field and current densitz data
-    c = constants('c')
-    w_pe = self -> getData('w_pi')
-
-    ;Calculate the dot product
-    lambda_i = c / w_pi
-    
-    return, lambda_i
-end
-
-
-;+
-;   The purpose of this program is to calculate the electron Alfven Speed::
-;       V_{ae} = \left| B \right| / \sqrt{ne}
-;
-; :Private:
-;
-; :Returns:
-;       Vae:                    The Alfven Speed
-;-
-function MrSim2_Data::v_Ae
-	compile_opt strictarr, hidden
-	
-	;Get the Magnetic Field and Electron Density 
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    n_e = self -> getData('ne')
-    
-    ;Calculate the Alfven Speed
-    b_mag = sqrt(bx^2 + by^2 + bz^2)
-    Vae = b_mag / sqrt(n_e)
-    
-    return, Vae
-end
-
-
-;+
-;   The purpose of this program is to calculate the ion Alfven Speed::
-;       V_{A} = \left| B \right| / \sqrt{n e}
-;
-; :Private:
-;
-; :Returns:
-;       Vae:                    The Alfven Speed
-;-
-function MrSim2_Data::v_A
-	compile_opt strictarr, hidden
-	
-	;Get the Magnetic Field and Electron Density 
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    n_i = self -> getData('ni')
-    
-    ;Calculate the Alfven Speed
-    b_mag = sqrt(bx^2 + by^2 + bz^2)
-    Vae = b_mag / sqrt(n_i)
-    
-    return, Vae
-end
-
-
-;+
-;   The purpose of this program is to calculate the electron plasma frequency::
-;       w_{p,e} = \sqrt{ \frac{n_{0} e^{2}} {\epsilon_{0} m} }
-;
-; :Private:
-;
-; :Returns:
-;       w_pe:                   The electron plasma frequency
-;-
-function MrSim2_Data::w_pe
-	compile_opt strictarr, hidden
-	
-	;Get the Magnetic Field and Electron Density
-    n_e = self -> getData('ne')
-    
-    ;Calculate the Alfven Speed
-    w_pe = sqrt(n_e)
-    
-    return, w_pe
-end
-
-
-;+
-;   The purpose of this program is to calculate the ion plasma frequency::
-;       w_{p,i} = \sqrt{ \frac{n_{0} e^{2}} {\epsilon_{0} m} }
-;
-; :Private:
-;
-; :Returns:
-;       w_pi:                   The ion plasma frequency
-;-
-function MrSim2_Data::w_pi
-	compile_opt strictarr, hidden
-	
-	;Get the Magnetic Field and Electron Density
-    n_i = self -> getData('ni')
-    
-    ;Calculate the Alfven Speed
-    w_pi = sqrt(n_i)
-    
-    return, w_pi
-end
-
-
-;+
-;   The purpose of this program is to calculate the electron cyclotron frequency::
-;       w_{c,e} = \frac{e B} {m}
-;
-; :Private:
-;
-; :Returns:
-;       w_ce:                   The ion cyclotron frequency
-;-
-function MrSim2_Data::w_ci
-	compile_opt strictarr, hidden
-	
-	;Get the Magnetic Field and Electron Density
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the Alfven Speed
-    w_ce = sqrt(bx^2 + by^2 + bz^2)
-    
-    return, w_ce
-end
-
-
-;+
-;   The purpose of this program is to calculate the ion cyclotron frequency::
-;       w_{c,i} = \frac{e B} {m}
-;
-; :Private:
-;
-; :Returns:
-;       w_ci:                   The ion cyclotron frequency
-;-
-function MrSim2_Data::w_ci
-	compile_opt strictarr, hidden
-	
-	;Get the Magnetic Field and Electron Density
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the Alfven Speed
-    w_ci = sqrt(bx^2 + by^2 + bz^2)
-    
-    return, w_ci
-end
-
-
-
 ;+
 ;   This definition statement for the MrSim2_Data class.
 ;
@@ -2770,6 +2955,7 @@ pro MrSim2_Data__DEFINE, class
     class = { MrSim2_Data, $
 
               ;Data
+              answer:    ptr_new(), $
               Ay:        ptr_new(), $
               Bx:        ptr_new(), $
               By:        ptr_new(), $

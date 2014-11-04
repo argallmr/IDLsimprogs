@@ -178,7 +178,7 @@ _REF_EXTRA = extra
         
     ;Object?
     endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM') eq 0 $
+        if obj_isa(theSim, 'MRSIM2') eq 0 $
             then message, 'THESIM must be a subclass of the MrSim class.' $
             else oSim = theSim
             
@@ -236,7 +236,7 @@ _REF_EXTRA = extra
     ;Rename items
     _name = MrSim_Rename(name, coord_system, MVA_FRAME=mva_frame, /SUBSCRIPT)
     units = MrSim_Rename(units, /SUBSCRIPT)
-    
+
     ;Time interval in wci given?
     ;   - Display time in terms of t*wci.
     ;   - Display the time index.
@@ -262,7 +262,7 @@ _REF_EXTRA = extra
             xtitle = axLabls[0] + ' (' + units + ')'
             ytitle = axLabls[2] + ' (' + units + ')'
             
-            if sim_class eq 'MRSIM3D' then begin
+            if oSim.dimension eq '3D' then begin
                 oSim -> GetProperty, YRANGE=yrange
                 title += '  ' + axLabls[1] + '=' + string(yrange[0], FORMAT='(f0.1)') + units
             endif
@@ -319,16 +319,16 @@ _REF_EXTRA = extra
 
             ;Take the derivative
             dx = c_data[1:nx-1, *] - c_data[0:nx-2, *]
-            dz = c_data[*, 1:nz-1] - c_data[*, 0:nz-2]
+            dy = c_data[*, 1:ny-1] - c_data[*, 0:ny-2]
             
             ;Find the minimum of Ay along each row
             ;   - Turn the 1D indices into 2D indices
             xMin = min(dx, ixMin, DIMENSION=1, /ABSOLUTE)
-            inds = array_indices([nx-1, nz], ixMin, /DIMENSIONS)
+            inds = array_indices([nx-1, ny], ixMin, /DIMENSIONS)
             
             ;Find the maximum along the path of minimums just found.
-            zMin = min(dz[inds[0,*], inds[1,*]], izMin, DIMENSION=2, /ABSOLUTE)
-            sepAy  = c_data[inds[0, izMin], inds[1, izMin]]
+            yMin = min(dy[inds[0,*], inds[1,*]], iyMin, DIMENSION=2, /ABSOLUTE)
+            sepAy  = c_data[inds[0, iyMin], inds[1, iyMin]]
 
             ;Create the contour levels
             levels = [sepAy, cgConLevels(c_data, NLEVELS=nLevels)]
@@ -353,11 +353,13 @@ _REF_EXTRA = extra
 ;Add Vector Field? /////////////////////////////////////
 ;-------------------------------------------------------
     if vx_name ne '' then begin
-        colorVec = MrVector(vx_data, vy_data, XSim, ZSim, COLOR='Black', $
-                            XRANGE=[XSim[0],XSim[-1]], FRACTION=fraction, $
-                            YRANGE=[ZSim[0],ZSim[-1]], /ORDERED, $
-                            NAME=vx_name + '-' + vy_name + ' Vectors', $
-                            OVERPLOT=colorIm, /CURRENT)
+        colorVec = MrVector(vx_data, vy_data, x, y, $
+                            /CURRENT, $
+                            /ORDERED, $
+                            COLOR    = 'Black', $
+                            FRACTION = fraction, $
+                            NAME     = vx_name + '-' + vy_name + ' Vectors', $
+                            OVERPLOT = colorIm)
     endif
                             
 ;-------------------------------------------------------
@@ -374,7 +376,7 @@ _REF_EXTRA = extra
     ;Vertical Lines
     if nVLines gt 0 then begin
         for i = 0, nVLines - 1 do begin
-            vlPlot = MrPlot([vert_lines[i], vert_lines[i]], [ZSim[0],ZSim[-1]], $
+            vlPlot = MrPlot([vert_lines[i], vert_lines[i]], [y[0],y[-1]], $
                             /CURRENT, OVERPLOT=colorIm, COLOR=line_color[i mod nLineColors], $
                             NAME='VLine ' + name + ' ' + strtrim(i, 2))
         endfor
@@ -382,7 +384,7 @@ _REF_EXTRA = extra
 
     ;Horizontal Lines
     if nHLines gt 0 then begin
-        hlPlot = MrPlot([XSim[0],XSim[-1]], rebin(reform(horiz_lines, 1, nHLines), 2, nHLines), $
+        hlPlot = MrPlot([x[0],x[-1]], rebin(reform(horiz_lines, 1, nHLines), 2, nHLines), $
                         /CURRENT, OVERPLOT=colorIm, COLOR=line_color[0:nHLines-1], $
                         DIMENSION=1, NAME='HLines ' + name)
     endif

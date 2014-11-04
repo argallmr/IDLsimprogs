@@ -460,6 +460,9 @@ end
 ;                               the simlation.
 ;       BINARY_INFO:        out, optional, type=string
 ;                           Binary info file containing information about the simulation.
+;       DIST3D:             out, optional, type=boolean
+;                           Inditates whether or not the `EFILE` contains 2D or 3D spacial
+;                               coordinates.
 ;       DTXWCI:             out, optional, type=integer
 ;                           Time between time-slice of of the ".gda" field and moment
 ;                               files. Multiply `TINDEX` by DTXWCI to get unitless
@@ -486,6 +489,7 @@ pro MrSim_Which_Asymm3D, tIndex, yslice, $
 ASCII_INFO=ascii_info, $
 ASCII_VERSION=ascii_version, $
 BINARY_INFO=binary_info, $
+DIST3D=dist3d, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
@@ -527,21 +531,38 @@ FMAP_DIR=fMap_dir
         yStr = strtrim(yslice, 2)
         
         ;File name
-        eFile = '/home/daughton/Asymm-3D/electrons-y' + yStr + '.bin'
+        case yslice of
+             650: eFile = '/home/daughton/Asymm-3D/electrons-y' + yStr + '.bin'
+             905: eFile = '/data2/Asymm-3D/electrons-y' + yStr + '.bin'
+            1440: eFile = '/home/daughton/Asymm-3D/electrons-y' + yStr + '.bin'
+            else: message, 'No particle data available for yslice ' + strtrim(yslice, 2) + '.'
+        endcase
+        
+        ;3D spacial distribution?
+        case yslice of
+             650: dist3D = 0
+             905: dist3D = 1
+            1440: dist3D = 0
+        endcase
     endif
     
     ;Regions with electrons
     ;   - Have field & moment data for t=108090
     ;   - Have particle data for       t=108108
     if arg_present(eRegions) then begin
-        eRegions = { tIndex: [108090, 108090, 108090], $
-                     yslice: [650, 905, 1440], $
-                     xrange: [[250, 700], $
-                              [250, 700], $
-                              [250, 700]], $
-                     zrange: [[-80,  80], $
-                              [-80,  80], $
-                              [-80,  80]] $
+        eRegions = { tIndex: [108090, 108090, 108090, 108090], $
+                     xrange: [[ 250,   700], $
+                              [ 250,   700], $
+                              [ 935,   605], $
+                              [ 250,   700]], $
+                     yrange: [[ -46.3, -46.3], $    ;650
+                              [ 102.3, 102.3], $    ;950
+                              [  99,   126], $      ;[900,945]
+                              [1440,  1440]], $      ;1440
+                     zrange: [[ -80,    80], $
+                              [ -80,    80], $
+                              [ -80,    80], $
+                              [ -80,    80]] $
                    }
     endif
 end
@@ -831,7 +852,14 @@ FMAP_DIR=fMap_dir
     
     ;Regions with electrons
     if arg_present(eRegions) then begin
-        eRegions = !Null ;Unknown
+        eRegions = { time:   [18, 34, 28], $
+                     xrange: [[300, 440], $
+                              [300, 440], $
+                              [300, 440]], $
+                     zrange: [[-20,  20], $
+                              [-20,  20], $
+                              [-20,  20]] $
+                   }
     endif
 end
 
@@ -1077,9 +1105,10 @@ end
 ;                           Y-slice within a 3D simulation.
 ;       _REF_EXTRA:         in, optional, type=any
 ;                           The following output keywords are also accepted::
-;                               ASCII_INFO   - Ascii info file
-;                               BINARY_INFO  - Binary info file
-;                               DTXWCI       - Time interval between time-slices in .gda files
+;                               ASCII_INFO   - Ascii info file.
+;                               BINARY_INFO  - Binary info file.
+;                               DIST3D       - Indicates EFILE has 3D spacial coordinates (3D simulations).
+;                               DTXWCI       - Time interval between time-slices in .gda files.
 ;                               ECOUNTFACTOR - Electron count multiplication factor.
 ;                               EFILE        - Electron particle file.
 ;                               EREGIONS     - Regions and time slices that have electron data.
@@ -1144,21 +1173,21 @@ _REF_EXTRA=extra
     ;Other simulation-specific parameters.
     if n_elements(extra) gt 0 then begin
         case number of
-            1: MrSim_Which_AsymmLarge2D,     tIndex,         _STRICT_EXTRA=extra
-            2: MrSim_Which_AsymmLarge2D_NEW, tIndex,         _STRICT_EXTRA=extra
-            3: MrSim_Which_Asymm3D,          tIndex, yslice, _STRICT_EXTRA=extra
+            1: MrSim_Which_AsymmLarge2D,      tIndex,         _STRICT_EXTRA=extra
+            2: MrSim_Which_AsymmLarge2D_NEW,  tIndex,         _STRICT_EXTRA=extra
+            3: MrSim_Which_Asymm3D,           tIndex, yslice, _STRICT_EXTRA=extra
             4: message, 'Information not available for "' + simname + '".'
-            5: MrSim_Which_Sim1,             tIndex,         _STRICT_EXTRA=extra
+            5: MrSim_Which_Sim1,              tIndex,         _STRICT_EXTRA=extra
             6: message, 'Information not available for "' + simname + '".'
             7: message, 'Information not available for "' + simname + '".'
             8: message, 'Information not available for "' + simname + '".'
             9: message, 'Information not available for "' + simname + '".'
-            10: MrSim_Which_AsymmScan_By1,    tIndex,        _STRICT_EXTRA=extra
-            11: MrSim_Which_AsymmScan_By0,    tIndex,        _STRICT_EXTRA=extra
-            12: MrSim_Which_mime1836_by00,    tIndex,        _STRICT_EXTRA=extra
-            13: MrSim_Which_mime1836_by05,    tIndex,        _STRICT_EXTRA=extra
-            14: MrSim_Which_mime1836_by10,    tIndex,        _STRICT_EXTRA=extra
-            15: MrSim_Which_mime1836_by40,    tIndex,        _STRICT_EXTRA=extra
+            10: MrSim_Which_AsymmScan_By1,    tIndex,         _STRICT_EXTRA=extra
+            11: MrSim_Which_AsymmScan_By0,    tIndex,         _STRICT_EXTRA=extra
+            12: MrSim_Which_mime1836_by00,    tIndex,         _STRICT_EXTRA=extra
+            13: MrSim_Which_mime1836_by05,    tIndex,         _STRICT_EXTRA=extra
+            14: MrSim_Which_mime1836_by10,    tIndex,         _STRICT_EXTRA=extra
+            15: MrSim_Which_mime1836_by40,    tIndex,         _STRICT_EXTRA=extra
             else: ;Do nothing
         endcase
     endif

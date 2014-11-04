@@ -1,3 +1,28 @@
+; docformat = 'rst'
+;
+; NAME:
+;    Figures_XLine_Proximity
+;
+; PURPOSE:
+;+
+;   Create figures in preparation of my X-Line proximity paper..
+;
+; :Categories:
+;    Bill Daughton, Simulation
+;
+; :Author:
+;    Matthew Argall::
+;    University of New Hampshire
+;    Morse Hall Room 113
+;    8 College Road
+;    Durham, NH 03824
+;    matthew.argall@wildcats.unh.edu
+;
+; :History:
+;    Modification History::
+;       2014/03/15  -   Written by Matthew Argall
+;-
+;*****************************************************************************************
 ;+
 ;   2D color plot of Jey surrounding the X-line near the peak reconnection rate.
 ;-
@@ -658,6 +683,9 @@ function XLP_Figure3
 end
 
 
+;+
+;   Color plot of Jey beside line cuts of Bz, ni, Uiz, and Ex
+;-
 function XLP_Figure1_GEM
     compile_opt idl2
     
@@ -697,8 +725,8 @@ function XLP_Figure1_GEM
     cwin -> SetProperty, XSIZE=xsize, YSIZE=ysize, OYMARGIN=[3,6]
 
     ;Set properties 
-    cwin['Color Jey'] -> SetProperty, XTICKLEN=-0.02, YTICKLEN=-0.02
-    cwin['HLines Jey'] -> SetProperty, COLOR=['Cyan', 'Green', 'Red'], THICK=thick
+    cwin['Color Jey']     -> SetProperty, XTICKLEN=-0.02, YTICKLEN=-0.02
+    cwin['HLines Jey']    -> SetProperty, COLOR=['Cyan', 'Green', 'Red'], THICK=thick
     cwin['CB: Color Jey'] -> SetProperty, WIDTH=1, CBLOCATION='BOTTOM', OFFSET=4, $
                                           XTICKS=1, TEXTTHICK=thick
                               
