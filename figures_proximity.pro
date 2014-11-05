@@ -250,7 +250,7 @@ end
 
 
 ;+
-;   Create Figure 2: 2D simulation.
+;   Simulate an MMS flyby across the X-line.
 ;-
 function Prox_FlyBy
     compile_opt idl2
@@ -259,9 +259,7 @@ function Prox_FlyBy
     if the_error ne 0 then begin
         catch, /CANCEL
         if obj_valid(oSim)   then obj_destroy, oSim
-        if obj_valid(Fig1)   then obj_destroy, Fig1
-        if obj_valid(difwin) then obj_destroy, difwin
-        if obj_valid(cwin)   then obj_destroy, cwin
+        if obj_valid(win)   then obj_destroy, win
         void = cgErrorMSG()
         return, obj_new()
     endif
@@ -301,22 +299,139 @@ end
 
 
 ;+
+;   eMap for the Asymm-3D simulation.
+;-
+function Prox_eMap, $
+FNAME=fname
+    compile_opt idl2
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(im_win)   then obj_destroy, im_win
+        if obj_valid(tempWin)  then obj_destroy, tempWin
+        if max(obj_valid(win)) then obj_destroy, win
+        void = cgErrorMSG()
+        return, obj_new()
+    endif
+    
+    ;Create the simulation object
+    theSim = 'Asymm-3D'
+    time   = 108090
+    ycell  = 905
+    xrange = 458.8 + [-100, 100]
+    zrange = [-30, 30]
+    root   = '/data2/Asymm-3D/'
+    oSim   = MrSim_Create(theSim, time, XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange, $
+                          /BINARY)
+    
+    ;Set the y-range
+    ycoord = oSim -> GetCoord(ycell, /Y)
+    oSim.yrange = [ycoord, ycoord]
+
+    ;Create the distribution map    
+    type       = ['Vx-Vy', 'Vx-Vz', 'Vy-Vz', 'Vpar-Vperp', 'Vpar-Vperp1', 'Vpar-Vperp2', 'Vperp1-Vperp2']
+    bin_center = [458.8, ycoord, 2.9]
+    half_width = [1,1,1]
+    im_name    = 'Jey'
+    hgap       = 10
+    vgap       = 5
+    layout     = [5,5]
+    location   = 6
+    
+    nDist = n_elements(type)
+    win   = objarr(nDist+1)
+    
+    ;Step through each type of distribution.
+    for i = 0, n_elements(type)-1 do begin
+        ;Create a 2D overview plot for only the first distribution type
+        if i eq 0 $
+            then imname = im_name $
+            else imname = !Null
+    
+        ;Create the distribution
+        tempWin = MrSim_eMap(oSim, type[i], bin_center, half_width, $
+                             HGAP     = hgap, $
+                             IM_NAME  = imname, $
+                             IM_WIN   = im_win, $
+                             LAYOUT   = layout, $
+                             LOCATION = location, $
+                             VGAP     = vgap)
+        
+        ;Store the window
+        if i eq 0 then begin
+            win[0] = im_win
+            win[1] = tempWin
+        endif else begin
+            win[i+1] = tempWin
+        endelse
+    endfor
+
+    ;Create an output file name
+    fpart1 = string(FORMAT='(%"%s_t%i_y%i")', theSim, time, ycell)
+    fpart2 = string(FORMAT='(%"x%iz%i_w%i_h%i_v%i_lay%ix%i_loc%i")', $
+             bin_center[[0,2]], half_width[0], hgap, vgap, layout, location)
+    fname = [fpart1 + '_' + im_name + '_'   + fpart2, $
+             fpart1 + '_eMap_' + type + '_' + fpart2]
+
+    return, win
+end
+
+
+;+
 ;   Create the desired figure.
 ;
 ; Params:
 ;       FIGURE:         in, optional, type=string
 ;                       Figure number of the figure to be created.
 ;-
-function Figures_Proximity, figure
+function Figures_Proximity, figure, $
+SAVE=tf_save
     compile_opt strictarr
-    on_error, 2
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if max(obj_valid(win)) then obj_destroy, win
+        void = cgErrorMSG()
+        return, obj_new()
+    endif
+
+    _figure = strupcase(figure)
+    tf_save = keyword_set(tf_save)
 
     ;Create the figure    
-    case figure of
+    case _figure of
         'FIGURE 1':       win = Prox_Figure1()
+        'ASYMM-3D EMAP':  win = Prox_eMap(FNAME=fname)
         'ASYMM-3D FLYBY': win = Prox_FlyBy()
         else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
     endcase
+
+    ;Save the figure
+    if tf_save then begin
+        directory = '/home/argall/figures/Asymm-3D/eMap-Scan/'
+        if n_elements(fname) eq 0 then fname = _figure
+        
+        nPlots = n_elements(win)
+        
+        ;Single plot
+        if nPlots eq 1 then begin
+            ;Take a snapshot
+            saveas = win.SaveAs
+            saveas -> SetProperty, IM_RASTER=0
+            win -> Save, filepath(fname + '.png', ROOT_DIR=directory)
+            
+        ;Multiple plots
+        endif else begin
+            for i = 0, nPlots-1 do begin
+                ;Take a snapshot
+                saveas = win[i].SaveAs
+                saveas -> SetProperty, IM_RASTER=0
+                win[i] -> Save, filepath(fname[i] + '.png', ROOT_DIR=directory)
+            endfor
+        endelse
+    endif
     
     return, win
 end

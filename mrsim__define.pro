@@ -1166,10 +1166,6 @@ DZ=dz
         'EMAG':       data = self -> Emag()
         'EPAR':       data = self -> Epar()
         'EPERP':      data = self -> Eperp()
-        'EXB_MAG':    data = self -> ExB_mag()
-        'EXB_X':      data = self -> ExB_x()
-        'EXB_Y':      data = self -> ExB_y()
-        'EXB_Z':      data = self -> ExB_z()
         'EXJX':       data = self -> ExJx()
         'EYBY':       data = self -> EyBy()
         'EYJY':       data = self -> EyJy()
@@ -1225,6 +1221,10 @@ DZ=dz
         'UIXB_X':     data = self -> UixB_x()
         'UIXB_Y':     data = self -> UixB_y()
         'UIXB_Z':     data = self -> UixB_z()
+        'VEXB_MAG':   data = self -> vExB_mag()
+        'VEXB_X':     data = self -> vExB_x()
+        'VEXB_Y':     data = self -> vExB_y()
+        'VEXB_Z':     data = self -> vExB_z()
         'VXB_X':      data = self -> VxB_x()
         'VXB_Y':      data = self -> VxB_y()
         'VXB_Z':      data = self -> VxB_z()
@@ -3086,45 +3086,7 @@ end
 ;       ExB_z:                  The z-component of the cross product between the Electric
 ;                                   and Magnetic Fields.
 ;-
-function MrSim::eCounts
-	compile_opt strictarr, hidden
-	
-	;Get the Electric and Magnetic Field data
-    electrons = self -> GetElectrons(self.xrange, self.zrange)
-    Ey = self -> getData('Ey')
-    Ez = self -> getData('Ez')
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the magnitude of ExB
-    B_mag_squared = Bx^2 + By^2 + Bz^2
-    ExB_x  = (Ey*Bz - Ez*By) / B_mag_squared
-    ExB_y  = (Ez*Bx - Ex*Bz) / B_mag_squared
-    ExB_z  = (Ex*By - Ey*Bx) / B_mag_squared
-    ExB_mag = sqrt(ExB_x^2 + ExB_y^2 + ExB_z^2)
-    
-    return, ExB_mag
-end
-
-
-;+
-;   The purpose of this program is to calculate the z-component of the cross product 
-;   between the Electric and Magnetic Fields::
-;       |B| = sqrt( Bx^2 + By^2 + Bz^2 )
-;       ExB_x = (Ey*Bz - Ez*By) / |B|^2
-;       ExB_y = (Ez*Bx - Ex*Bz) / |B|^2
-;       ExB_z = (Ex*By - Ey*Bx) / |B|^2
-;       ExB = ExB_x + ExB_y + ExB_z
-;       |ExB| = sqrt(ExB dot ExB) = sqrt( ExB_x^2 + ExB_y^2 + ExB_z^2 )
-;
-; :Private:
-;
-; :Returns:
-;       ExB_z:                  The z-component of the cross product between the Electric
-;                                   and Magnetic Fields.
-;-
-function MrSim::ExB_mag
+function MrSim::vExB_mag
 	compile_opt strictarr, hidden
 	
 	;Get the Electric and Magnetic Field data
@@ -3161,7 +3123,7 @@ end
 ;       ExB_x:                  The x-component of the cross product between the Electric
 ;                                   and Magnetic Fields.
 ;-
-function MrSim::ExB_x
+function MrSim::vExB_x
 	compile_opt strictarr, hidden
 	
 	;Get the Electric and Magnetic Field data
@@ -3194,13 +3156,12 @@ end
 ;       ExB_y:                  The y-component of the cross product between the Electric
 ;                                   and Magnetic Fields.
 ;-
-function MrSim::ExB_y
+function MrSim::vExB_y
 	compile_opt strictarr, hidden
 	on_error, 2
 	
 	;Get the Electric and Magnetic Field data
     Ex = self -> getData('Ex')
-    Ey = self -> getData('Ey')
     Ez = self -> getData('Ez')
     Bx = self -> getData('Bx')
     By = self -> getData('By')
@@ -3229,13 +3190,12 @@ end
 ;       ExB_z:                  The z-component of the cross product between the Electric
 ;                                   and Magnetic Fields.
 ;-
-function MrSim::ExB_z
+function MrSim::vExB_z
 	compile_opt strictarr, hidden
 	
 	;Get the Electric and Magnetic Field data
     Ex = self -> getData('Ex')
     Ey = self -> getData('Ey')
-    Ez = self -> getData('Ez')
     Bx = self -> getData('Bx')
     By = self -> getData('By')
     Bz = self -> getData('Bz')

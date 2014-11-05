@@ -223,12 +223,12 @@ _REF_EXTRA=extra
         
         ;Position of eMap bin indicated by LOCATION
         ;   - [x0, y0, z0, x1, y1, z1]
-        positions = [[center[0] - width[0]], $
-                     [center[1] - width[1]], $
-                     [center[2] - width[2]], $
-                     [center[0] + width[0]], $
-                     [center[1] + width[1]], $
-                     [center[2] + width[2]]]
+        positions = [center[0] - width[0], $
+                     center[1] - width[1], $
+                     center[2] - width[2], $
+                     center[0] + width[0], $
+                     center[1] + width[1], $
+                     center[2] + width[2]]
         
         ;Bin-center offsets from the center of the bin defined by LOCATION
         ;   - Dimensions are [position, col, row]
@@ -236,7 +236,7 @@ _REF_EXTRA=extra
         ;       o (+/-) indicates left/right (up/down) offset
         ;       o Offset by N bins
         hoffset = indgen(1, layout[0])
-        voffset = indgen(1, 1, layout[2])
+        voffset = indgen(1, 1, layout[1])
 
         ;XOFFSET
         if layout[0] gt 1 then begin
@@ -246,10 +246,10 @@ _REF_EXTRA=extra
                 3: hoffset -= layout[0] - 1         ;RIGHT
                 4: ;Do nothing                      ;LEFT
                 5: hoffset -= layout[0] / 2         ;CENTER
-                6: hoffset  = layout[0] - 1         ;RIGHT
+                6: hoffset -= layout[0] - 1         ;RIGHT
                 7: ;Do nothing                      ;LEFT
                 8: hoffset -= layout[0] / 2         ;CENTER
-                9: hoffset  = layout[0] - 1         ;RIGHT
+                9: hoffset -= layout[0] - 1         ;RIGHT
                 else: message, 'LOCATION must be an integer between 1 and 9.'
             endcase
         endif
@@ -262,19 +262,19 @@ _REF_EXTRA=extra
                 1: voffset  = -voffset                              ;TOP
                 2: voffset  = -voffset                              ;TOP
                 3: voffset  = -voffset                              ;TOP
-                4: voffset  = reverse(voffset - layout[1]/2, 4)     ;MIDDLE
-                5: voffset  = reverse(voffset - layout[1]/2, 4)     ;MIDDLE
-                6: voffset  = reverse(voffset - layout[1]/2, 4)     ;MIDDLE
+                4: voffset  = reverse(voffset - layout[1]/2, 3)     ;MIDDLE
+                5: voffset  = reverse(voffset - layout[1]/2, 3)     ;MIDDLE
+                6: voffset  = reverse(voffset - layout[1]/2, 3)     ;MIDDLE
                 7: ;Do nothing                                      ;BOTTOM
                 8: ;Do nothing                                      ;BOTTOM
                 9: ;Do nothing                                      ;BOTTOM
                 else: message, 'LOCATION must be an integer between 1 and 9.'
             endcase
         endif
-        
+
         ;Include bin widths and gaps between bins
-        hoffset = (2*dx + hGap) * rebin(hoffset, 2, layout[0], layout[1])
-        voffset = (2*dz + vGap) * rebin(voffset, 2, layout[0], layout[1])
+        hoffset = (2*width[0] + hGap) * rebin(hoffset, 2, layout[0], layout[1])
+        voffset = (2*width[2] + vGap) * rebin(voffset, 2, layout[0], layout[1])
         
         ;Data locations of distribution functions
         ;   - Saved as [position, index]
@@ -284,13 +284,15 @@ _REF_EXTRA=extra
         positions             = rebin(positions, 6, layout[0], layout[1])
         positions[[0,3],*,*] += hoffset
         positions[[2,5],*,*] += voffset
-        positions             = reform(positions, 4, nDist)
-        
+        positions             = reform(positions, 6, nDist)
+        hoffset               = reform(hoffset,   2, nDist)
+        voffset               = reform(voffset,   2, nDist)
+
         ;Bin centers
         centers = fltarr(3, nDist)
-        centers[0,*] = center[0] + temporary(hoffset)
+        centers[0,*] = center[0] + (temporary(hoffset))[0,*]
         centers[1,*] = center[1]
-        centers[2,*] = center[2] + temporary(voffset)
+        centers[2,*] = center[2] + (temporary(voffset))[0,*]
         center = !Null
         
         ;Half widths
@@ -331,8 +333,8 @@ _REF_EXTRA=extra
         theIm = im_win['Color ' + im_name]
         for i = 0, nDist - 1 do begin
             theBin = positions[*,i]
-            xpoly  = theBin[[0,2,2,0,0]]
-            ypoly  = theBin[[1,1,3,3,1]]
+            xpoly  = theBin[[0,3,3,0,0]]
+            ypoly  = theBin[[2,2,5,5,2]]
             !Null  = MrPlotS(xpoly, ypoly, TARGET=theIm, NAME='Bin ' + strtrim(i, 2), $
                              /DATA, COLOR='White', THICK=2.0)
         endfor
@@ -367,7 +369,7 @@ _REF_EXTRA=extra
     for i = 0, nDist - 1 do begin
         ;Create the distribution function
         ;   - Remove the colorbar
-        imgTemp  = MrSim_eDist(oSim, type, centers, widths, $
+        imgTemp  = MrSim_eDist(oSim, type, centers[*,i], widths[*,i], $
                                NBINS=nBins, CIRCLES=circles, /CURRENT, V_VA=v_va)
         win2    -> Remove, win2['CB: eDist'], /DESTROY
 

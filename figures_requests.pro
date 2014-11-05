@@ -16,6 +16,7 @@ SIM_OBJECT=oSim
     if the_error ne 0 then begin
         catch, /CANCEL
         if obj_valid(oSim) && arg_present(oSim) eq 0 then obj_destroy, oSim
+        if obj_valid(win) then obj_destroy, win
         void = cgErrorMSG()
         return, !Null
     endif
@@ -38,21 +39,21 @@ SIM_OBJECT=oSim
     win.YGAP  = 0
     
     ;Create the line plots
-    !Null = MrSim_LineCut(oSim, 'ExB_mag', xline[0], /CURRENT, VCUT_RANGE=[-5, 5])
-    !Null = MrSim_LineCut(oSim, 'ExB_x', xline[0], /CURRENT,   VCUT_RANGE=[-5, 5])
-    !Null = MrSim_LineCut(oSim, 'ExB_y', xline[0], /CURRENT,   VCUT_RANGE=[-5, 5])
-    !Null = MrSim_LineCut(oSim, 'ExB_z', xline[0], /CURRENT,   VCUT_RANGE=[-5, 5])
+    !Null = MrSim_LineCut(oSim, 'vExB_mag', xline[0], /CURRENT, VCUT_RANGE=[-5, 5])
+    !Null = MrSim_LineCut(oSim, 'vExB_x', xline[0], /CURRENT,   VCUT_RANGE=[-5, 5])
+    !Null = MrSim_LineCut(oSim, 'vExB_y', xline[0], /CURRENT,   VCUT_RANGE=[-5, 5])
+    !Null = MrSim_LineCut(oSim, 'vExB_z', xline[0], /CURRENT,   VCUT_RANGE=[-5, 5])
     
     ;Adjust
     win['Color Jey']   -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
-    win['Cut ExB_mag'] -> SetProperty, TITLE='', XTITLE='', XTICKFORMAT='(a1)'
-    win['Cut ExB_x']   -> SetProperty, TITLE='', XTITLE='', XTICKFORMAT='(a1)'
-    win['Cut ExB_y']   -> SetProperty, TITLE='', XTITLE='', XTICKFORMAT='(a1)'
-    win['Cut ExB_z']   -> SetProperty, TITLE=''
+    win['Cut vExB_mag'] -> SetProperty, TITLE='', XTITLE='', XTICKFORMAT='(a1)', YTITLE='|v$\downExB$|'
+    win['Cut vExB_x']   -> SetProperty, TITLE='', XTITLE='', XTICKFORMAT='(a1)', YTITLE='v$\downExB,x$'
+    win['Cut vExB_y']   -> SetProperty, TITLE='', XTITLE='', XTICKFORMAT='(a1)', YTITLE='v$\downExB,y$'
+    win['Cut vExB_z']   -> SetProperty, TITLE='', YTITLE='v$\downExB,z$'
     
     ;Draw a vertical line through the x-line
     !Null = MrPlotS([xline[0], xline[0]], [-5,5], TARGET=win['Color Jey'], COLOR='White')
-    
+
     ;Return
     win -> Refresh
     return, win
