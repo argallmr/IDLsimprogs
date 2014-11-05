@@ -250,6 +250,57 @@ end
 
 
 ;+
+;   Create Figure 2: 2D simulation.
+;-
+function Prox_FlyBy
+    compile_opt idl2
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(oSim)   then obj_destroy, oSim
+        if obj_valid(Fig1)   then obj_destroy, Fig1
+        if obj_valid(difwin) then obj_destroy, difwin
+        if obj_valid(cwin)   then obj_destroy, cwin
+        void = cgErrorMSG()
+        return, obj_new()
+    endif
+    
+    time   = 108090
+    ycell  = 905
+    xrange = 460 + [-40, 40]
+    zrange = [-20, 20]
+    root   = '/data2/Asymm-3D/'
+    oSim   = MrSim_Create('Asymm-3D', time, XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange, $
+                          DIRECTORY=root, INFO_BINARY=root+'/data/info', INFO_ASCII=root+'info', $
+                          /BINARY)
+    ycoord      = oSim -> GetCoord(ycell, /Y)
+    oSim.YRANGE = [ycoord, ycoord]
+
+    r0          = [457, ycoord, -15]
+    r1          = [457, ycoord,  15]
+    name        = 'Bx'
+    nDist       = 5
+    dist_type   = 'Vperp1-Vperp2'
+    dist_layout = [3,2]
+    dist_size   = [1,1,1]
+    im_name     = 'Dng_e'
+    velocity    = 60.0
+    win = MrSim_FlyBy( oSim, name, r0, r1, $
+                       /ADD_LEGEND, $
+                       IM_NAME='Dng_e', $
+                       NDIST=nDist, $
+                       DIST_LAYOUT=dist_layout, $
+                       DIST_TYPE=dist_type, $
+                       DIST_SIZE=dist_size, $
+                       DIST_WIN=dist_win, $
+                       VELOCITY=velocity)
+
+    return, win
+end
+
+
+;+
 ;   Create the desired figure.
 ;
 ; Params:
@@ -260,11 +311,10 @@ function Figures_Proximity, figure
     compile_opt strictarr
     on_error, 2
 
-    theFig = strtrim(figure, 2)
-
     ;Create the figure    
     case figure of
-        '1': win = Prox_Figure1()
+        'FIGURE 1':       win = Prox_Figure1()
+        'ASYMM-3D FLYBY': win = Prox_FlyBy()
         else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
     endcase
     

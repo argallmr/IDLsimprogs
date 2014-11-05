@@ -936,6 +936,8 @@ end
 ; :Keywords:
 ;-
 pro MrSim3D::GetInfo, $
+DTXWCI=dtxwci, $
+INFO_DTXWCI=info_dtxwci, $
 DX_DE=dx_de, $
 DY_DE=dy_de, $
 DZ_DE=dz_de, $
@@ -955,9 +957,30 @@ _REF_EXTRA=extra
     if arg_present(dx_de) then dx_de = (*self.info).lx_de / (*self.info).nx
     if arg_present(dy_de) then dy_de = (*self.info).ly_de / (*self.info).ny
     if arg_present(dz_de) then dz_de = (*self.info).lz_de / (*self.info).nz
+    
+    ;Hard code -- the one simulation that we have has a subset of time indices.
+    get_dtxwci = arg_present(dtxwci)
+    get_eCF    = arg_present(eCountFactor)
+    if get_dtxwci + get_eCF gt 0 then begin
+        MrSim_Which, self.simnum, TINDEX=self.time, ECOUNTFACTOR=eCountFactor, DTXWCI=dtxwci
+        
+        ;DTXWCI
+        if get_dtxwci && n_elements(dtxwci) eq 0 then begin
+            message, 'dt*wci unknown for simulatio #' + strtrim(self.simnum, 2) + '. ' + $
+                     'Setting dt*wci = 2', /INFORMATIONAL
+            dtxwci = 2
+        endif
+        
+        ;ECOUNTFACTOR
+        if get_eCF && n_elements(eCountFactor) eq 0 then begin
+            message, 'No explicit eCountFactor set. Setting eCountFactor = 1.', /INFORMATIONAL
+            eCountFactor = 1
+        endif
+    endif
 
     ;More Info
-    if n_elements(extra) gt 0 then self -> MrSim::GetInfo, _STRICT_EXTRA=extra
+    if n_elements(extra) gt 0 || n_elements(info_dtxwci) gt 0 $
+        then self -> MrSim::GetInfo, DTXWCI=info_dtxwci, _STRICT_EXTRA=extra
 end
 
 
@@ -1023,6 +1046,7 @@ FMAP_DIR=fmap_dir, $
 VELOCITY=velocity, $
 VERBOSE=verbose, $
 XRANGE=xrange, $
+YRANGE=yrange, $
 ZRANGE=zrange
     compile_opt strictarr
     
@@ -1037,21 +1061,24 @@ ZRANGE=zrange
     ;Get the y-grid-cell
     yslice = self -> GetCell(self.yrange[0], /Y)
 
-    ;Create defaults    
-    MrSim_Which, self.simname, EFILE=filename, FMAP_DIR=fMap_dir, TINDEX=self.time, YSLICE=yslice
-    
+    ;Create defaults
+    MrSim_Which, self.simname, EFILE=filename, DIST3D=dist3D, FMAP_DIR=fMap_dir, $
+                 TINDEX=self.time, YSLICE=yslice
+
     ;Set defaults
     if n_elements(filename) eq 0 then filename = eFile
     if n_elements(fmap_dir) eq 0 then fmap_dir = fmap
     if n_elements(xrange)   eq 0 then xrange   = self.xrange
+    if n_elements(yrange)   eq 0 then yrange   = self.yrange
     if n_elements(zrange)   eq 0 then zrange   = self.zrange
     
     ;Read the simulation info file
-    data = MrSim_ReadParticles(filename, xrange, zrange, $
-                               ENERGY           = energy, $
-                               FMAP_DIR         = fMap_dir, $
-                               VELOCITY         = velocity, $
-                               VERBOSE          = verbose)
+    data = MrSim_ReadParticles(filename, xrange, yrange, zrange, $
+                               DIST3D   = dist3D, $
+                               ENERGY   = energy, $
+                               FMAP_DIR = fMap_dir, $
+                               VELOCITY = velocity, $
+                               VERBOSE  = verbose)
     
     return, data
 end
@@ -1568,7 +1595,10 @@ _REF_EXTRA=extra
     self -> GetInfo, NX=nx, NY=ny, NZ=nz, LX_DE=lx_de, LY_DE=ly_de, LZ_DE=lz_de, MI_ME=mi_me
     message, string(FORMAT='(%"Simulation Size = %i x %i x %i")', nx, ny, nz), /INFORMATIONAL
     message, string(FORMAT='(%"Sim Size (de)   = %i x %i x %i")', lx_de, ly_de, lz_de), /INFORMATIONAL
-    message, string(FORMAT='(%"m_i / m_e       = %f")', mi_me), /INFORMATIONAL
+    
+    if n_elements(mi_me) gt 0 then begin
+        message, string(FORMAT='(%"m_i / m_e       = %f")', mi_me), /INFORMATIONAL
+    endif
     
     ;But use the reduced size found in the binary file.
     if binary eq 0 then begin

@@ -284,8 +284,8 @@ end
 ; Main-Level Example Program: IDL> .r MrSim_Create_fMap //////////////
 ;---------------------------------------------------------------------
 ;Files and directories
-filename = '/home/daughton/Asymm-3D/electrons-y905.bin'
-save_dir = '/home/argall/Work/AssymectricSim/fmaps/'
+filename = '/data2/Asymm-3D/electrons-y905.bin'
+save_dir = '/home/argall/simulations/fmaps/'
 
 ;Read the particle data
 MrSim_Create_fMap, filename, SAVE_DIR=save_dir, /VERBOSE

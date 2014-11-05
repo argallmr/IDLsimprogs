@@ -389,12 +389,12 @@ ZLOC=zloc
     ftest = filepath(fname, ROOT_DIR=fMap_dir)
     if file_test(ftest) then begin
         restore, ftest
-        iChunks = where(map_entry.d1_range[0] le xrange[1] and $
-                        map_entry.d1_range[1] ge xrange[0] and $
-                        map_entry.d2_range[0] le yrange[1] and $
-                        map_entry.d2_range[1] ge yrange[0] and $
-                        map_entry.d3_range[0] le zrange[1] and $
-                        map_entry.d3_range[1] ge zrange[0],    $
+        iChunks = where((map_entry.d1_range[0] le xrange[1]  and $
+                         map_entry.d1_range[1] ge xrange[0]) and $
+                        (map_entry.d2_range[0] le yrange[1]  and $
+                         map_entry.d2_range[1] ge yrange[0]) and $
+                        (map_entry.d3_range[0] le zrange[1]  and $
+                         map_entry.d3_range[1] ge zrange[0]),    $
                         n_chunks)
         
         ;No chunks found
@@ -494,10 +494,10 @@ ZLOC=zloc
     ;Convert to velocity
     if velocity then begin
         if dist3D then begin
-            e_gamma = sqrt(1.0 + total(data[2:4, *]^2, 1))
+            e_gamma = sqrt(1.0 + total(data[3:5, *]^2, 1))
             data[2:4, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
         endif else begin
-            e_gamma = sqrt(1.0 + total(data[3:5, *]^2, 1))
+            e_gamma = sqrt(1.0 + total(data[2:4, *]^2, 1))
             data[3:5, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
         endelse
     endif

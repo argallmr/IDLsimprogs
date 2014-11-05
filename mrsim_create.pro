@@ -53,10 +53,16 @@
 ;       ASCII_VERSION:  in, optional, type=integer, default=1
 ;                       Version of the ASCII info file. Ignored if `BINDARY`=1.
 ;                           See MrSim_Which.pro.
+;       ASCII_INFO:     in, optional, type=string, default=`DIRECTORY`/../info
+;                       File name of the ASCII info file containing information abou the
+;                           simulation to be used.
 ;       AXIS_LABELS:    in, optional, type=strarr(3), default="['x', 'y', 'z']"
 ;                       Labels for the axes.
 ;       BINARY:         in, optional, type=boolean, default=0
 ;                       If set, `INFO_FILE` points to the binary info file.
+;       BINARY_INFO:    in, optional, type=string, default=`DIRECTORY`/info
+;                       File name of the binary info file containing information abou the
+;                           simulation to be used.
 ;       COORD_SYSTEM:   in, optional, type=string, default='SIMULATION'
 ;                       Coordinate system in which to display the data. Options are::
 ;                           'SIMULATION'
@@ -107,6 +113,8 @@
 ;       2013/09/12  -   Written by Matthew Argall
 ;       2014/10/03  -   Added the ASCII_VERSION keyword. - MRA
 ;       2014/10/11  -   Forgot the DIRECTORY keyword. Fixed. - MRA
+;       2014/11/04  -   Added BINARY_INFO and ASCII_INFO keywords. Depricated the
+;                           INFO_FILE and BINARY keywords. - MRA
 ;-
 function MrSim_Create, thisSim, time, yslice, $
 ASCII_VERSION = ascii_version, $
@@ -114,7 +122,8 @@ AXIS_LABELS = axis_labels, $
 BINARY = binary, $
 COORD_SYSTEM = coord_system, $
 DIRECTORY = directory, $
-INFO_FILE = info_file, $
+INFO_ASCII = info_ascii, $
+INFO_BINARY = info_binary, $
 ION_SCALE = ion_scale, $
 MVA_FRAME = mva_frame, $
 NSMOOTH = nsmooth, $
@@ -131,7 +140,7 @@ ZRANGE = zrange
     if n_elements(simnum) eq 0 then return, !Null
 
     ;Which simulation object should be used?
-    class = dimension eq '2D' ? 'MrSim2' : 'MrSim2'
+    class = dimension eq '2D' ? 'MrSim2D' : 'MrSim3D'
 
     ;Create the simulation object
     sim_object = obj_new(class, simnum, time, yslice, $
@@ -140,7 +149,8 @@ ZRANGE = zrange
                          BINARY        = binary, $
                          COORD_SYSTEM  = coord_system, $
                          DIRECTORY     = directory, $
-                         INFO_FILE     = info_file, $
+                         INFO_ASCII    = info_ascii, $
+                         INFO_BINARY   = info_binary, $
                          ION_SCALE     = ion_scale, $
                          MVA_FRAME     = mva_frame, $
                          NSMOOTH       = nsmooth, $

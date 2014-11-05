@@ -67,10 +67,10 @@
 ; :Keywords:
 ;       ASCII_VERSION:      in, optional, type=integer, default=1
 ;                           Version of the ASCII info file.
-;       ASCII_INFO:         out, optional, type=string
+;       INFO_ASCII:         out, optional, type=string
 ;                           ASCII info file containing human readable information about
 ;                               the simlation.
-;       BINARY_INFO:        out, optional, type=string
+;       INFO_BINARY:        out, optional, type=string
 ;                           Binary info file containing information about the simulation.
 ;       DTXWCI:             out, optional, type=integer
 ;                           Time between time-slice of of the ".gda" field and moment
@@ -95,9 +95,9 @@
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_mime1836_by00, tIndex, $
-ASCII_INFO=ascii_info, $
+INFO_ASCII=info_ascii, $
 ASCII_VERSION=ascii_version, $
-BINARY_INFO=binary_info, $
+INFO_BINARY=info_binary, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
@@ -114,17 +114,17 @@ on_error, 2
 
     ;Binary Info File
     ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
 
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
+    if arg_present(info_ascii) then begin
         cd, CURRENT=pwd
         cd, directory
         cd, '..'
         cd, CURRENT=ascii_dir
         cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
     endif
 
     ;Electron files
@@ -167,10 +167,10 @@ end
 ; :Keywords:
 ;       ASCII_VERSION:      in, optional, type=integer, default=1
 ;                           Version of the ASCII info file.
-;       ASCII_INFO:         out, optional, type=string
+;       INFO_ASCII:         out, optional, type=string
 ;                           ASCII info file containing human readable information about
 ;                               the simlation.
-;       BINARY_INFO:        out, optional, type=string
+;       INFO_BINARY:        out, optional, type=string
 ;                           Binary info file containing information about the simulation.
 ;       DTXWCI:             out, optional, type=integer
 ;                           Time between time-slice of of the ".gda" field and moment
@@ -195,9 +195,9 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_mime1836_by05, tIndex, $
-    ASCII_INFO=ascii_info, $
+    INFO_ASCII=info_ascii, $
     ASCII_VERSION=ascii_version, $
-    BINARY_INFO=binary_info, $
+    INFO_BINARY=info_binary, $
     DTXWCI=dtxwci, $
     ECOUNTFACTOR=eCountFactor, $
     EFILE=eFile, $
@@ -214,17 +214,17 @@ pro MrSim_Which_mime1836_by05, tIndex, $
     
     ;Binary Info File
     ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
     
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
+    if arg_present(info_ascii) then begin
         cd, CURRENT=pwd
         cd, directory
         cd, '..'
         cd, CURRENT=ascii_dir
         cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
     endif
     
     ;Electron files
@@ -263,10 +263,10 @@ end
 ; :Keywords:
 ;       ASCII_VERSION:      in, optional, type=integer, default=1
 ;                           Version of the ASCII info file.
-;       ASCII_INFO:         out, optional, type=string
+;       INFO_ASCII:         out, optional, type=string
 ;                           ASCII info file containing human readable information about
 ;                               the simlation.
-;       BINARY_INFO:        out, optional, type=string
+;       INFO_BINARY:        out, optional, type=string
 ;                           Binary info file containing information about the simulation.
 ;       DTXWCI:             out, optional, type=integer
 ;                           Time between time-slice of of the ".gda" field and moment
@@ -291,9 +291,9 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_mime1836_by10, tIndex, $
-ASCII_INFO=ascii_info, $
+INFO_ASCII=info_ascii, $
 ASCII_VERSION=ascii_version, $
-BINARY_INFO=binary_info, $
+INFO_BINARY=info_binary, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
@@ -310,17 +310,17 @@ FMAP_DIR=fMap_dir
     
     ;Binary Info File
     ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
     
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
+    if arg_present(info_ascii) then begin
         cd, CURRENT=pwd
         cd, directory
         cd, '..'
         cd, CURRENT=ascii_dir
         cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
     endif
     
     ;Electron files
@@ -359,10 +359,10 @@ end
 ; :Keywords:
 ;       ASCII_VERSION:      in, optional, type=integer, default=1
 ;                           Version of the ASCII info file.
-;       ASCII_INFO:         out, optional, type=string
+;       INFO_ASCII:         out, optional, type=string
 ;                           ASCII info file containing human readable information about
 ;                               the simlation.
-;       BINARY_INFO:        out, optional, type=string
+;       INFO_BINARY:        out, optional, type=string
 ;                           Binary info file containing information about the simulation.
 ;       DTXWCI:             out, optional, type=integer
 ;                           Time between time-slice of of the ".gda" field and moment
@@ -387,9 +387,9 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_mime1836_by40, tIndex, $
-ASCII_INFO=ascii_info, $
+INFO_ASCII=info_ascii, $
 ASCII_VERSION=ascii_version, $
-BINARY_INFO=binary_info, $
+INFO_BINARY=info_binary, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
@@ -406,17 +406,17 @@ FMAP_DIR=fMap_dir
     
     ;Binary Info File
     ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
     
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
+    if arg_present(info_ascii) then begin
         cd, CURRENT=pwd
         cd, directory
         cd, '..'
         cd, CURRENT=ascii_dir
         cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
     endif
     
     ;Electron files
@@ -455,10 +455,10 @@ end
 ; :Keywords:
 ;       ASCII_VERSION:      in, optional, type=integer, default=1
 ;                           Version of the ASCII info file.
-;       ASCII_INFO:         out, optional, type=string
+;       INFO_ASCII:         out, optional, type=string
 ;                           ASCII info file containing human readable information about
 ;                               the simlation.
-;       BINARY_INFO:        out, optional, type=string
+;       INFO_BINARY:        out, optional, type=string
 ;                           Binary info file containing information about the simulation.
 ;       DIST3D:             out, optional, type=boolean
 ;                           Inditates whether or not the `EFILE` contains 2D or 3D spacial
@@ -486,38 +486,38 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_Asymm3D, tIndex, yslice, $
-ASCII_INFO=ascii_info, $
 ASCII_VERSION=ascii_version, $
-BINARY_INFO=binary_info, $
 DIST3D=dist3d, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
 EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
+FMAP_DIR=fMap_dir, $
+INFO_ASCII=info_ascii, $
+INFO_BINARY=info_binary
     compile_opt strictarr
     on_error, 2
 
-    ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
+    ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
     directory = '/data2/Asymm-3D/data/'
     dtxwci    = 8.324609e-04 ;From info file - no t-slices in 3D .gda files
     if arg_present(ascii_version) then ascii_version = 1
-    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/Work/AssymectricSim/fmaps/'
+    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/fmaps/'
     if arg_present(eCountFactor)  then eCountFactor  = 2.0
 
     ;Binary Info File
     ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
     
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
+    if arg_present(info_ascii) then begin
         cd, CURRENT=pwd
         cd, directory
         cd, '..'
         cd, CURRENT=ascii_dir
         cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
     endif
 
     ;Electron files
@@ -578,10 +578,10 @@ end
 ; :Keywords:
 ;       ASCII_VERSION:      in, optional, type=integer, default=1
 ;                           Version of the ASCII info file.
-;       ASCII_INFO:         out, optional, type=string
+;       INFO_ASCII:         out, optional, type=string
 ;                           ASCII info file containing human readable information about
 ;                               the simlation.
-;       BINARY_INFO:        out, optional, type=string
+;       INFO_BINARY:        out, optional, type=string
 ;                           Binary info file containing information about the simulation.
 ;       DTXWCI:             out, optional, type=integer
 ;                           Time between time-slice of of the ".gda" field and moment
@@ -605,9 +605,9 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_AsymmLarge2D, tIndex, $
-ASCII_INFO=ascii_info, $
+INFO_ASCII=info_ascii, $
 ASCII_VERSION=ascii_version, $
-BINARY_INFO=binary_info, $
+INFO_BINARY=info_binary, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
@@ -624,17 +624,17 @@ FMAP_DIR=fMap_dir
 
     ;Binary Info File
     ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
     
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
+    if arg_present(info_ascii) then begin
         cd, CURRENT=pwd
         cd, directory
         cd, '..'
         cd, CURRENT=ascii_dir
         cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
     endif
 
     ;Electron files
@@ -660,10 +660,10 @@ end
 ; :Keywords:
 ;       ASCII_VERSION:      in, optional, type=integer, default=1
 ;                           Version of the ASCII info file.
-;       ASCII_INFO:         out, optional, type=string
+;       INFO_ASCII:         out, optional, type=string
 ;                           ASCII info file containing human readable information about
 ;                               the simlation.
-;       BINARY_INFO:        out, optional, type=string
+;       INFO_BINARY:        out, optional, type=string
 ;                           Binary info file containing information about the simulation.
 ;       DTXWCI:             out, optional, type=integer
 ;                           Time between time-slice of of the ".gda" field and moment
@@ -687,9 +687,9 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_AsymmLarge2D_NEW, tIndex, $
-ASCII_INFO=ascii_info, $
+INFO_ASCII=info_ascii, $
 ASCII_VERSION=ascii_version, $
-BINARY_INFO=binary_info, $
+INFO_BINARY=info_binary, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
@@ -698,7 +698,7 @@ FMAP_DIR=fMap_dir
     compile_opt strictarr
     on_error, 2
 
-    ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
+    ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
     directory = '/data2/Asymm-Large-2D-NEW/data/'
     dtxwci    = 5.0
     if arg_present(ascii_version) then ascii_version = 1
@@ -706,17 +706,17 @@ FMAP_DIR=fMap_dir
 
     ;Binary Info File
     ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
     
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
+    if arg_present(info_ascii) then begin
         cd, CURRENT=pwd
         cd, directory
         cd, '..'
         cd, CURRENT=ascii_dir
         cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
     endif
 
     ;Electron files
@@ -775,10 +775,10 @@ end
 ; :Keywords:
 ;       ASCII_VERSION:      in, optional, type=integer, default=1
 ;                           Version of the ASCII info file.
-;       ASCII_INFO:         out, optional, type=string
+;       INFO_ASCII:         out, optional, type=string
 ;                           ASCII info file containing human readable information about
 ;                               the simlation.
-;       BINARY_INFO:        out, optional, type=string
+;       INFO_BINARY:        out, optional, type=string
 ;                           Binary info file containing information about the simulation.
 ;       DTXWCI:             out, optional, type=integer
 ;                           Time between time-slice of of the ".gda" field and moment
@@ -802,9 +802,9 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_AsymmScan_By0, tIndex, $
-ASCII_INFO=ascii_info, $
+INFO_ASCII=info_ascii, $
 ASCII_VERSION=ascii_version, $
-BINARY_INFO=binary_info, $
+INFO_BINARY=info_binary, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
@@ -813,7 +813,7 @@ FMAP_DIR=fMap_dir
     compile_opt strictarr
     on_error, 2
 
-    ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
+    ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
     directory = '/data2/Asymm-Scan/By0/data/'
     dtxwci    = 2.0
     if arg_present(ascii_version) then ascii_version = 1
@@ -822,17 +822,17 @@ FMAP_DIR=fMap_dir
 
     ;Binary Info File
     ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
     
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
+    if arg_present(info_ascii) then begin
         cd, CURRENT=pwd
         cd, directory
         cd, '..'
         cd, CURRENT=ascii_dir
         cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
     endif
 
     ;Electron files
@@ -874,11 +874,6 @@ end
 ; :Keywords:
 ;       ASCII_VERSION:      in, optional, type=integer, default=1
 ;                           Version of the ASCII info file.
-;       ASCII_INFO:         out, optional, type=string
-;                           ASCII info file containing human readable information about
-;                               the simlation.
-;       BINARY_INFO:        out, optional, type=string
-;                           Binary info file containing information about the simulation.
 ;       DTXWCI:             out, optional, type=integer
 ;                           Time between time-slice of of the ".gda" field and moment
 ;                               files. Multiply `TINDEX` by DTXWCI to get unitless
@@ -899,20 +894,25 @@ end
 ;                               }
 ;       FMAP_DIR:           out, optional, type=string
 ;                           Directory in which fMaps are saved.
+;       INFO_ASCII:         out, optional, type=string
+;                           ASCII info file containing human readable information about
+;                               the simlation.
+;       INFO_BINARY:        out, optional, type=string
+;                           Binary info file containing information about the simulation.
 ;-
 pro MrSim_Which_AsymmScan_By1, tIndex, $
-ASCII_INFO=ascii_info, $
 ASCII_VERSION=ascii_version, $
-BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
 EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
+FMAP_DIR=fMap_dir, $
+INFO_ASCII=info_ascii, $
+INFO_BINARY=info_binary
     compile_opt strictarr
     on_error, 2
 
-    ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
+    ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
     directory = '/data2/Asymm-Scan/By1/data/'
     dtxwci    = 2.0
     if arg_present(ascii_version) then ascii_version = 1
@@ -921,17 +921,17 @@ FMAP_DIR=fMap_dir
 
     ;Binary Info File
     ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
     
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
+    if arg_present(info_ascii) then begin
         cd, CURRENT=pwd
         cd, directory
         cd, '..'
         cd, CURRENT=ascii_dir
         cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
     endif
 
     ;Electron files
@@ -972,11 +972,6 @@ end
 ; :Keywords:
 ;       ASCII_VERSION:      in, optional, type=integer, default=1
 ;                           Version of the ASCII info file.
-;       ASCII_INFO:         out, optional, type=string
-;                           ASCII info file containing human readable information about
-;                               the simlation.
-;       BINARY_INFO:        out, optional, type=string
-;                           Binary info file containing information about the simulation.
 ;       DTXWCI:             out, optional, type=integer
 ;                           Time between time-slice of of the ".gda" field and moment
 ;                               files. Multiply `TINDEX` by DTXWCI to get unitless
@@ -997,20 +992,25 @@ end
 ;                               }
 ;       FMAP_DIR:           out, optional, type=string
 ;                           Directory in which fMaps are saved.
+;       INFO_ASCII:         out, optional, type=string
+;                           ASCII info file containing human readable information about
+;                               the simlation.
+;       INFO_BINARY:        out, optional, type=string
+;                           Binary info file containing information about the simulation.
 ;-
 pro MrSim_Which_Sim1, tIndex, $
-ASCII_INFO=ascii_info, $
 ASCII_VERSION=ascii_version, $
-BINARY_INFO=binary_info, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
 EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
+FMAP_DIR=fMap_dir, $
+INFO_ASCII=info_ascii, $
+INFO_BINARY=info_binary
     compile_opt strictarr
     on_error, 2
 
-    ;DIRECTORY and DTXWCI are needed for ASCII_INFO, BINARY_INFO, and EFILE
+    ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
     directory = '/data1/sim1/data/'
     dtxwci    = 0.25
     if arg_present(ascii_version) then ascii_version = 1
@@ -1020,17 +1020,17 @@ FMAP_DIR=fMap_dir
     
     ;Binary Info File
     ;   - Stored in the data directory
-    if arg_present(binary_info)  then binary_info = filepath('info', ROOT_DIR=directory)
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
     
     ;Ascii Info File
     ;   - Stored one directory up from the data directory
-    if arg_present(ascii_info) then begin
+    if arg_present(info_ascii) then begin
         cd, CURRENT=pwd
         cd, directory
         cd, '..'
         cd, CURRENT=ascii_dir
         cd, pwd
-        ascii_info = filepath('info', ROOT_DIR=ascii_dir)
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
     endif
 
     ;Electron files
@@ -1105,8 +1105,8 @@ end
 ;                           Y-slice within a 3D simulation.
 ;       _REF_EXTRA:         in, optional, type=any
 ;                           The following output keywords are also accepted::
-;                               ASCII_INFO   - Ascii info file.
-;                               BINARY_INFO  - Binary info file.
+;                               INFO_ASCII   - Ascii info file.
+;                               INFO_BINARY  - Binary info file.
 ;                               DIST3D       - Indicates EFILE has 3D spacial coordinates (3D simulations).
 ;                               DTXWCI       - Time interval between time-slices in .gda files.
 ;                               ECOUNTFACTOR - Electron count multiplication factor.
@@ -1130,7 +1130,7 @@ _REF_EXTRA=extra
     simInfo = [['#',  'D',   'Asymmetric', 'Name',                'Directory'], $
                ['1',  '2D',     'yes',     'Asymm-Large-2D',      '/data2/Asymm-Large-2D/data/'], $
                ['2',  '2D',     'yes',     'Asymm-Large-2D-NEW',  '/data2/Asymm-Large-2D-NEW/data/'], $
-               ['3',  '3D',     'yes',     'Asymm-3D',            '/home/daughton/Asymm-3D/data/'], $
+               ['3',  '3D',     'yes',     'Asymm-3D',            '/data2/Asymm-3D/data/'], $
                ['4',  '2D',     'yes',     'Asymm-2D',            '/data2/Asymm-2D/data/'], $
                ['5',  '2D',     'no',      'sim1',                '/data1/sim1/data/'], $
                ['6',  '2D',     'no',      'mime400',             '/data1/sim1/mime400/data/'], $

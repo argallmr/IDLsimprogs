@@ -178,7 +178,7 @@ _REF_EXTRA = extra
         
     ;Object?
     endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM2') eq 0 $
+        if obj_isa(theSim, 'MRSIM') eq 0 $
             then message, 'THESIM must be a subclass of the MrSim class.' $
             else oSim = theSim
             
@@ -262,7 +262,7 @@ _REF_EXTRA = extra
             xtitle = axLabls[0] + ' (' + units + ')'
             ytitle = axLabls[2] + ' (' + units + ')'
             
-            if oSim.dimension eq '3D' then begin
+            if obj_class(oSim) eq 'MRSIM3D' then begin
                 oSim -> GetProperty, YRANGE=yrange
                 title += '  ' + axLabls[1] + '=' + string(yrange[0], FORMAT='(f0.1)') + units
             endif

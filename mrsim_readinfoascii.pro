@@ -220,7 +220,7 @@ VERSION=version
         void = cgErrorMsg()
         return, !null
     endif
-    
+
     ;Make sure the file exists
     if file_test(filename) eq 0 then message, 'File not found: "' + filename + '"'
     

@@ -101,7 +101,7 @@
 ;       AXIS_LABELS:    in, optional, type=strarr(3), default="['x', 'y', 'z']"
 ;                       Labels for the axes.
 ;       BINARY:         in, optional, type=boolean, default=0
-;                       If set, `INFO_FILE` points to the binary info file.
+;                       If set, use the binary info file instead of the ascii info file.
 ;       COORD_SYSTEM:   in, optional, type=string, default='SIMULATION'
 ;                       Coordinate system in which to display the data. Options are::
 ;                           'SIMULATION'
@@ -109,13 +109,12 @@
 ;                           'MAGNETOTAIL'
 ;       DIRECTORY:      in, optional, type=string, default=pwd
 ;                       Directory in which to find the ".gda" data.
-;       INFO_FILE:      in, optional, type=string, default=`DIRECTORY`/../info`
+;       INFO_ASCII:     in, optional, type=string, default=`DIRECTORY`/../info
 ;                       The ASCII info file containing information about the simulation
-;                           setup. If `BINARY` is set, the default file will be
-;                           `DIRECTORY`/info.
-;       INFO_VERSION:   in, optional, type=integer, default=1
-;                       Version of the info file to read. Ignored if `BINARY`=1.
-;                           See MrSim_Which.pro.
+;                           setup.
+;       INFO_BINARY:    in, optional, type=string, default=`DIRECTORY`/info
+;                       The binary info file containing information about the simulation
+;                           setup.
 ;       ION_SCALE:      in, optional, type=boolean, default=0
 ;                       Construct the simulation domain in units of "di" instead of "de"
 ;                           (the ion and electron skin depth, respectively).
@@ -148,8 +147,8 @@ AXIS_LABELS = axis_labels, $
 BINARY = binary, $
 COORD_SYSTEM = coord_system, $
 DIRECTORY = directory, $
-INFO_FILE = info_file, $
-INFO_VERSION = info_version, $
+INFO_ASCII = info_ascii, $
+INFO_BINARY = binary_info, $
 ION_SCALE = ion_scale, $
 MVA_FRAME = mva_frame, $
 NSMOOTH = nsmooth, $
@@ -180,17 +179,17 @@ ZRANGE = zrange
     endif      
 
     ;Get information about the simulation
-    MrSim_Which, theSim, NAME=simname, NUMBER=simnum, $
-                 DIRECTORY=_dir, ASCII_INFO=_ascii_info, BINARY_INFO=_bin_info, $
+    MrSim_Which, theSim, NAME=simname, NUMBER=simnum, DIRECTORY=_dir, $
+                 INFO_ASCII=_ascii_info, INFO_BINARY=_bin_info, $
                  ASCII_VERSION=vASCII
     
     ;Defaults
     binary = keyword_set(binary)
     if n_elements(directory)     eq 0 then directory     = _dir
     if n_elements(ascii_version) eq 0 then ascii_version = vASCII
-    if n_elements(info_file)     eq 0 $
-        then info_file = binary ? _bin_info : _ascii_info
-    
+    if n_elements(info_ascii)    eq 0 then info_ascii    = _ascii_info
+    if n_elements(info_binary)   eq 0 then info_binary   = _bin_info
+
     ;Properties
     self.simnum    = simnum
     self.simname   = simname
@@ -201,20 +200,18 @@ ZRANGE = zrange
     
     ;Make sure the file exists
     self.info = ptr_new(/ALLOCATE_HEAP)
-    if file_test(info_file) eq 0 then $
-        message, 'Cannot find ASCII info file: "' + info_file + '"'
-    
+
     ;Binary info file
     if binary then begin
         if keyword_set(ion_scale) then $
             message, 'ION_SCALE is only possible with ASCII info file. ' + $
                      'Setting ION_SCALE=0', /INFORMATIONAL
         ion_scale = 0
-        self -> ReadInfo_Binary, info_file
+        self -> ReadInfo_Binary, info_binary
         
     ;Ascii info file
     endif else begin
-        self -> ReadInfo_Ascii, info_file, VERSION=ascii_version
+        self -> ReadInfo_Ascii, info_ascii, VERSION=ascii_version
     endelse
 
 ;-------------------------------------------------------

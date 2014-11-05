@@ -138,7 +138,7 @@ _REF_EXTRA = extra
         
     ;Object?
     endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM2') eq 0 $
+        if obj_isa(theSim, 'MRSIM') eq 0 $
             then message, 'THESIM must be a subclass of the MrSim class.' $
             else oSim = theSim
             
