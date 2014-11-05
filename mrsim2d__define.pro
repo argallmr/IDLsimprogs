@@ -100,7 +100,7 @@
 ;+
 ;   This method initializes the MrSim2D class.
 ;-
-function MrSim2D::INIT, theSim, time, $
+function MrSim2D::INIT, theSim, time, yslice, $
 _REF_EXTRA=extra
     compile_opt strictarr
     
