@@ -95,9 +95,12 @@
 ;    Modification History::
 ;       2014/09/05  -   Written by Matthew Argall
 ;       2014/10/30  -   Added the SIM3D keyword. - MRA
+;       2014/11/06  -   Added the OVERWRITE keyword and changed the output file name to
+;                           create fewer conflicts. - MRA
 ;-
 pro MrSim_Create_fMap, filename, $
 N_RECS_PER_CHUNK=n_rec_per_chunk, $
+OVERWRITE=overwrite, $
 RANGE1=range1, $
 RANGE2=range2, $
 RANGE3=range3, $
@@ -117,8 +120,9 @@ VERBOSE=verbose
 
     ;Defaults
     ;   - There are five 4-byte numbers associated with each particle.
-    sim3d   = keyword_set(sim3d)
-    verbose = keyword_set(verbose)
+    overwrite = keyword_set(overwrite)
+    sim3d     = keyword_set(sim3d)
+    verbose   = keyword_set(verbose)
     if n_elements(n_recs_per_chunk) eq 0 then n_recs_per_chunk = 1000000ULL
     if n_elements(rec_sample)       eq 0 then rec_sample       = sim3d ? fltarr(6) : fltarr(5)
     if n_elements(save_dir)         eq 0 then void             = cgRootName(filename, DIRECTORY=save_dir)
@@ -126,6 +130,17 @@ VERBOSE=verbose
     ;Make sure the file exists
     if file_test(filename) eq 0 then $
         message, 'File does not exist: "' + filename + '".'
+    
+    ;Form the output file name
+    fbase    = cgRootName(filename, DIRECTORY=directory)
+    sname    = idl_validname(file_basename(directory), /CONVERT_ALL)
+    file_out = filepath('MrFMap' + (sim3d ? '3d' : '2d') + '_' + sname + '_' + fbase + '.sav', ROOT_DIR=save_dir)
+    
+    ;Check if the output file exists already
+    if file_test(file_out) then begin
+        if ~overwrite then $
+            message, 'Output file name already exists. Use /OVERWRITE. "' + file_out + '".'
+    endif
 
 ;---------------------------------------------------------------------
 ;Record Info /////////////////////////////////////////////////////////
@@ -166,15 +181,15 @@ VERBOSE=verbose
     ;Print information about the file
     if verbose then begin
         print, 'Information about ' + filename + ':'
-        print, '   # per rec          : ', n_per_rec
-        print, '   record type        : ', tname
-        print, '   record size        : ', rec_size
-        print, '   filesize           : ', finfo.size
-        print, '   #records in file   : ', n_recs
-        print, '   #records per chunk : ', n_recs_per_chunk
-        print, '   #chunks to read    : ', n_chunks
+        print, FORMAT='(%"   # per rec          : %i")', n_per_rec
+        print, FORMAT='(%"   record type        : %s")', tname
+        print, FORMAT='(%"   record size        : %i")', rec_size
+        print, FORMAT='(%"   filesize           : %i")', finfo.size
+        print, FORMAT='(%"   #records in file   : %i")', n_recs
+        print, FORMAT='(%"   #records per chunk : %i")', n_recs_per_chunk
+        print, FORMAT='(%"   #chunks to read    : %i")', n_chunks
         if n_recs_last gt 0 then $
-            print, '   last chunk size    : ', n_recs_last
+            print, FORMAT='(%"   last chunk size    : %i")', n_recs_last
     endif
 
 ;---------------------------------------------------------------------
@@ -261,10 +276,6 @@ VERBOSE=verbose
 
     ;Close the file
     free_lun, lun
-    
-    ;Create the output filename
-    fbase    = cgRootName(filename)
-    file_out = filepath(fbase + '_mrfMap' + (sim3d ? '3d' : '2d') + '.sav', ROOT_DIR=save_dir)
 
     ;Display the range
     if verbose then begin
@@ -284,11 +295,10 @@ end
 ; Main-Level Example Program: IDL> .r MrSim_Create_fMap //////////////
 ;---------------------------------------------------------------------
 ;Files and directories
-filename = '/data2/Asymm-3D/electrons-y905.bin'
+filename = '/data1/sim1/particles-by0.03/electrons-t29.bin'
 save_dir = '/home/argall/simulations/fmaps/'
 
 ;Read the particle data
 MrSim_Create_fMap, filename, SAVE_DIR=save_dir, /VERBOSE
-
 
 end

@@ -194,6 +194,12 @@ ZRANGE = zrange
     self.simnum    = simnum
     self.simname   = simname
     self.directory = directory
+    
+    ;Use binary file?
+    if ~binary && ~file_test(info_ascii) then begin
+        message, 'ASCII info file not found. Switching to binary info file.', /INFORMATIONAL
+        binary = 1
+    endif
 ;-------------------------------------------------------
 ;Read the Info File ////////////////////////////////////
 ;-------------------------------------------------------
@@ -1608,6 +1614,60 @@ Z=z
     endcase
     
     return, cell
+end
+
+
+;+
+;   Convert time, normalized to the ion gyroperiod, to time indices into the .gda data
+;   files.
+;
+; :Params:
+;       TXWCI:          in, required, type=integer
+;                       Time, normalized by the ion cyclotron frequency.
+;
+; :Returns:
+;       TINDEX:         Time index into the .gda files.
+;-
+function MrSim::GetTIndex, txwci
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Get the interval between saves.
+    self -> GetInfo, DTXWCI=dtxwci
+    if n_elements(dtxwci) eq 0 then $
+        message, 'Cannot convert: dt*wci unknown. Read ASCII info file and see MrSim_Which.'
+
+    ;Create a long integer of the time index.
+    tIndex = fix(txwci / dtxwci, TYPE=3)
+    
+    return, tIndex
+end
+
+
+;+
+;   Convert time indices into the .gda data files to time, normalized to the ion
+;   gyroperiod.
+;
+; :Params:
+;       TINDEX:         in, required, type=integer
+;                       Time index into the .gda files.
+;
+; :Returns:
+;       TXWCI:          Time, normalized by the ion cyclotron frequency.
+;-
+function MrSim::GetTxWci, tIndex
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Get the interval between saves.
+    self -> GetInfo, DTXWCI=dtxwci
+    if n_elements(dtxwci) eq 0 then $
+        message, 'Cannot convert: dt*wci unknown. Read ASCII info file and see MrSim_Which.'
+
+    ;Create a long integer of the time index.
+    txwci = tIndex * dtxwci
+    
+    return, txwci
 end
 
 

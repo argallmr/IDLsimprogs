@@ -136,14 +136,14 @@ ZRANGE = zrange
     on_error, 2
     
     ;Which Simulation was chosen?
-    MrSim_Which, thisSim, NUMBER=simnum, DIMENSION=dimension
-    if n_elements(simnum) eq 0 then return, !Null
+    MrSim_Which, thisSim, NAME=simname, DIMENSION=dimension
+    if n_elements(simname) eq 0 then return, !Null
 
     ;Which simulation object should be used?
     class = dimension eq '2D' ? 'MrSim2D' : 'MrSim3D'
 
     ;Create the simulation object
-    sim_object = obj_new(class, simnum, time, yslice, $
+    sim_object = obj_new(class, simname, time, yslice, $
                          ASCII_VERSION = ascii_version, $
                          AXIS_LABELS   = axis_labels, $
                          BINARY        = binary, $

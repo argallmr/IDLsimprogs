@@ -88,19 +88,19 @@ function MrSim_ReadParticles_Examples, example
     case example of
     
 ;---------------------------------------------------------------------
-; Histogrom of Particle Counts vs. Denstiy: Asymm-3D /////////////////
+; Histogrom of Particle Counts vs. Denstiy: Asymm-Scan/By1 ///////////
 ;---------------------------------------------------------------------
         1: begin
             ;Define in puts
+            theSim   = 'Asymm-Scan/By1'
             time     = 30
             xrange   = [420, 450]
             zrange   = [-10, 10]
             binsize  = [0.5, 0.5]
-            filename = '/data2/Asymm-Scan/By1/electrons-twci60-it70200.bin'
+            MrSim_Which, theSim, EFILE=eFile, FMAP_DIR=fMap_dir, TINDEX=tIndex
 
             ;Histogram particle data.
-            data = MrSim_ReadParticles(filename, xrange, zrange, /VERBOSE, $
-                                       BINSIZE=binSize, XLOC=x, ZLOC=z)
+            data = MrSim_ReadParticles(eFile, xrange, yrange, zrange, FMAP_DIR=fMap_dir, /VERBOSE)
 
             ;Create a window
             win = MrWindow(OXMARGIN=[10,15], NAME='e- Counts vs. Density.')
@@ -108,12 +108,12 @@ function MrSim_ReadParticles_Examples, example
             ;Plot an image of the histogram.
             img   = MrImage(data, x, z, /AXES, /SCALE, CTINDEX=13, /CURRENT, /LOG, $
                             XTITLE='x (de)', YTITLE='z (de)', TITLE='Particle Counts', $
-                            MISSING_VALUE=0)
-            !Null = MrColorbar(TARGET=img, TITLE='Counts', /CURRENT)
+                            MISSING_VALUE=0, NAME='Counts')
+            !Null = MrColorbar(TARGET=img, TITLE='Counts', NAME='CB: Counts', /CURRENT)
 
             ;Compare it with density.
-            oSim  = MrSim_Create('Asymm-Scan/By1', time, XRANGE=xrange, ZRANGE=zrange)
-            !Null = MrSim_ColorSlab('ne', /CURRENT, SIM_OBJECT=oSim)
+            oSim  = MrSim_Create(theSim, tIndex, XRANGE=xrange, ZRANGE=zrange)
+            !Null = MrSim_ColorSlab(oSim, 'ne', /CURRENT)
             obj_destroy, oSim
             
             return, win
@@ -124,67 +124,15 @@ function MrSim_ReadParticles_Examples, example
 ;---------------------------------------------------------------------
         2: begin
             ;Define inputs
-            time     = 18
+            theSim   = 'Asymm-Large-2D-NEW'
+            tIndex   = 18
             xrange   = 1473 + [-40,40]
             zrange   = [-25, 10]
             binsize  = [0.5, 0.5]
-            filename = '/data2/Asymm-Large-2D-NEW/electrons-t' + strtrim(5*time, 2) + '.bin'
+            MrSim_Which, theSim, EFILE=eFile, FMAP_DIR=fMap_dir, TINDEX=tIndex
 
             ;Read the particle data
-            data = MrSim_ReadParticles(filename, xrange, zrange, FMAP_DIR='', /VERBOSE)
-            data = data[0:1,*]
-            dims = size(data, /DIMENSIONS)
-
-            ;Histogram the data
-            hist = hist_nd(data, binsize, MIN=[xrange[0], zrange[0]], MAX=[xrange[1], zrange[1]])
-
-            ;Create the data arrays
-            x = linspace(xrange[0], xrange[1], binsize[0], /INTERVAL)
-            z = linspace(zrange[0], zrange[1], binsize[1], /INTERVAL)
-
-            ;Create a window
-            win2 = MrWindow(XSIZE=500, YSIZE=550, OXMARGIN=[10,15])
-
-            ;Plot the histogram
-            img   = MrImage(hist, x, z, /AXES, /SCALE, CTINDEX=13, /CURRENT, $
-                            XTITLE='x (de)', YTITLE='z (de)', TITLE='Particle Counts')
-            !Null = MrColorbar(TARGET=img, TITLE='Counts', /CURRENT)
-
-            ;Get rid of all the data
-            data  = !Null
-            x     = !Null
-            z     = !Null
-
-            ;
-            ; Plot density.
-            ;
-            dir   = '/data2/Asymm-Large-2D-NEW/'
-            oSim  = obj_new('MrSim2D', time, XRANGE=xrange, ZRANGE=zrange, $
-                           DIRECTORY=dir+'data', INFO_FILE=dir+'info')
-            !Null = MrSim_ColorSlab('ne', /CURRENT, SIM_OBJECT=oSim)
-            obj_destroy, oSim
-
-            win2 -> Refresh
-        endcase
-        
-;---------------------------------------------------------------------
-; Histogrom of Particle Counts vs. Denstiy: Asymm-3D /////////////////
-;---------------------------------------------------------------------
-        3: begin
-            ;Total size
-            ;   TIME   = 108090
-            ;   YSLICE = 650, 905, 1400
-            ;   XRANGE = [250, 700]
-            ;   ZRANGE = [-80,  80]
-            t        = 108090
-            yslice   = 650
-            xrange   = [400, 600]
-            zrange   = [-10,  10]
-            binsize  = [0.5, 0.5]
-            filename = '/home/daughton/Asymm-3D/electrons-y' + strtrim(yslice, 2) + '.bin'
-
-            ;Read the particle data
-            data = MrSim_ReadParticles(filename, xrange, zrange, /VERBOSE)
+            data = MrSim_ReadParticles(eFile, xrange, yrange, zrange, FMAP_DIR=fMap_dir, /VERBOSE)
             data = data[0:1,*]
             dims = size(data, /DIMENSIONS)
 
@@ -211,10 +159,133 @@ function MrSim_ReadParticles_Examples, example
             ;
             ; Plot density.
             ;
-            dir    = '/home/daughton/Asymm-3D/'
-            oSim   = obj_new('MrSim3D', time, yslice, XRANGE=xrange, ZRANGE=zrange, $
-                             DIRECTORY=dir+'data', INFO_FILE=dir+'info')
-            !Null   = MrSim_ColorSlab('ne', /CURRENT, SIM_OBJECT=oSim)
+            oSim  = MrSim_Create(theSim, tIndex, XRANGE=xrange, ZRANGE=zrange)
+            !Null = MrSim_ColorSlab(oSim, 'ne', /CURRENT)
+            obj_destroy, oSim
+
+            win2 -> Refresh
+        endcase
+        
+;---------------------------------------------------------------------
+; Histogrom of Particle Counts vs. Denstiy: Asymm-3D /////////////////
+;---------------------------------------------------------------------
+        3: begin
+            ;Total size
+            ;   TIME   = 108090
+            ;   YSLICE = 650, 905, 1400
+            ;   XRANGE = [250, 700]
+            ;   ZRANGE = [-80,  80]
+            theSim   = 'Asymm-3D'
+            t        = 108090
+            yslice   = 650
+            xrange   = [400, 600]
+            zrange   = [-10,  10]
+            binsize  = [0.5, 0.5]
+            MrSim_Which, theSim, EFILE=eFile, FMAP_DIR=fMap_dir, TINDEX=tIndex
+
+            ;Read the particle data
+            data = MrSim_ReadParticles(eFile, xrange, zrange, FMAP_DIR=fMap_dir, /VERBOSE)
+            data = data[0:1,*]
+            dims = size(data, /DIMENSIONS)
+
+            ;Histogram the data
+            hist = hist_nd(data, binsize, MIN=[xrange[0], zrange[0]], MAX=[xrange[1], zrange[1]])
+
+            ;Create the data arrays
+            x = linspace(xrange[0], xrange[1], binsize[0], /INTERVAL)
+            z = linspace(zrange[0], zrange[1], binsize[1], /INTERVAL)
+
+            ;Create a window
+            win = MrWindow(XSIZE=500, YSIZE=550, OXMARGIN=[10,15])
+
+            ;Plot the histogram
+            img   = MrImage(hist, x, z, /AXES, /SCALE, CTINDEX=13, /CURRENT, $
+                            XTITLE='x (de)', YTITLE='z (de)', TITLE='Particle Counts', $
+                            NAME='Counts')
+            !Null = MrColorbar(TARGET=img, TITLE='Counts', NAME='CB: Counts', /CURRENT)
+
+            ;Get rid of all the data
+            data  = !Null
+            x     = !Null
+            z     = !Null
+
+            ;
+            ; Plot density.
+            ;
+            oSim  = MrSim_Create(theSim, tIndex, XRANGE=xrange, ZRANGE=zrange)
+            !Null = MrSim_ColorSlab(oSim, 'ne', /CURRENT)
+            obj_destroy, oSim
+
+            win -> Refresh
+        endcase
+        
+;---------------------------------------------------------------------
+; Histogrom of Particle Counts vs. Denstiy: Asymm-3D /////////////////
+;---------------------------------------------------------------------
+        4: begin
+            theSim   = 'data-by0.03-NEW'
+            tIndex   = 22
+            yrange   = [0, 0]
+            
+            ;Particle domains for the various times
+            case tIndex of
+                17: begin
+                    xrange   = 807 + [-30, 30]
+                    zrange   = [-15,  15]
+                endcase
+                18: begin
+                    xrange   = 806 + [-30, 30]
+                    zrange   = [-15,  15]
+                endcase
+                19: begin
+                    xrange   = 807 + [-40, 40]
+                    zrange   = [-15,  15]
+                endcase
+                22: begin
+                    xrange   = 799 + [-60, 60]
+                    zrange   = [-15,  15]
+                endcase
+                29: begin
+                    xrange   = 771 + [-30, 30]
+                    zrange   = [-15,  15]
+                endcase
+                else: message, 'No particle data for tIndex ' + strtrim(tIndex, 2) + '.'
+            endcase
+            
+            binsize  = [0.5, 0.5]
+            MrSim_Which, theSim, EFILE=eFile, FMAP_DIR=fMap_dir, TINDEX=tIndex
+
+            ;Read the particle data
+            data = MrSim_ReadParticles(eFile, xrange, yrange, zrange, FMAP_DIR=fMap_dir, /VERBOSE)
+            data = data[0:1,*]
+            dims = size(data, /DIMENSIONS)
+
+            ;Histogram the data
+            hist = hist_nd(data, binsize, MIN=[xrange[0], zrange[0]], MAX=[xrange[1], zrange[1]])
+
+            ;Create the data arrays
+            x = linspace(xrange[0], xrange[1], binsize[0], /INTERVAL)
+            z = linspace(zrange[0], zrange[1], binsize[1], /INTERVAL)
+
+            ;Create a window
+            win = MrWindow(XSIZE=500, YSIZE=550, OXMARGIN=[10,15])
+
+            ;Plot the histogram
+            img   = MrImage(hist, x, z, /AXES, /SCALE, CTINDEX=13, /CURRENT, $
+                            XTITLE='x (de)', YTITLE='z (de)', TITLE='Particle Counts', $
+                            NAME='Counts')
+            !Null = MrColorbar(TARGET=img, TITLE='Counts', NAME='CB: Counts', /CURRENT)
+
+            ;Get rid of all the data
+            data  = !Null
+            x     = !Null
+            z     = !Null
+
+            ;
+            ; Plot density.
+            ;
+            oSim  = MrSim_Create(theSim, tIndex, XRANGE=xrange, ZRANGE=zrange, /BINARY)
+            !Null = MrSim_ColorSlab(oSim, 'ne', /CURRENT)
             obj_destroy, oSim
 
             win -> Refresh
@@ -223,8 +294,10 @@ function MrSim_ReadParticles_Examples, example
 ;---------------------------------------------------------------------
 ; Use fMap file //////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-        else: message, 'Invalid example choise: ' + strtrim(example, 2) + '.'
+        else: message, 'Invalid example choice: ' + strtrim(example, 2) + '.'
     endcase
+    
+    return, win
 end
 
 
@@ -384,9 +457,9 @@ ZLOC=zloc
 ; How to Read File ///////////////////////////////////////////////////
 ;---------------------------------------------------------------------
     ;fMap?
-    fbase = cgRootName(filename)
-    fname = fbase + '_mrfMap' + (dist3D ? '3d' : '2d') + '.sav'
-    ftest = filepath(fname, ROOT_DIR=fMap_dir)
+    fbase = cgRootName(filename, DIRECTORY=directory)
+    sname = idl_validname(file_basename(directory), /CONVERT_ALL)
+    ftest = filepath('MrFMap' + (dist3D ? '3d' : '2d') + '_' + sname + '_' + fbase + '.sav', ROOT_DIR=fMap_dir)
     if file_test(ftest) then begin
         restore, ftest
         iChunks = where((map_entry.d1_range[0] le xrange[1]  and $
@@ -535,8 +608,8 @@ end
 ; Main-Level Example Program: IDL> .r MrSim_ReadParticles ////////////
 ;---------------------------------------------------------------------
 
-;Choose example 1-3
-example = 1
+;Choose example 1-4
+example = 4
 win = MrSim_ReadParticles_Examples(example)
 
 end
