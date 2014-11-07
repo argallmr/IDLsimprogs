@@ -149,22 +149,22 @@ IONS = ions
 ;-------------------------------------------------------
     case strupcase(component) of
         'X': begin
-            E     = MrSim_LineCut('Ex',      cut, /CURRENT,   SIM_OBJECT=oSim)
-            VxB   = MrSim_LineCut('VxB_x',   cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
-            JxB   = MrSim_LineCut('JB_x',    cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Forest Green')
-            divPe = MrSim_LineCut('divPe_x', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Red')
+            E     = MrSim_LineCut(oSim, 'Ex',      cut, /CURRENT)
+            VxB   = MrSim_LineCut(oSim, 'VxB_x',   cut, OVERPLOT=E, COLOR='Blue')
+            JxB   = MrSim_LineCut(oSim, 'JxB_x',   cut, OVERPLOT=E, COLOR='Forest Green')
+            divPe = MrSim_LineCut(oSim, 'divPe_x', cut, OVERPLOT=E, COLOR='Red')
         endcase
         'Y': begin
-            E     = MrSim_LineCut('Ey',      cut, /CURRENT,   SIM_OBJECT=oSim)
-            VxB   = MrSim_LineCut('VxB_y',   cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
-            JxB   = MrSim_LineCut('JxB_y',   cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Forest Green')
-            divPe = MrSim_LineCut('divPe_y', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Red')
+            E     = MrSim_LineCut(oSim, 'Ey',      cut, /CURRENT)
+            VxB   = MrSim_LineCut(oSim, 'VxB_y',   cut, OVERPLOT=E, COLOR='Blue')
+            JxB   = MrSim_LineCut(oSim, 'JxB_y',   cut, OVERPLOT=E, COLOR='Forest Green')
+            divPe = MrSim_LineCut(oSim, 'divPe_y', cut, OVERPLOT=E, COLOR='Red')
         endcase
         'Z': begin
-            E     = MrSim_LineCut('Ez',      cut, /CURRENT,   SIM_OBJECT=oSim)
-            VxB   = MrSim_LineCut('VxB_z',   cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
-            JxB   = MrSim_LineCut('JxB_z',   cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Forest Green')
-            divPe = MrSim_LineCut('divPe_z', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Red')
+            E     = MrSim_LineCut(oSim, 'Ez',      cut, /CURRENT)
+            VxB   = MrSim_LineCut(oSim, 'VxB_z',   cut, OVERPLOT=E, COLOR='Blue')
+            JxB   = MrSim_LineCut(oSim, 'JxB_z',   cut, OVERPLOT=E, COLOR='Forest Green')
+            divPe = MrSim_LineCut(oSim, 'divPe_z', cut, OVERPLOT=E, COLOR='Red')
         endcase
         else: message, 'Component "' + component + '" not rectognized. Choose from {"X" | "Y" | "Z"}'
     endcase
@@ -200,7 +200,7 @@ IONS = ions
     
     ;Create a legend
     ohmLegend = MrLegend(TARGET=E, LOCATION=4, LENGTH=0, NAME="Ohm's Law", $
-                         COLOR=['Black', 'Blue', 'Forest Green', 'Red'], $
+                         TCOLORS=['Black', 'Blue', 'Forest Green', 'Red'], $
                          TITLE=legend_titles)
 
 end
@@ -288,8 +288,8 @@ IONS = ions
     case strupcase(component) of
         'X': begin
             ;Ex and Convective Electric Field (x-component)
-            E     = MrSim_LineCut('Ex', cut, /CURRENT, SIM_OBJECT=oSim)
-            divPe = MrSim_LineCut('div' + P_name + '_x', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
+            E     = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT)
+            divPe = MrSim_LineCut(oSim, 'div' + P_name + '_x', cut, OVERPLOT=E, COLOR='Blue')
             n_e   = oSim -> LineCuts(n_name, cut, pos)
                                 
             ;Get Data
@@ -301,8 +301,8 @@ IONS = ions
             titles = '(div ' + P_name + ')' + [subX, subX+subX, subX+subY, subX+subZ]
         endcase
         'Y': begin
-            E       = MrSim_LineCut('Ey', cut, /CURRENT, SIM_OBJECT=oSim)
-            divPe   = MrSim_LineCut('div' + P_name + '_y', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
+            E       = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT)
+            divPe   = MrSim_LineCut(oSim, 'div' + P_name + '_y', cut, OVERPLOT=E, COLOR='Blue')
             n_e     = oSim -> LineCuts(n_name, cut, pos)
             divPe_1 = oSim -> LineCuts(P_name + '-xy', cut, pos, /DY)
             divPe_2 = oSim -> LineCuts(P_name + '-yy', cut, /DY)
@@ -310,8 +310,8 @@ IONS = ions
             titles = '(div' + Pe_name + ')' + [subY, subY+subX, subY+subY, subY+subZ]
         endcase
         'Z': begin
-            E       = MrSim_LineCut('Ez', cut, /CURRENT, SIM_OBJECT=oSim)
-            divPe   = MrSim_LineCut('div' + P_name + '_z', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
+            E       = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT)
+            divPe   = MrSim_LineCut(oSim, 'div' + P_name + '_z', cut, OVERPLOT=E, COLOR='Blue')
             n_e     = oSim -> LineCuts(n_name, cut, pos)
             divPe_1 = oSim -> LineCuts(P_name + '-xz', cut, pos, /DZ)
             divPe_2 = oSim -> LineCuts(P_name + '-yz', cut, /DZ)
@@ -346,7 +346,7 @@ IONS = ions
     
     ;Create a legend
     ohmLegend = MrLegend(TARGET=E, TITLE=['E'+subZ, titles], $
-                         COLOR=['Black', 'Blue', 'Forest Green', 'Red', 'Purple'], $
+                         TCOLORS=['Black', 'Blue', 'Forest Green', 'Red', 'Purple'], $
                          LOCATION=4, LENGTH=0, NAME="Ohm's Law: div(Pe) term")
 end
 
@@ -433,8 +433,8 @@ IONS = ions
     case strupcase(component) of
         'X': begin
             ;Ex and Convective Electric Field (x-component)
-            E   = MrSim_LineCut('Ex', cut, /CURRENT, SIM_OBJECT=oSim)
-            VxB = MrSim_LineCut(V_name + 'xB_x', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
+            E   = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT)
+            VxB = MrSim_LineCut(oSim, V_name + 'xB_x', cut, OVERPLOT=E, COLOR='Blue')
                                 
             ;Get Data
             Vy  = oSim -> LineCuts(V_name + 'y', cut, pos)
@@ -451,8 +451,8 @@ IONS = ions
             titles[2] = '-' + titles[2]
         endcase
         'Y': begin
-            E   = MrSim_LineCut('Ey', cut, /CURRENT, SIM_OBJECT=oSim)
-            VxB = MrSim_LineCut(V_name + 'xB_y', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
+            E   = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT)
+            VxB = MrSim_LineCut(oSim, V_name + 'xB_y', cut, OVERPLOT=E, COLOR='Blue')
             Vx  = oSim -> LineCuts(V_name + 'x', cut, pos)
             Vz  = oSim -> LineCuts(V_name + 'z', cut)
             Bx  = oSim -> LineCuts('Bx', cut)
@@ -465,8 +465,8 @@ IONS = ions
             titles[2] = '-' + titles[2]
         endcase
         'Z': begin
-            E   = MrSim_LineCut('Ez', cut, /CURRENT, SIM_OBJECT=oSim)
-            VxB = MrSim_LineCut(V_name + 'xB_z', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
+            E   = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT)
+            VxB = MrSim_LineCut(oSim, V_name + 'xB_z', cut, OVERPLOT=E, COLOR='Blue')
             Vx  = oSim -> LineCuts(V_name + 'x', cut, pos)
             Vy  = oSim -> LineCuts(V_name + 'y', cut)
             Bx  = oSim -> LineCuts('Bx', cut)
@@ -595,8 +595,8 @@ IONS = ions
     case strupcase(component) of
         'X': begin
             ;Ex and Convective Electric Field (x-component)
-            E   = MrSim_LineCut('Ex', cut, /CURRENT, SIM_OBJECT=oSim)
-            JxB = MrSim_LineCut('JxB_x', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
+            E   = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT)
+            JxB = MrSim_LineCut(oSim, 'JxB_x', cut, OVERPLOT=E, COLOR='Blue')
                                 
             ;Get Data
             n_i  = oSim -> LineCuts('ni', cut)
@@ -614,8 +614,8 @@ IONS = ions
             titles = ['(JxB)'+subX, 'J'+subY+'B'+subZ, 'J'+subZ+'B'+subY] + '/en'
         endcase
         'Y': begin
-            E   = MrSim_LineCut('Ey', cut, /CURRENT, SIM_OBJECT=oSim)
-            JxB = MrSim_LineCut('JxB_y', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
+            E   = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT)
+            JxB = MrSim_LineCut(oSim, 'JxB_y', cut, OVERPLOT=E, COLOR='Blue')
             n_i  = oSim -> LineCuts('ni', cut)
             n_e  = oSim -> LineCuts('ne', cut)
             Jx  = oSim -> LineCuts('Jx', cut, pos)
@@ -629,8 +629,8 @@ IONS = ions
             titles = ['(JxB)'+subY, 'J'+subZ+'B'+subX, '-J'+subX+'B'+subZ] + '/en'
         endcase
         'Z': begin
-            E   = MrSim_LineCut('Ez', cut, /CURRENT, SIM_OBJECT=oSim)
-            JxB = MrSim_LineCut('JxB_z', cut, OVERPLOT=E, SIM_OBJECT=oSim, COLOR='Blue')
+            E   = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT)
+            JxB = MrSim_LineCut(oSim, 'JxB_z', cut, OVERPLOT=E, COLOR='Blue')
             Jx  = oSim -> LineCuts('Jx', cut, pos)
             n_i = oSim -> LineCuts('ni', cut)
             n_e = oSim -> LineCuts('ne', cut)
@@ -664,7 +664,7 @@ IONS = ions
     
     ;Create a legend
     ohmLegend = MrLegend(TARGET=E, TITLE=['E'+subZ, titles], $
-                         COLOR=['Black', 'Blue', 'Forest Green', 'Red'], $
+                         TCOLORS=['Black', 'Blue', 'Forest Green', 'Red'], $
                          LOCATION=4, LENGTH=0, NAME="Ohm's Law: JxB term")
 end
 
@@ -673,6 +673,9 @@ end
 ;   Plot the components of Ohm's Law
 ;
 ; :Params:
+;       THESIM:             in, required, type=string/integer/object
+;                           The name or number of the simulation to be used, or a
+;                               valid simulation object. See MrSim_Create.pro.
 ;       COMPONENT:          in, required, type=string, default='X'
 ;                           The component of the Generalized Ohm's Law to be plotted.
 ;                               Options are "X", "Y", and "Z".
@@ -699,32 +702,26 @@ end
 ;                           Name of a file to which the graphics will be saved.
 ;       SIM_OBJECT:         in, optional, type=objref
 ;                           A "MrSim2D" or a "MrSim3D" object.
-;       SIM3D:              in, optional, type=boolean, default=0
-;                           If `SIM_OBJECT` is not given, then one will be created. Set
-;                               this keyword to create a "MrSim3D" object. The default is
-;                               to create a "MrSim2D" object for a 2D simulation.
 ;       TOTAL:              in, optional, type=boolean, default=0
 ;                           If set, the total E, VxB, JxB, and gradP will be plotted.
 ;       VXB:                in, optional, type=boolean, default=0
 ;                           If set, the convective term will be plotted.
 ;       _REF_EXTRA:         in, optional, type=any
 ;                           Any keyword accepted by MrSim2D__Define or MrSim3D__Define,
-;                               according to the `SIM3D` keyword, is accepted via keyword
-;                               inheritance.
+;                               depending on the nature of the simulation.
 ;
 ; :Returns:
 ;       OHMWIN:             MrWindow graphic window containing the requested graphics.
 ;                               If the image data does not exist, an invalid object
 ;                               will be returned.
 ;-
-function MrSim_OhmsLaw, oSim, component, cut, time, $
+function MrSim_OhmsLaw, theSim, component, cut, time, $
 CURRENT = current, $
 ELECTRONS = electrons, $
 GRADPE = gradPe, $
 IONS = ions, $
 JXB = JxB, $
 OFILENAME = ofilename, $
-SIM3D = Sim3D, $
 TOTAL = ETotal, $
 VXB = VxB, $
 _REF_EXTRA = extra
@@ -753,7 +750,7 @@ _REF_EXTRA = extra
         
     ;Object?
     endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM2') eq 0 $
+        if obj_isa(theSim, 'MRSIM') eq 0 $
             then message, 'THESIM must be a subclass of the MrSim class.' $
             else oSim = theSim
             

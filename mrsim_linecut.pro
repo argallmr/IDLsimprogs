@@ -142,6 +142,7 @@ _REF_EXTRA = extra
         catch, /cancel
         if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
         if current eq 0 && obj_valid(lcWin) then obj_destroy, lcWin
+        void = cgErrorMSG()
         return, obj_new()
     endif
 
@@ -149,6 +150,7 @@ _REF_EXTRA = extra
 ; Check Simulat/////////////////////////////////////////
 ;-------------------------------------------------------
     osim_created = 0B
+    current      = keyword_set(current)
     
     ;Simulation name or number?
     if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
@@ -175,7 +177,6 @@ _REF_EXTRA = extra
 
     ;Set defaults
     add_legend = keyword_set(add_legend)
-    current    = keyword_set(current)
     horizontal = keyword_set(horizontal)
     Sim3D      = keyword_set(Sim3D)
     if n_elements(ofilename) eq 0 then ofilename = ''

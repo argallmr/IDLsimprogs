@@ -699,7 +699,7 @@ FMAP_DIR=fMap_dir
     on_error, 2
 
     ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
-    directory = '/data2/Asymm-Large-2D-NEW/data/'
+    directory = '/data2/Asymm-2D-Large/data/'
     dtxwci    = 5.0
     if arg_present(ascii_version) then ascii_version = 1
     if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/Asymm-Large-2D-NEW/'
@@ -740,8 +740,7 @@ FMAP_DIR=fMap_dir
             18: eCountFactor = 2
             26: eCountFactor = 1
             36: eCountFactor = 1
-            else: message, 'No particle data for sim # ' + strtrim(simnum,2) + $
-                           ' at tIndex ' + strtrim(tIndex,2), /INFORMATIONAL
+            else: message, 'No particle data for tIndex ' + strtrim(tIndex,2)
         endcase
     endif
     
@@ -1229,7 +1228,7 @@ _REF_EXTRA=extra
     ;Information about each simulation.
     simInfo = [['#',  'D',   'Asymmetric', 'Name',                'Directory'], $
                ['1',  '2D',     'yes',     'Asymm-Large-2D',      '/data2/Asymm-Large-2D/data/'], $
-               ['2',  '2D',     'yes',     'Asymm-Large-2D-NEW',  '/data2/Asymm-Large-2D-NEW/data/'], $
+               ['2',  '2D',     'yes',     'Asymm-Large-2D-NEW',  '/data2/Asymm-2D-Large/data/'], $
                ['3',  '3D',     'yes',     'Asymm-3D',            '/data2/Asymm-3D/data/'], $
                ['4',  '2D',     'yes',     'Asymm-2D',            '/data2/Asymm-2D/data/'], $
                ['5',  '2D',     'no',      'sim1',                '/data1/sim1/data/'], $

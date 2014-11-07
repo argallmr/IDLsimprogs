@@ -204,7 +204,7 @@ _REF_EXTRA=extra
         if nDist gt layout[0]*layout[1] then $
             message, string(FORMAT='(%"LAYOUT is not large enough to hold %i distributions.")', nDist)
     endif
-    
+
 ;-------------------------------------------------------
 ; Determine Location of Dist Fns ///////////////////////
 ;-------------------------------------------------------
@@ -305,8 +305,8 @@ _REF_EXTRA=extra
         ;Determine bin centers and half-widths.
         ;   - Make 3D if 2D.
         if dims[0] eq 2 then begin
-            centers = [bin_center[0,*], fltarr(1, dims[0]), bin_center[1,*]]
-            widths  = [half_width[0,*], fltarr(1, dims[0]), half_width[1,*]]
+            centers = [bin_center[0,*], fltarr(1, dims[1]), bin_center[1,*]]
+            widths  = [half_width[0,*], fltarr(1, dims[1]), half_width[1,*]]
         endif else begin
             centers = [bin_center[0,*], bin_center[1,*], bin_center[2,*]]
             widths  = [half_width[0,*], half_width[1,*], half_width[2,*]]

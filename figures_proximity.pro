@@ -252,7 +252,7 @@ end
 ;+
 ;   Simulate an MMS flyby across the X-line.
 ;-
-function Prox_FlyBy
+function Prox_Asymm3D_FlyBy
     compile_opt idl2
     
     catch, the_error
@@ -301,7 +301,7 @@ end
 ;+
 ;   eMap for the Asymm-3D simulation.
 ;-
-function Prox_eMap, $
+function Prox_Asymm3D_eMap, $
 FNAME=fname
     compile_opt idl2
     
@@ -403,8 +403,8 @@ SAVE=tf_save
     ;Create the figure    
     case _figure of
         'FIGURE 1':       win = Prox_Figure1()
-        'ASYMM-3D EMAP':  win = Prox_eMap(FNAME=fname)
-        'ASYMM-3D FLYBY': win = Prox_FlyBy()
+        'ASYMM-3D EMAP':  win = Prox_Asymm3D_eMap(FNAME=fname)
+        'ASYMM-3D FLYBY': win = Prox_Asymm3D_FlyBy()
         else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
     endcase
 

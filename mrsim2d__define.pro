@@ -284,7 +284,8 @@ _REF_EXTRA=extra
     get_dtxwci = arg_present(dtxwci)
     get_eCF    = arg_present(eCountFactor)
     if get_dtxwci + get_eCF gt 0 then begin
-        MrSim_Which, self.simnum, TINDEX=self.time, ECOUNTFACTOR=eCountFactor, DTXWCI=dtxwci
+        if get_dtxwci then MrSim_Which, self.simnum, TINDEX=self.time, DTXWCI=dtxwci
+        if get_eCF    then MrSim_Which, self.simnum, TINDEX=self.time, ECOUNTFACTOR=eCountFactor
         
         ;DTXWCI
         if get_dtxwci && n_elements(dtxwci) eq 0 then begin
@@ -339,6 +340,7 @@ FMAP_DIR=fmap_dir, $
 VELOCITY=velocity, $
 VERBOSE=verbose, $
 XRANGE=xrange, $
+YRANGE=yrange, $
 ZRANGE=zrange
     compile_opt strictarr
     
@@ -357,10 +359,11 @@ ZRANGE=zrange
     if n_elements(filename) eq 0 then filename = eFile
     if n_elements(fmap_dir) eq 0 then fmap_dir = fmap
     if n_elements(xrange)   eq 0 then xrange   = self.xrange
+    if n_elements(yrange)   eq 0 then yrange   = self.yrange
     if n_elements(zrange)   eq 0 then zrange   = self.zrange
     
     ;Read the simulation info file
-    data = MrSim_ReadParticles(filename, xrange, zrange, $
+    data = MrSim_ReadParticles(filename, xrange, yrange, zrange, $
                                ENERGY           = energy, $
                                FMAP_DIR         = fMap_dir, $
                                VELOCITY         = velocity, $

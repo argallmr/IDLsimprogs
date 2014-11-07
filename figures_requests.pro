@@ -1,4 +1,97 @@
 ;+
+;   Make an array of vx-vy dist.'s that roughly covers the entire outflow jet from
+;   T=29 for the Bg=3% run
+;-
+function FigRequests_By03_Jet_eMap, $
+FNAME=fname
+    compile_opt idl2
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(oSim) then obj_destroy, oSim
+        if max(obj_valid(win)) then obj_destroy, win
+        void = cgErrorMSG()
+        return, obj_new()
+    endif
+    
+    ;Simulation
+    theSim = 'data-by0.03-NEW'
+    tIndex = 29
+    xrange = [740, 850]
+    zrange = [-35, 35]
+    oSim   = MrSim_Create(theSim, tIndex, XRANGE=xrange, ZRANGE=zrange, /BINARY)
+    
+    ;Ohm's Law
+;    xrange = 771 + [-70, 200]
+;    centers = [[744.185181, 0.261692], $
+;               [747.360107, 0.261692], $
+;               [753.392517, 0.261692], $
+;               [757.837402, 0.523380], $
+;               [763.234863, 0.261692], $
+;               [767.679749, 0.654222], $
+;               [772.124695, 0.785069], $
+;               [776.252075, 0.915911], $
+;               [780.379517, 1.046758], $
+;               [782.919495, 1.439293], $
+;               [786.729431, 2.093513], $
+;               [792.444275, 2.747737], $
+;               [799.111694, 2.878583], $
+;               [806.096558, 2.616895], $
+;               [815.938904, 2.093513], $
+;               [825.781189, 1.046758], $
+;               [827.051147, 1.308446], $
+;               [840.385925, 0.261692], $
+;               [863.880493, -2.616894], $
+;               [878.167725, -4.841252], $
+;               [888.962524, -6.934766], $
+;               [896.899902, -8.243213], $
+;               [907.059692, -9.028281], $
+;               [919.124512, -7.981524], $
+;               [928.331848, -6.411386]]
+    centers = [[744.649536, 0.332720], $
+               [746.938171, 0.332720], $
+               [749.226807, 0.332720], $
+               [750.657227, 0.332720], $
+               [752.373657, 0.332720], $
+               [755.234497, 0.000001], $
+               [757.809204, 0.332720], $
+               [760.383911, 0.332720], $
+               [763.244690, 0.332720], $
+               [765.533325, 0.332720], $
+               [767.535889, 0.332720], $
+               [769.538452, 0.332720], $
+               [772.113159, 0.332720], $
+               [773.829651, 0.998158], $
+               [778.120850, 1.330877], $
+               [782.698120, 1.330877], $
+               [784.414551, 1.996315], $
+               [789.850098, 2.661753], $
+               [794.999512, 1.996315], $
+               [800.148926, 1.996315], $
+               [806.156616, 1.996315], $
+               [810.161743, 1.996315], $
+               [813.594666, 1.996315], $
+               [817.599792, 1.663596], $
+               [823.035278, 1.663596]]
+    half_width = fltarr(size(centers, /DIMENSIONS)) + 1
+    im_name    = 'Uex'
+    layout     = [5,5]
+    
+    ;Overview
+    win = MrSim_eMap(oSim, 'Vx-Vy', centers, half_width, $
+                     LAYOUT  = layout, $
+                     IM_NAME = im_name, $
+                     IM_WIN  = im_win, $
+                     C_NAME  = 'Ay')
+                    
+
+    if obj_valid(oSim) then obj_destroy, oSim
+    return, win
+end
+
+
+;+
 ;   Create the desired figure.
 ;
 ; Params:
@@ -59,6 +152,7 @@ SIM_OBJECT=oSim
     return, win
 end
 
+
 ;+
 ;   Create the desired figure.
 ;
@@ -100,8 +194,8 @@ VPERP1_VPERP2=vperp1_vperp2
 ;---------------------------------------------------------------------
     
     ;Current list of figures
-    list_of_figures = [['SIM1 EXB XLINE', 'Vertical cut of ExB through the X-line at twci=19 for the Sim1 run'], $
-                       ['Figure1 Dng          ', '']]
+    list_of_figures = [['SIM1 EXB XLINE',      'Vertical cut of ExB through the X-line at twci=19 for the Sim1 run'], $
+                       ['By0.03-NEW Jet eMap', 'Make an array of vx-vy dist.s that roughly covers the entire outflow jet from T=29 for the Bg=3% run']]
     
     ;Print the list of figures?
     if keyword_set(show_figs) then begin
@@ -117,7 +211,8 @@ VPERP1_VPERP2=vperp1_vperp2
 
     ;Create the figure    
     case _figure of
-        'SIM1 EXB XLINE': win = Requests_Sim1_ExB_Xline()
+        'BY0.03-NEW JET EMAP': win = FigRequests_By03_Jet_eMap()
+        'SIM1 EXB XLINE':      win = Requests_Sim1_ExB_Xline()
         else: message, 'Figure "' + figure + '" not an option.'
     endcase
 

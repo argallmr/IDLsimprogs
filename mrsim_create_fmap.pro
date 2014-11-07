@@ -295,7 +295,7 @@ end
 ; Main-Level Example Program: IDL> .r MrSim_Create_fMap //////////////
 ;---------------------------------------------------------------------
 ;Files and directories
-filename = '/data1/sim1/particles-by0.03/electrons-t29.bin'
+filename = '/data2/Asymm-2D-Large/electrons-t90.bin'
 save_dir = '/home/argall/simulations/fmaps/'
 
 ;Read the particle data

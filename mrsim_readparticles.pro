@@ -565,13 +565,15 @@ ZLOC=zloc
 ;---------------------------------------------------------------------
 
     ;Convert to velocity
+    ;   u     = gamma * v
+    ;   gamma = lorentz factor: sqrt( 1 - v^2 / c^2)^-1
     if velocity then begin
         if dist3D then begin
             e_gamma = sqrt(1.0 + total(data[3:5, *]^2, 1))
             data[2:4, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
         endif else begin
             e_gamma = sqrt(1.0 + total(data[2:4, *]^2, 1))
-            data[3:5, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
+            data[2:4, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
         endelse
     endif
     
