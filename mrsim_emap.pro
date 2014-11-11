@@ -402,7 +402,7 @@ _REF_EXTRA=extra
     endif
 
     ;Determine the aspect ratio of the plots and create positions
-    aspect = 1.0;(yrange[1] - yrange[0]) / (xrange[1] - xrange[0])
+    aspect = (yrange[1] - yrange[0]) / (xrange[1] - xrange[0])
     pos  = MrLayout(layout, CHARSIZE=charsize, OXMARGIN=oxmargin, ASPECT=aspect, $
                     XGAP=xgap, YGAP=ygap)
 

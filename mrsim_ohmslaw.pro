@@ -506,7 +506,7 @@ IONS = ions
     
     ;Create a legend
     ohmLegend = MrLegend(TARGET=E, TITLE=['E'+subZ, titles], $
-                         COLOR=['Black', 'Blue', 'Forest Green', 'Red'], $
+                         TCOLORS=['Black', 'Blue', 'Forest Green', 'Red'], $
                          LOCATION=4, LENGTH=0, NAME="Ohm's Law: VxB term")
 end
 

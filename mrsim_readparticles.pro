@@ -68,6 +68,9 @@
 ;       2014/08/28  -   Written by Matthew Argall
 ;       2014/10/14  -   Added the VELOCITY and ENERGY keywords. - MRA
 ;       2014/10/30  -   Added DIST3D keyword. - MRA
+;       2014/11/10  -   Added the OFILENAME and YLOC keywords. Changed keywords names from
+;                           [XYZ] to X[123]. DIST3D keyword is no longer needed due to
+;                           generality of X123 notation. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -305,8 +308,8 @@ end
 ;   Read particle data.
 ;
 ;   CALLING SEQUENCE:
-;       data = MrSim_ReadParticles(filename, xrange, zrange)
-;       data = MrSim_ReadParticles(filename, xrange, yrange, zrange)
+;       data = MrSim_ReadParticles(filename, x1_range, x2_range)
+;       data = MrSim_ReadParticles(filename, x1_range, x2_range, x3_range)
 ;
 ; :Params:
 ;       FILENAME:           in, required, type=string
@@ -338,6 +341,8 @@ end
 ;                               of spacial bins, and `DATA` will contain the particle
 ;                               counts in each bin. If a scalar, the same number of bins
 ;                               will be used for x and z.
+;       OFILENAME:          in, optional, type=string, default=''
+;                           Name of a file to which particle data will be written.
 ;       REC_SAMPLE:         in, optional, type=any, default=fltarr(5)
 ;                           An example of how records are to be read. The default assumes
 ;                               one record consists of five 4-byte (16-bit) floating point
@@ -352,6 +357,9 @@ end
 ;       XLOC:               out, optional, type=fltarr
 ;                           If `BINSIZE` or `NBINS` is given, then XLOC is the spacial
 ;                               location of the center of each column in `DATA`.
+;       YLOC:               out, optional, type=fltarr
+;                           If `BINSIZE` or `NBINS` is given, then YLOC is the spacial
+;                               location of the center of each column in `DATA`.
 ;       ZLOC:               out, optional, type=fltarr
 ;                           If `BINSIZE` or `NBINS` is given, then ZLOC is the spacial
 ;                               location of the center of each row in `DATA`.
@@ -359,25 +367,29 @@ end
 ; :Returns:
 ;       DATA:               Electron distribution data.
 ;-
-function MrSim_ReadParticles, filename, xrange, yrange, zrange, $
+function MrSim_ReadParticles, filename, x1_range, x2_range, x3_range, $
 BINSIZE=binSize, $
-DIST3D=dist3D, $
 ENERGY=energy, $
 FMAP_DIR=fMap_dir, $
 N_RECS_PER_CHUNK=n_rec_per_chunk, $
 NBINS=nBins, $
+OFILENAME=ofilename, $
 REC_SAMPLE=rec_sample, $
+UX1_RANGE=ux1_range, $
+UX2_RANGE=ux2_range, $
+UX3_RANGE=ux3_range, $
 VELOCITY=velocity, $
 VERBOSE=verbose, $
-XLOC=xloc, $
-ZLOC=zloc
+X1_LOC=x1_loc, $
+X2_LOC=x2_loc, $
+X3_LOC=x3_loc
     compile_opt idl2
     
     catch, the_error
     if the_error ne 0 then begin
         catch, /CANCEL
-        if n_elements(lun) gt 0 then free_lun, lun
-        if nParams eq 3 then yrange = zrange
+        if n_elements(lun)  gt 0 then free_lun, lun
+        if n_elements(olun) gt 0 then free_lun, olun
         void = cgErrorMSG()
         return, !Null
     endif
@@ -386,10 +398,6 @@ ZLOC=zloc
 ; Inputs /////////////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
     nParams = n_params()
-    if nParams eq 3 then begin
-        zrange = yrange
-        yrange = [0,0]
-    endif
 
     ;Make sure the file exists
     ;   - If it does not, open a dialog.
@@ -405,13 +413,12 @@ ZLOC=zloc
     ;Defaults
     ;   - There are five 4-byte numbers associated with each particle.
     energy   = keyword_set(energy)
-    dist3D   = keyword_set(dist3D)
     velocity = keyword_set(velocity)
     verbose  = keyword_set(verbose)
     if n_elements(fMap_dir)         eq 0 then fMap_dir         = file_dirname(filename)
     if n_elements(n_recs_per_chunk) eq 0 then n_recs_per_chunk = 1000000ULL
-    if n_elements(rec_sample)       eq 0 then rec_sample       = dist3D ? fltarr(6) : fltarr(5)
-    if n_elements(yrange)           eq 0 then yrange           = [0, 0]
+    if n_elements(oFilename)        eq 0 then oFilename        = ''
+    if n_elements(rec_sample)       eq 0 then rec_sample       = nParams eq 4 ? fltarr(6) : fltarr(5)
     
     ;Make a histogram?
     if n_elements(binsize) + n_elements(nBins) gt 0 $
@@ -420,6 +427,7 @@ ZLOC=zloc
     
     ;Dependencies
     if energy + velocity gt 1 then message, 'ENERGY and VELOCITY are mutually exclusive.'
+
 ;---------------------------------------------------------------------
 ; Record Info ////////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
@@ -454,34 +462,45 @@ ZLOC=zloc
     finfo = fstat(lun)  
 
 ;---------------------------------------------------------------------
-; How to Read File ///////////////////////////////////////////////////
+; FMAP ///////////////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    ;fMap?
+    ;Create the fMap file name
     fbase = cgRootName(filename, DIRECTORY=directory)
     sname = idl_validname(file_basename(directory), /CONVERT_ALL)
-    ftest = filepath('MrFMap' + (dist3D ? '3d' : '2d') + '_' + sname + '_' + fbase + '.sav', ROOT_DIR=fMap_dir)
+    ftest = filepath('MrFMap' + (nParams eq 4 ? '3d' : '2d') + '_' + sname + '_' + fbase + '.sav', ROOT_DIR=fMap_dir)
+    
+    ;Check if the fMap exists
     if file_test(ftest) then begin
+        ;Restore MAP_ENTRY -- pointers into the data file.
+        ;   - Find which data chunks contain particles in the range of interest.
         restore, ftest
-        iChunks = where((map_entry.d1_range[0] le xrange[1]  and $
-                         map_entry.d1_range[1] ge xrange[0]) and $
-                        (map_entry.d2_range[0] le yrange[1]  and $
-                         map_entry.d2_range[1] ge yrange[0]) and $
-                        (map_entry.d3_range[0] le zrange[1]  and $
-                         map_entry.d3_range[1] ge zrange[0]),    $
-                        n_chunks)
+        if nParams eq 4 then begin
+            iChunks = where((map_entry.d1_range[0] le x1_range[1]  and $
+                             map_entry.d1_range[1] ge x1_range[0]) and $
+                            (map_entry.d2_range[0] le x2_range[1]  and $
+                             map_entry.d2_range[1] ge x2_range[0]) and $
+                            (map_entry.d3_range[0] le x3_range[1]  and $
+                             map_entry.d3_range[1] ge x3_range[0]),    $
+                            n_chunks)
+        endif else begin
+            iChunks = where((map_entry.d1_range[0] le x1_range[1]  and $
+                             map_entry.d1_range[1] ge x1_range[0]) and $
+                            (map_entry.d2_range[0] le x2_range[1]  and $
+                             map_entry.d2_range[1] ge x2_range[0]),    $
+                            n_chunks)
+        endelse
         
         ;No chunks found
-        if n_chunks eq 0 then begin
-            msg = string(FORMAT='(%"No particles found in range x=[%i, %i], y=[%i, %i], z=[%i, %i]")', $
-                         xrange, yrange, zrange)
-            message, msg
-        endif
+        if n_chunks eq 0 then message, 'No particles found in given range.'
         
+        ;Take the relevant subset of the data file
         n_per_chunk  = map_entry[iChunks].nRecs
         byte_offsets = map_entry[iChunks].pos
         map_entry    = !Null
         
-    ;Read through the entire file.
+;---------------------------------------------------------------------
+; Read Entire File ///////////////////////////////////////////////////
+;---------------------------------------------------------------------
     endif else begin
         message, 'fMap not found: "' + ftest + '".', /INFORMATIONAL
     
@@ -497,15 +516,15 @@ ZLOC=zloc
         if n_last_chunk gt 0 then n_per_chunk[-1] = n_last_chunk
     endelse
 
+;---------------------------------------------------------------------
+; Read Each Chunk ////////////////////////////////////////////////////
+;---------------------------------------------------------------------
     ;Allocate memory
     region  = fltarr(n_per_rec,   n_per_chunk[0])
     data    = fltarr(n_per_rec, 2*n_per_chunk[0])
     iStart  = 0ULL
     nEmpty  = 2*n_per_chunk[0]
-
-;---------------------------------------------------------------------
-; Read Each Chunk ////////////////////////////////////////////////////
-;---------------------------------------------------------------------
+    
     ;Loop through each data chunk
     ;   - Read data in chunks so that all 9GB are not in memory at once.
     for i = 0ULL, n_chunks - 1ULL do begin
@@ -521,18 +540,18 @@ ZLOC=zloc
         readu, lun, region
 
         ;Are we within the range?
-        if dist3D then begin
-            iGood = where(region[0,*] ge xrange[0] and $
-                          region[0,*] le xrange[1] and $
-                          region[1,*] ge yrange[0] and $
-                          region[1,*] le yrange[1] and $
-                          region[2,*] ge zrange[0] and $
-                          region[2,*] le zrange[1], nGood)
+        if nParams eq 4 then begin
+            iGood = where(region[0,*] ge x1_range[0] and $
+                          region[0,*] le x1_range[1] and $
+                          region[1,*] ge x2_range[0] and $
+                          region[1,*] le x2_range[1] and $
+                          region[2,*] ge x3_range[0] and $
+                          region[2,*] le x3_range[1], nGood)
         endif else begin
-            iGood = where(region[0,*] ge xrange[0] and $
-                          region[0,*] le xrange[1] and $
-                          region[1,*] ge zrange[0] and $
-                          region[1,*] le zrange[1], nGood)
+            iGood = where(region[0,*] ge x1_range[0] and $
+                          region[0,*] le x1_range[1] and $
+                          region[1,*] ge x2_range[0] and $
+                          region[1,*] le x2_range[1], nGood)
         endelse
         
         ;Were there good points?
@@ -556,6 +575,7 @@ ZLOC=zloc
 
     ;Close the file
     free_lun, lun
+    if iStart eq 0 then message, 'No particles found.'
     
     nParticles = iStart
     data = data[*,0:iStart-1]
@@ -563,23 +583,52 @@ ZLOC=zloc
 ;---------------------------------------------------------------------
 ; Convert Units //////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
+    ;Indices at which momentum is stored
+    if nParams eq 4 then iu = [3,4,5] else iu = [2,3,4]
 
     ;Convert to velocity
     ;   u     = gamma * v
     ;   gamma = lorentz factor: sqrt( 1 - v^2 / c^2)^-1
     if velocity then begin
-        if dist3D then begin
-            e_gamma = sqrt(1.0 + total(data[3:5, *]^2, 1))
-            data[2:4, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
-        endif else begin
-            e_gamma = sqrt(1.0 + total(data[2:4, *]^2, 1))
-            data[2:4, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
-        endelse
+        e_gamma = sqrt(1.0 + total(data[iu, *]^2, 1))
+        data[iu, *] /= rebin(reform(temporary(e_gamma), 1, nParticles), 3, nParticles)
+    endif
+
+;---------------------------------------------------------------------
+; Select Range ///////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    ;Select a range in UX1
+    if n_elements(ux1_range) eq 2 then begin
+        iUx1 = where(data[iu[0],*] ge ux1_range[0] and data[iu[0],*] le ux1_range[1], nUx1)
+        if nUx1 eq 0 then message, 'No particles found in UX1_RANGE'
+        data = data[*,iUx1]
     endif
     
-    ;Convert to energy
-    if energy then begin
-        message, 'Converting to energy not implemented.'
+    ;Select a range in UX2
+    if n_elements(ux2_range) eq 2 then begin
+        iUx2 = where(data[iu[1],*] ge ux2_range[0] and data[iu[1],*] le ux2_range[1], nUx2)
+        if nUx2 eq 0 then message, 'No particles found in UX2_RANGE'
+        data = data[*,iUx2]
+    endif
+    
+    ;Select a range in UX3
+    if n_elements(ux3_range) eq 2 then begin
+        iUx3 = where(data[iu[2],*] ge ux3_range[0] and data[iu[2],*] le ux3_range[1], nUx3)
+        if nUx3 eq 0 then message, 'No particles found in UX3_RANGE'
+        data = data[*,iUx3]
+    endif
+
+;---------------------------------------------------------------------
+; Output to File /////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    if oFilename ne '' then begin
+        ;Open, write, close
+        openw,    olun, oFilename, /GET_LUN
+        printf,   olun, data
+        free_lun, olun
+        
+        ;Indicate a file has been written
+        print, 'Particle file written to "' + oFilename + '".'
     endif
 
 ;---------------------------------------------------------------------
@@ -592,15 +641,15 @@ ZLOC=zloc
     
         ;Make a histrogram.
         data = hist_nd(data, binSize, NBINS=nBins, $
-                       MIN=[xrange[0], zrange[0]], $
-                       MAX=[xrange[1], zrange[1]])
+                       MIN=[x1_range[0], x2_range[0]], $
+                       MAX=[x1_range[1], x2_range[1]])
 
         ;Position of the histogram bin centers.
-        if arg_present(xloc) then xloc = linspace(xrange[0], xrange[1], binsize[0], /INTERVAL)
-        if arg_present(zloc) then zloc = linspace(zrange[0], zrange[1], binsize[1], /INTERVAL)
+        if arg_present(x1_loc)           then x1_loc = linspace(x1_range[0], x1_range[1], binsize[0], /INTERVAL)
+        if arg_present(x2_loc)           then x2_loc = linspace(x2_range[0], x2_range[1], binsize[1], /INTERVAL)
+        if dist3D && arg_present(x3_loc) then x3_loc = linspace(x3_range[0], x3_range[1], binsize[1], /INTERVAL)
     endif
     
-    if nParams eq 3 then yrange = zrange
     return, data
 end
 

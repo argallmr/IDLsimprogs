@@ -34,7 +34,9 @@ FNAME=fname
     if the_error ne 0 then begin
         catch, /CANCEL
         if obj_valid(oSim) then obj_destroy, oSim
-        if max(obj_valid(win)) then obj_destroy, win
+        if obj_valid(win) then obj_destroy, win
+        if obj_valid(win2) then obj_destroy, win2
+        if obj_valid(win3) then obj_destroy, win3
         void = cgErrorMSG()
         return, obj_new()
     endif
@@ -47,14 +49,111 @@ FNAME=fname
     oSim   = MrSim_Create(theSim, tIndex, XRANGE=xrange, ZRANGE=zrange)
     
     ;Ohm's Law
-    component = 'X'
-    cut       = 1509
-    win       = MrSim_OhmsLaw(oSim, component, cut)
+    component = 'Z'
+    cut       = [1509, 1503, 1484] 
+    win       = MrSim_OhmsLaw(oSim, component, cut[0])
+    win2      = MrSim_OhmsLaw(oSim, component, cut[1])
+    win3      = MrSim_OhmsLaw(oSim, component, cut[2])
+    
+    nWins = 2
+    nCols = 3
+    nRows = 4
+    win  -> Refresh, /DISABLE
+    win  -> SetProperty, LAYOUT=[nCols, nRows], XGAP=3, XSIZE=900, OXMARGIN=[10,11]
+    win2 -> Refresh, /DISABLE
+    win3 -> Refresh, /DISABLE
+
+;-------------------------------------------------------
+; Switch Windows ///////////////////////////////////////
+;-------------------------------------------------------
+    for iWin = 1, nWins do begin
+        ;Select the window
+        case iWin of
+            1: theWin = win2
+            2: theWin = win3
+        endcase
+        theWin -> SetProperty, LAYOUT=[nCols, nRows], XGAP=1.5, XSIZE=900
+    
+        ;Step through each graphic in the window.
+        graphics = theWin -> Get(/ALL)
+        foreach gfx, graphics do begin
+            ;Throw away the legends
+            if obj_isa(gfx, 'MrLegend') then continue
+        
+            ;Append the cut-location to the name
+            name = gfx.name
+            gfx.name = strtrim(cut[iWin-1], 2) + ' ' + name
+
+            ;Change columns
+            ;   - So that they do not push objects in WIN to next column
+            isOPlot = gfx -> GetOverplot()
+            if ~isOPlot then begin
+                layout = gfx.layout
+                colrow = win -> ConvertLocation(layout[2], layout[0:1], /PINDEX, /TO_COLROW)
+                gfx -> SetLayout, [iWin+1, colrow[1]]
+            endif else begin
+                layout = !Null
+            endelse
+            
+            ;Switch Windows
+            gfx -> SwitchWindows, win
+        endforeach
+
+        ;Destroy the window
+        obj_destroy, theWin
+    endfor
+
+;-------------------------------------------------------
+; Format Annotations ///////////////////////////////////
+;-------------------------------------------------------
+    ;Step through each row
+    for row = 1, nRows do begin
+        yrange = [!values.f_infinity, -!values.f_infinity]
+    
+        ;Step through each column
+        for col = 1, nCols do begin
+            ;Find the graphic
+            gfx     = win -> FindByColRow([col,row])
+            isOPlot = gfx -> GetOverplot(TARGET=target)
+            if isOPlot then gfx = target
+        
+            ;Get the YRANGE
+            yr        = gfx.yrange
+            yrange[0] = yr[0] < yrange[0]
+            yrange[1] = yr[1] > yrange[1]
+        endfor
+    
+        ;Step through each column
+        for col = 1, 3 do begin
+            ;Find the graphic
+            gfx     = win -> FindByColRow([col,row])
+            isOPlot = gfx -> GetOverplot(TARGET=target)
+            if isOPlot then gfx = target
+        
+            ;Set Properties
+            gfx.yrange = yrange
+            if col gt 1 then gfx -> SetProperty, YTITLE='', YTICKFORMAT='(a1)'
+        endfor
+
+        ;Set Properties
+        if row gt 1     then gfx -> SetProperty, TITLE=''
+        if row lt nRows then gfx -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
+    endfor
+
+;-------------------------------------------------------
+; Move Legends /////////////////////////////////////////
+;-------------------------------------------------------
+    win["Ohm's Law"]               -> SetProperty, LOCATION=8, TARGET=win['1503 Total EZ']
+    win["Ohm's Law: VxB term"]     -> SetProperty, LOCATION=8, TARGET=win['1503 EZ vs. Ec']
+    win["Ohm's Law: JxB term"]     -> SetProperty, LOCATION=8, TARGET=win['1503 EZ vs. Hall E']
+    win["Ohm's Law: div(Pe) term"] -> SetProperty, LOCATION=8, TARGET=win['1503 EZ vs. E inert']
     
     ;Overview
-    im_win = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay', VERT_LINES=cut, LINE_COLOR='White')
+    im_win = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay', VERT_LINES=cut, $
+                             LINE_COLOR=['White', 'Green', 'Red'])
 
     if obj_valid(oSim) then obj_destroy, oSim
+    win -> Refresh
     return, win
 end
 

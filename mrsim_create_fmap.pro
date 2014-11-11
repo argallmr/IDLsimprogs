@@ -97,6 +97,10 @@
 ;       2014/10/30  -   Added the SIM3D keyword. - MRA
 ;       2014/11/06  -   Added the OVERWRITE keyword and changed the output file name to
 ;                           create fewer conflicts. - MRA
+;       2014/11/10  -   For 2D simulations, MAP_ENTRY has only two range fields instead
+;                           of three. D[123] refer to the 1st, 2nd, and 3rd dimension,
+;                           respectively, regardless of whether they are [XY], [XZ], 
+;                           [XYZ], etc. - MRA
 ;-
 pro MrSim_Create_fMap, filename, $
 N_RECS_PER_CHUNK=n_rec_per_chunk, $
@@ -195,12 +199,20 @@ VERBOSE=verbose
 ;---------------------------------------------------------------------
 ; Allocate Memory ////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    map_entry = { pos:      0ULL, $
-                  nRecs:    0ULL, $
-                  d1_range: fltarr(2), $
-                  d2_range: fltarr(2), $
-                  d3_range: fltarr(2) $
-                }
+    if sim3d then begin
+        map_entry = { pos:      0ULL, $
+                      nRecs:    0ULL, $
+                      d1_range: fltarr(2), $
+                      d2_range: fltarr(2), $
+                      d3_range: fltarr(2) $
+                    }
+    endif else begin
+        map_entry = { pos:      0ULL, $
+                      nRecs:    0ULL, $
+                      d1_range: fltarr(2), $
+                      d2_range: fltarr(2) $
+                    }
+    endelse
     map_entry = replicate(map_entry, n_chunks)
     data      = make_array(n_per_rec, n_recs_per_chunk, TYPE=type)
     
@@ -229,7 +241,7 @@ VERBOSE=verbose
         map_entry[i].pos = filepos
 
         ;Print info
-        if verbose then if ((i+1) mod 10 eq 0) || (i eq n_chunks-1) then begin
+        if verbose then if i eq 0 || ((i+1) mod 10 eq 0) || (i eq n_chunks-1) then begin
             print, FORMAT='(%"Chunk %i of %i. Bytes %i-%i of %i")', $
                    i+1, n_chunks, n_recs_read*rec_size, (n_recs_read+n_recs_per_chunk)*rec_size, finfo.size
         endif
@@ -238,40 +250,25 @@ VERBOSE=verbose
         ;Read the data
         readu, lun, data
         
+        ;Get the minimum and maximum values in the two spacial dimensions
+        d1_min = min(data[0,*], MAX=d1_max)
+        d2_min = min(data[1,*], MAX=d2_max)
+        map_entry[i].d1_range = [d1_min, d1_max]
+        map_entry[i].d2_range = [d2_min, d2_max]
+        
+        ;Record the domain being read
+        range1[0] <= d1_min
+        range1[1] >= d1_max
+        range2[0] <= d2_min
+        range2[1] >= d2_max
+        
         ;3D electron data?
         if sim3d then begin
-            ;Get the minimum and maximum values in the two spacial dimensions
-            d1_min = min(data[0,*], MAX=d1_max)
-            d2_min = min(data[1,*], MAX=d2_max)
             d3_min = min(data[2,*], MAX=d3_max)
-            map_entry[i].d1_range = [d1_min, d1_max]
-            map_entry[i].d2_range = [d2_min, d2_max]
             map_entry[i].d3_range = [d3_min, d3_max]
-        
-            ;Record the domain being read
-            range1[0] <= d1_min
-            range1[1] >= d1_max
-            range2[0] <= d2_min
-            range2[1] >= d2_max
             range3[0] <= d3_min
             range3[1] >= d3_max
-        
-        ;2D electron data
-        endif else begin
-            ;Get the minimum and maximum values in the two spacial dimensions
-            d1_min = min(data[0,*], MAX=d1_max)
-            d3_min = min(data[1,*], MAX=d3_max)
-            map_entry[i].d1_range = [d1_min, d1_max]
-            map_entry[i].d3_range = [d3_min, d3_max]
-        
-            ;Record the domain being read
-            range1[0] <= d1_min
-            range1[1] >= d1_max
-            range2[0]  = 0
-            range2[1]  = 0
-            range3[0] <= d3_min
-            range3[1] >= d3_max
-        endelse
+        endif
     endfor
 
     ;Close the file
@@ -281,7 +278,7 @@ VERBOSE=verbose
     if verbose then begin
         print, FORMAT='(%"Range1 = [%f, %f]")', range1
         print, FORMAT='(%"Range2 = [%f, %f]")', range2
-        print, FORMAT='(%"Range3 = [%f, %f]")', range3
+        if sim3d then print, FORMAT='(%"Range3 = [%f, %f]")', range3
     endif
 
     ;Save data

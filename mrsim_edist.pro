@@ -1152,7 +1152,6 @@ _REF_EXTRA=ref_extra
 ;-------------------------------------------------------
 ;Select Data ///////////////////////////////////////////
 ;-------------------------------------------------------
-
     ;Pick out the data
     e_data = oSim -> ReadElectrons(filename, FMAP_DIR=fmap_dir, /VELOCITY, $
                                              XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
