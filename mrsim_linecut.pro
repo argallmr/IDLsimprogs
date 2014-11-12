@@ -236,7 +236,7 @@ _REF_EXTRA = extra
             then title += '  '  + caxis +   '='  + string(cuts, FORMAT='(f0.1)')  + units $
             else title += '  (' + caxis + 'y)=(' + strjoin(string(cuts, yslice, FORMAT='(f0.1)'), ',') + ')' + units
     endif else begin
-        if sim_class eq 'SIM3D' $
+        if sim_class eq 'MRSIM3D' $
             then title += '  ' + caxis + 'y=' + string(yslice, FORMAT='(f0.1)') + units
     endelse
 

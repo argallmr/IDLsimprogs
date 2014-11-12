@@ -246,7 +246,7 @@ ZRANGE = zrange
     if n_elements(nsmooth) eq 0 then nsmooth = 3
     if n_elements(time)    eq 0 then time    = 0
     if n_elements(xrange)  eq 0 then xrange  = [0, xsize]
-    if n_elements(yrange)  eq 0 then yrange  = [0, ysize]
+    if n_elements(yrange)  eq 0 then yrange  = [-ysize/2.0, ysize/2.0]
     if n_elements(yslice)  eq 0 then yslice  = 0L
     if n_elements(zrange)  eq 0 then zrange  = [-zsize/2.0, zsize/2.0]
     

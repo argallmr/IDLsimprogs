@@ -89,6 +89,7 @@
 ;-
 pro MrSim_OhmsLaw_Total, oSim, component, cut, $
 ELECTRONS = electrons, $
+HORIZONTAL = horizontal, $
 IONS = ions
     compile_opt strictarr
     on_error, 2
@@ -96,6 +97,7 @@ IONS = ions
 ;-------------------------------------------------------
 ; Defaults ////////////////////////////////////////////
 ;-------------------------------------------------------
+    _comp     = strupcase(component)
     electrons = keyword_set(electrons)
     ions      = keyword_set(ions)
     Sim3D     = keyword_set(Sim3D)
@@ -106,9 +108,9 @@ IONS = ions
 ; Prepare to Plot //////////////////////////////////////
 ;-------------------------------------------------------
     ;Get the simulation size and time
-    oSim -> GetProperty, TIME=time, XSIM=XSim, ZSIM=ZSim
+    oSim -> GetProperty, MVA_FRAME=mva_frame, AXIS_LABELS=axlabels, TIME=time, XSIM=XSim, ZSIM=ZSim
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
-    
+
     ;Time is inverse gyro-time?
     if n_elements(dtxwci) gt 0 $
         then title = 't=' + string(time*dtxwci, FORMAT='(f0.1)') + ' $\Omega$$\downc,i$$\up-1$' $
@@ -116,11 +118,10 @@ IONS = ions
         
     ;Title
     if obj_class(oSim) eq 'MRSIM3D' then begin
-        oSim -> GetProperty, YSLICE=yslice
-        title += '  [x,y]=(' + string(cut, FORMAT='(f0.1)')    + ', ' $
-                             + string(yslice, FORMAT='(f0.1)') + ')' + units
+        oSim -> GetProperty, YRANGE=yrange
+        title += string(FORMAT='(%"  [%s,%s]=(%0.1f,%0.1f)%s")', axlabels[0:1], cut, yrange[0], units)
     endif else begin
-        title += '  x=' + string(cut, FORMAT='(f0.1)') + units
+        title += string(FORMAT='(%"  %s=%0.1f%s")', axlabels[0], cut, units)
     endelse
     
     ;Species to be plotted
@@ -147,24 +148,24 @@ IONS = ions
 ;-------------------------------------------------------
 ; Plot Ohm's Law ///////////////////////////////////////
 ;-------------------------------------------------------
-    case strupcase(component) of
+    case _comp of
         'X': begin
-            E     = MrSim_LineCut(oSim, 'Ex',      cut, /CURRENT)
-            VxB   = MrSim_LineCut(oSim, 'VxB_x',   cut, OVERPLOT=E, COLOR='Blue')
-            JxB   = MrSim_LineCut(oSim, 'JxB_x',   cut, OVERPLOT=E, COLOR='Forest Green')
-            divPe = MrSim_LineCut(oSim, 'divPe_x', cut, OVERPLOT=E, COLOR='Red')
+            E     = MrSim_LineCut(oSim, 'Ex',      cut, /CURRENT, HORIZONTAL=horizontal)
+            VxB   = MrSim_LineCut(oSim, 'VxB_x',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            JxB   = MrSim_LineCut(oSim, 'JxB_x',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            divPe = MrSim_LineCut(oSim, 'divPe_x', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
         endcase
         'Y': begin
-            E     = MrSim_LineCut(oSim, 'Ey',      cut, /CURRENT)
-            VxB   = MrSim_LineCut(oSim, 'VxB_y',   cut, OVERPLOT=E, COLOR='Blue')
-            JxB   = MrSim_LineCut(oSim, 'JxB_y',   cut, OVERPLOT=E, COLOR='Forest Green')
-            divPe = MrSim_LineCut(oSim, 'divPe_y', cut, OVERPLOT=E, COLOR='Red')
+            E     = MrSim_LineCut(oSim, 'Ey',      cut, /CURRENT, HORIZONTAL=horizontal)
+            VxB   = MrSim_LineCut(oSim, 'VxB_y',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            JxB   = MrSim_LineCut(oSim, 'JxB_y',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            divPe = MrSim_LineCut(oSim, 'divPe_y', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
         endcase
         'Z': begin
-            E     = MrSim_LineCut(oSim, 'Ez',      cut, /CURRENT)
-            VxB   = MrSim_LineCut(oSim, 'VxB_z',   cut, OVERPLOT=E, COLOR='Blue')
-            JxB   = MrSim_LineCut(oSim, 'JxB_z',   cut, OVERPLOT=E, COLOR='Forest Green')
-            divPe = MrSim_LineCut(oSim, 'divPe_z', cut, OVERPLOT=E, COLOR='Red')
+            E     = MrSim_LineCut(oSim, 'Ez',      cut, /CURRENT, HORIZONTAL=horizontal)
+            VxB   = MrSim_LineCut(oSim, 'VxB_z',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            JxB   = MrSim_LineCut(oSim, 'JxB_z',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            divPe = MrSim_LineCut(oSim, 'divPe_z', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
         endcase
         else: message, 'Component "' + component + '" not rectognized. Choose from {"X" | "Y" | "Z"}'
     endcase
@@ -172,6 +173,15 @@ IONS = ions
 ;-------------------------------------------------------
 ; Adjust the Plot //////////////////////////////////////
 ;-------------------------------------------------------
+    
+    ;MVA labels?
+    if mva_frame then begin
+        case _comp of
+            'X': _comp = axlabels[0]
+            'Y': _comp = axlabels[1]
+            'Z': _comp = axlabels[2]
+        endcase
+    endif
     
     ;Rename
     E.name     = 'Total E'       + component
@@ -186,7 +196,7 @@ IONS = ions
     divPe -> GetData, divPedata
     
     ;Find the min and max
-    maxRange = max([max(temporary(Edata),   MIN=Emin),   max(-temporary(VxBdata),   MIN=VxBmin), $
+    maxRange = max([max(temporary(Edata),   MIN=Emin),   max(-temporary(VxBdata),  MIN=VxBmin), $
                     max(temporary(JxBdata), MIN=JxBmin), max(temporary(divPedata), MIN=divPemin)])
     range = [min([Emin, VxBmin, JxBmin, divPemin]), maxRange]
     E.YRANGE = range
@@ -195,7 +205,7 @@ IONS = ions
     VxB -> GetData, x, y
     VxB -> SetData, temporary(x), -temporary(y)
     
-    legend_titles = ['E', '-(VxB)', '(JxB)', '(divPe)'] + '$\down' + component +'$'
+    legend_titles = ['E', '-(VxB)', '(JxB)', '(divPe)'] + '$\down' + _comp +'$'
     legend_titles[2] += '/en'
     
     ;Create a legend
@@ -225,6 +235,7 @@ end
 ;-
 pro MrSim_OhmsLaw_GradPe, oSim, component, cut, $
 ELECTRONS = electrons, $
+HORIZONTAL = horizontal, $
 IONS = ions
     compile_opt strictarr
     on_error, 2
@@ -287,35 +298,45 @@ IONS = ions
     subZ = '$\downZ$'
     case strupcase(component) of
         'X': begin
-            ;Ex and Convective Electric Field (x-component)
-            E     = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT)
-            divPe = MrSim_LineCut(oSim, 'div' + P_name + '_x', cut, OVERPLOT=E, COLOR='Blue')
-            n_e   = oSim -> LineCuts(n_name, cut, pos)
+            ;Ex and Divergence of Pressure (x-component)
+            E     = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT, HORIZONTAL=horizontal)
+            divPe = MrSim_LineCut(oSim, 'div' + P_name + '_x', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
                                 
             ;Get Data
-            divPe_1 = oSim -> LineCuts(P_name + '-xx', cut, pos, /DX)
-            divPe_2 = oSim -> LineCuts(P_name + '-xy', cut, /DX)
-            divPe_3 = oSim -> LineCuts(P_name + '-xz', cut, /DX)
+            n_e     = oSim -> LineCuts(n_name,         cut, pos,      HORIZONTAL=horizontal)
+            divPe_1 = oSim -> LineCuts(P_name + '-xx', cut, pos, /DX, HORIZONTAL=horizontal)
+            divPe_2 = oSim -> LineCuts(P_name + '-xy', cut,      /DX, HORIZONTAL=horizontal)
+            divPe_3 = oSim -> LineCuts(P_name + '-xz', cut,      /DX, HORIZONTAL=horizontal)
                         
             ;Titles for the legend
             titles = '(div ' + P_name + ')' + [subX, subX+subX, subX+subY, subX+subZ]
         endcase
         'Y': begin
-            E       = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT)
-            divPe   = MrSim_LineCut(oSim, 'div' + P_name + '_y', cut, OVERPLOT=E, COLOR='Blue')
-            n_e     = oSim -> LineCuts(n_name, cut, pos)
-            divPe_1 = oSim -> LineCuts(P_name + '-xy', cut, pos, /DY)
-            divPe_2 = oSim -> LineCuts(P_name + '-yy', cut, /DY)
-            divPe_3 = oSim -> LineCuts(P_name + '-yz', cut, /DY)
+            ;Ey and Divergence of Pressure (y-component)
+            E       = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT, HORIZONTAL=horizontal)
+            divPe   = MrSim_LineCut(oSim, 'div' + P_name + '_y', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            
+            ;Get data
+            n_e     = oSim -> LineCuts(n_name,         cut, pos,      HORIZONTAL=horizontal)
+            divPe_1 = oSim -> LineCuts(P_name + '-xy', cut, pos, /DY, HORIZONTAL=horizontal)
+            divPe_2 = oSim -> LineCuts(P_name + '-yy', cut,      /DY, HORIZONTAL=horizontal)
+            divPe_3 = oSim -> LineCuts(P_name + '-yz', cut,      /DY, HORIZONTAL=horizontal)
+            
+            ;Title for legend
             titles = '(div' + Pe_name + ')' + [subY, subY+subX, subY+subY, subY+subZ]
         endcase
         'Z': begin
-            E       = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT)
-            divPe   = MrSim_LineCut(oSim, 'div' + P_name + '_z', cut, OVERPLOT=E, COLOR='Blue')
-            n_e     = oSim -> LineCuts(n_name, cut, pos)
-            divPe_1 = oSim -> LineCuts(P_name + '-xz', cut, pos, /DZ)
-            divPe_2 = oSim -> LineCuts(P_name + '-yz', cut, /DZ)
-            divPe_3 = oSim -> LineCuts(P_name + '-zz', cut, /DZ)
+            ;Ez and Divergence of Pressure (z-component)
+            E       = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT, HORIZONTAL=horizontal)
+            divPe   = MrSim_LineCut(oSim, 'div' + P_name + '_z', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            
+            ;Get data
+            n_e     = oSim -> LineCuts(n_name,         cut, pos,      HORIZONTAL=horizontal)
+            divPe_1 = oSim -> LineCuts(P_name + '-xz', cut, pos, /DZ, HORIZONTAL=horizontal)
+            divPe_2 = oSim -> LineCuts(P_name + '-yz', cut,      /DZ, HORIZONTAL=horizontal)
+            divPe_3 = oSim -> LineCuts(P_name + '-zz', cut,      /DZ, HORIZONTAL=horizontal)
+            
+            ;Title for legend
             titles = '(div ' + P_name + ')' + [subZ, subX+subZ, subY+subZ, subZ+subZ]
         endcase
         else: message, 'Component "' + component + '" not rectognized. Choose from {"X" | "Y" | "Z"}'
@@ -370,6 +391,7 @@ end
 ;-
 pro MrSim_OhmsLaw_VxB, oSim, component, cut, $
 ELECTRONS = electrons, $
+HORIZONTAL = horizontal, $
 IONS = ions
     compile_opt strictarr
     on_error, 2
@@ -433,14 +455,14 @@ IONS = ions
     case strupcase(component) of
         'X': begin
             ;Ex and Convective Electric Field (x-component)
-            E   = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT)
-            VxB = MrSim_LineCut(oSim, V_name + 'xB_x', cut, OVERPLOT=E, COLOR='Blue')
+            E   = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT, HORIZONTAL=horizontal)
+            VxB = MrSim_LineCut(oSim, V_name + 'xB_x', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
                                 
             ;Get Data
-            Vy  = oSim -> LineCuts(V_name + 'y', cut, pos)
-            Vz  = oSim -> LineCuts(V_name + 'z', cut)
-            By  = oSim -> LineCuts('By', cut)
-            Bz  = oSim -> LineCuts('Bz', cut)
+            Vy  = oSim -> LineCuts(V_name + 'y', cut, pos, HORIZONTAL=horizontal)
+            Vz  = oSim -> LineCuts(V_name + 'z', cut,      HORIZONTAL=horizontal)
+            By  = oSim -> LineCuts('By',         cut,      HORIZONTAL=horizontal)
+            Bz  = oSim -> LineCuts('Bz',         cut,      HORIZONTAL=horizontal)
             
             ;-(VxB)_x = -(Vy*Bz) + (Vz*By)
             vB1 = -Vy * Bz
@@ -451,30 +473,40 @@ IONS = ions
             titles[2] = '-' + titles[2]
         endcase
         'Y': begin
-            E   = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT)
-            VxB = MrSim_LineCut(oSim, V_name + 'xB_y', cut, OVERPLOT=E, COLOR='Blue')
-            Vx  = oSim -> LineCuts(V_name + 'x', cut, pos)
-            Vz  = oSim -> LineCuts(V_name + 'z', cut)
-            Bx  = oSim -> LineCuts('Bx', cut)
-            Bz  = oSim -> LineCuts('Bz', cut)
+            ;Ex and Convective Electric Field (x-component)
+            E   = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT, HORIZONTAL=horizontal)
+            VxB = MrSim_LineCut(oSim, V_name + 'xB_y', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+                                
+            ;Get Data
+            Vx  = oSim -> LineCuts(V_name + 'x', cut, pos, HORIZONTAL=horizontal)
+            Vz  = oSim -> LineCuts(V_name + 'z', cut,      HORIZONTAL=horizontal)
+            Bx  = oSim -> LineCuts('Bx',         cut,      HORIZONTAL=horizontal)
+            Bz  = oSim -> LineCuts('Bz',         cut,      HORIZONTAL=horizontal)
             
             ;-(VxB)_y = -(Vx*Bz) + (Vz*Bx)
             vB1 = -Vz * Bx
             vB2 =  Vx * Bz
+            
+            ;Titles for the legend
             titles = V_name + ['xB', subX+'B'+subZ, subZ+'B'+subX]
             titles[2] = '-' + titles[2]
         endcase
         'Z': begin
-            E   = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT)
-            VxB = MrSim_LineCut(oSim, V_name + 'xB_z', cut, OVERPLOT=E, COLOR='Blue')
-            Vx  = oSim -> LineCuts(V_name + 'x', cut, pos)
-            Vy  = oSim -> LineCuts(V_name + 'y', cut)
-            Bx  = oSim -> LineCuts('Bx', cut)
-            By  = oSim -> LineCuts('By', cut)
+            ;Ex and Convective Electric Field (x-component)
+            E   = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT, HORIZONTAL=horizontal)
+            VxB = MrSim_LineCut(oSim, V_name + 'xB_z', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+                                
+            ;Get Data
+            Vx  = oSim -> LineCuts(V_name + 'x', cut, pos, HORIZONTAL=horizontal)
+            Vy  = oSim -> LineCuts(V_name + 'y', cut,      HORIZONTAL=horizontal)
+            Bx  = oSim -> LineCuts('Bx',         cut,      HORIZONTAL=horizontal)
+            By  = oSim -> LineCuts('By',         cut,      HORIZONTAL=horizontal)
             
             ;-(VxB)_z = -(Vx*By) + (Vy*Bx)
             vB1 = -Vx * By
             vB2 =  Vy * Bx
+            
+            ;Titles for the legend
             titles = V_name + ['xB)'+subZ, subX+'B'+subY, subY+'B'+subX]
             titles[0]   = '(' + titles[0]
             titles[0:1] = '-' + titles[0:1]
@@ -530,6 +562,7 @@ end
 ;-
 pro MrSim_OhmsLaw_JxB, oSim, component, cut, $
 ELECTRONS = electrons, $
+HORIZONTAL = horizontal, $
 IONS = ions
     compile_opt strictarr
     on_error, 2
@@ -594,17 +627,17 @@ IONS = ions
     subZ = '$\downZ$'
     case strupcase(component) of
         'X': begin
-            ;Ex and Convective Electric Field (x-component)
-            E   = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT)
-            JxB = MrSim_LineCut(oSim, 'JxB_x', cut, OVERPLOT=E, COLOR='Blue')
+            ;Ex and Hall Electric Field (x-component)
+            E   = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT, HORIZONTAL=horizontal)
+            JxB = MrSim_LineCut(oSim, 'JxB_x', cut, OVERPLOT=E, COLOR='Blue', HORIZONTAL=horizontal)
                                 
             ;Get Data
-            n_i  = oSim -> LineCuts('ni', cut)
-            n_e  = oSim -> LineCuts('ne', cut)
-            Jy   = oSim -> LineCuts('Jy', cut, pos)
-            Jz   = oSim -> LineCuts('Jz', cut)
-            By   = oSim -> LineCuts('By', cut)
-            Bz   = oSim -> LineCuts('Bz', cut)
+            n_i  = oSim -> LineCuts('ni', cut,      HORIZONTAL=horizontal)
+            n_e  = oSim -> LineCuts('ne', cut,      HORIZONTAL=horizontal)
+            Jy   = oSim -> LineCuts('Jy', cut, pos, HORIZONTAL=horizontal)
+            Jz   = oSim -> LineCuts('Jz', cut,      HORIZONTAL=horizontal)
+            By   = oSim -> LineCuts('By', cut,      HORIZONTAL=horizontal)
+            Bz   = oSim -> LineCuts('Bz', cut,      HORIZONTAL=horizontal)
             
             ;E_N = (Jy*Bz) - (Jz*By) = JB1 + JB2
             JB1 = ( Jy * Bz) / (n_i + n_e)
@@ -614,33 +647,43 @@ IONS = ions
             titles = ['(JxB)'+subX, 'J'+subY+'B'+subZ, 'J'+subZ+'B'+subY] + '/en'
         endcase
         'Y': begin
-            E   = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT)
-            JxB = MrSim_LineCut(oSim, 'JxB_y', cut, OVERPLOT=E, COLOR='Blue')
-            n_i  = oSim -> LineCuts('ni', cut)
-            n_e  = oSim -> LineCuts('ne', cut)
-            Jx  = oSim -> LineCuts('Jx', cut, pos)
-            Jz  = oSim -> LineCuts('Jz', cut)
-            Bx  = oSim -> LineCuts('Bx', cut)
-            Bz  = oSim -> LineCuts('Bz', cut)
+            ;Ey and Hall Electric Field (y-component)
+            E   = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT, HORIZONTAL=horizontal)
+            JxB = MrSim_LineCut(oSim, 'JxB_y', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+                                
+            ;Get Data
+            n_i = oSim -> LineCuts('ni', cut,      HORIZONTAL=horizontal)
+            n_e = oSim -> LineCuts('ne', cut,      HORIZONTAL=horizontal)
+            Jx  = oSim -> LineCuts('Jx', cut, pos, HORIZONTAL=horizontal)
+            Jz  = oSim -> LineCuts('Jz', cut,      HORIZONTAL=horizontal)
+            Bx  = oSim -> LineCuts('Bx', cut,      HORIZONTAL=horizontal)
+            Bz  = oSim -> LineCuts('Bz', cut,      HORIZONTAL=horizontal)
             
             ;(JxB)_y = (Jx*Bz) - (Jz*Bx) = JB1 + JB2
             JB1 = ( Jz * Bx) / (n_i + n_e)
             JB2 = (-Jx * Bz) / (n_i + n_e)
+            
+            ;Titles for the legend
             titles = ['(JxB)'+subY, 'J'+subZ+'B'+subX, '-J'+subX+'B'+subZ] + '/en'
         endcase
         'Z': begin
-            E   = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT)
-            JxB = MrSim_LineCut(oSim, 'JxB_z', cut, OVERPLOT=E, COLOR='Blue')
-            Jx  = oSim -> LineCuts('Jx', cut, pos)
-            n_i = oSim -> LineCuts('ni', cut)
-            n_e = oSim -> LineCuts('ne', cut)
-            Jy  = oSim -> LineCuts('Jy', cut)
-            Bx  = oSim -> LineCuts('Bx', cut)
-            By  = oSim -> LineCuts('By', cut)
+            ;Ez and Hall Electric Field (z-component)
+            E   = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT, HORIZONTAL=horizontal)
+            JxB = MrSim_LineCut(oSim, 'JxB_z', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+                                
+            ;Get Data
+            Jx  = oSim -> LineCuts('Jx', cut, pos, HORIZONTAL=horizontal)
+            n_i = oSim -> LineCuts('ni', cut,      HORIZONTAL=horizontal)
+            n_e = oSim -> LineCuts('ne', cut,      HORIZONTAL=horizontal)
+            Jy  = oSim -> LineCuts('Jy', cut,      HORIZONTAL=horizontal)
+            Bx  = oSim -> LineCuts('Bx', cut,      HORIZONTAL=horizontal)
+            By  = oSim -> LineCuts('By', cut,      HORIZONTAL=horizontal)
             
             ;(JxB)_z = (Jx*By) - (Jy*Bx) = JB1 + JB2
             JB1 = ( Jx * By) / (n_i + n_e)
             JB2 = (-Jy * Bx) / (n_i + n_e)
+            
+            ;Titles for the legend
             titles = ['(JxB)'+subZ, 'J'+subX+'B'+subY, '-J'+subY+'B'+subX] + '/en'
         endcase
         else: message, 'Component "' + component + '" not rectognized. Choose from {"X" | "Y" | "Z"}'
@@ -693,6 +736,10 @@ end
 ;                               total current.
 ;       GRADPE:             in, optional, type=boolean, default=0
 ;                           If set, the pressure tensor term will be plotted.
+;       HORIZONTAL:         in, optional, type=boolean, default=0
+;                           If set, a horizontal cut will be taken. The default is
+;                               to take a vertical cut. For an "XY" orientation, "X" is
+;                               horizontal, "Y" is vertical. Similar for "XZ", etc.
 ;       IONS:               in, optional, type=boolean, default=0
 ;                           If set, the ion current will be plotted instead of the
 ;                               total current.
@@ -719,6 +766,7 @@ function MrSim_OhmsLaw, theSim, component, cut, time, $
 CURRENT = current, $
 ELECTRONS = electrons, $
 GRADPE = gradPe, $
+HORIZONTAL = horizontal, $
 IONS = ions, $
 JXB = JxB, $
 OFILENAME = ofilename, $
@@ -800,10 +848,10 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
 ; Plot Ohm's Law ///////////////////////////////////////
 ;-------------------------------------------------------
-    if ETotal then MrSim_OhmsLaw_Total,  oSim, component, cut, ELECTRONS=electrons, IONS=ions
-    if VxB    then MrSim_OhmsLaw_VxB,    oSim, component, cut, ELECTRONS=electrons, IONS=ions
-    if JxB    then MrSim_OhmsLaw_JxB,    oSim, component, cut, ELECTRONS=electrons, IONS=ions
-    if gradPe then MrSim_OhmsLaw_gradPe, oSim, component, cut, ELECTRONS=electrons, IONS=ions
+    if ETotal then MrSim_OhmsLaw_Total,  oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if VxB    then MrSim_OhmsLaw_VxB,    oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if JxB    then MrSim_OhmsLaw_JxB,    oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if gradPe then MrSim_OhmsLaw_gradPe, oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
     
 ;-------------------------------------------------------
 ;Output ////////////////////////////////////////////////

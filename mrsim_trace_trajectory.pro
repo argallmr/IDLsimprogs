@@ -191,7 +191,7 @@ _REF_EXTRA = extra
     if current $
         then colorWin = GetMrWindows(/CURRENT) $
         else colorWin = MrWindow(XSIZE=600, YSIZE=500, YGAP=4, BUFFER=buffer, REFRESH=0)
-stop
+
     ;Plot in XY-Plane
     if xy_plane then begin
         ;Create a set of axes

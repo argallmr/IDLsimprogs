@@ -42,18 +42,23 @@ FNAME=fname
     endif
     
     ;Simulation
-    theSim = 'Asymm-Large-2D'
-    tIndex = 32
-    xrange = 1509 + [-30, 30]
-    zrange = [-20, 20]
-    oSim   = MrSim_Create(theSim, tIndex, XRANGE=xrange, ZRANGE=zrange)
-    
+    theSim       = 'Asymm-Large-2D'
+    tIndex       = 32
+    xrange       = 150.9 + [-3.0, 3.0]
+    zrange       = [-2.0, 2.0]
+    coord_system = 'Simulation'
+    mva_frame    = 1
+    ion_scale    = 1
+    horizontal   = 0
+    oSim   = MrSim_Create(theSim, tIndex, COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame, $
+                          ION_SCALE=ion_scale, XRANGE=xrange, ZRANGE=zrange)
+
     ;Ohm's Law
     component = 'Z'
-    cut       = [1509, 1503, 1484] 
-    win       = MrSim_OhmsLaw(oSim, component, cut[0])
-    win2      = MrSim_OhmsLaw(oSim, component, cut[1])
-    win3      = MrSim_OhmsLaw(oSim, component, cut[2])
+    cut       = [150.9, 150.3, 148.4] 
+    win       = MrSim_OhmsLaw(oSim, component, cut[0], HORIZONTAL=horizontal)
+    win2      = MrSim_OhmsLaw(oSim, component, cut[1], HORIZONTAL=horizontal)
+    win3      = MrSim_OhmsLaw(oSim, component, cut[2], HORIZONTAL=horizontal)
     
     nWins = 2
     nCols = 3
@@ -133,6 +138,9 @@ FNAME=fname
             ;Set Properties
             gfx.yrange = yrange
             if col gt 1 then gfx -> SetProperty, YTITLE='', YTICKFORMAT='(a1)'
+            if col eq 1 then gfx -> SetProperty, YTITLE='E$\downN$'
+            if row eq 1 then gfx -> SetProperty, TITLE='$\Omega$$\downci$$\up-1$=64.0 L=' + string(cut[col-1], FORMAT='(f0.1)') + 'd$\downi$'
+            if row eq nRows then gfx -> SetProperty, XTITLE='N (d$\downi$)'
         endfor
 
         ;Set Properties
@@ -143,13 +151,21 @@ FNAME=fname
 ;-------------------------------------------------------
 ; Move Legends /////////////////////////////////////////
 ;-------------------------------------------------------
-    win["Ohm's Law"]               -> SetProperty, LOCATION=8, TARGET=win['1503 Total EZ']
-    win["Ohm's Law: VxB term"]     -> SetProperty, LOCATION=8, TARGET=win['1503 EZ vs. Ec']
-    win["Ohm's Law: JxB term"]     -> SetProperty, LOCATION=8, TARGET=win['1503 EZ vs. Hall E']
-    win["Ohm's Law: div(Pe) term"] -> SetProperty, LOCATION=8, TARGET=win['1503 EZ vs. E inert']
+    ;Relocate the legends
+    win["Ohm's Law"]               -> SetProperty, LOCATION=8, TARGET=win['150.300 Total E' + component], $
+                                      TITLES=['E$\downZ$', '(-VxB)$\downZ$', '(JxB)$\downZ$/ne', '(divPe)$\downZ$']
+    win["Ohm's Law: VxB term"]     -> SetProperty, LOCATION=8, TARGET=win['150.300 E' + component + ' vs. Ec'], $
+                                      TITLES=['E$\downZ$', '(-VxB)$\downZ$', '-V$\downL$xB$\downM$', 'V$\downM$xB$\downL$']
+    win["Ohm's Law: JxB term"]     -> SetProperty, LOCATION=8, TARGET=win['150.300 E' + component + ' vs. Hall E'], $
+                                      TITLES=['E$\downZ$', '(JxB)$\downZ$/ne', 'J$\downL$xB$\downM$', '-J$\downM$xB$\downL$']
+    win["Ohm's Law: div(Pe) term"] -> SetProperty, LOCATION=8, TARGET=win['150.300 E' + component + ' vs. E inert'], $
+                                      TITLES=['E$\downZ$', '(divPe)$\downN$', '(divPe)$\downL$$\downN$', '(divPe)$\downM$$\downN$', '(divPe)$\downN$$\downN$']
+    
+    
+    
     
     ;Overview
-    im_win = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay', VERT_LINES=cut, $
+    im_win = MrSim_ColorSlab(oSim, 'Ez', C_NAME='Ay', HORIZ_LINES=cut, $
                              LINE_COLOR=['White', 'Green', 'Red'])
 
     if obj_valid(oSim) then obj_destroy, oSim
