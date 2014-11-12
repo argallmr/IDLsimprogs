@@ -687,8 +687,8 @@ NSMOOTH=nSmooth
 ; Coordinate System -> Simulation Coordinates //////////
 ;-------------------------------------------------------
     ;Get the index range of data to read
-    ixrange = getIndexRange(*self.XSim, xrange, STRIDE=xstride)
-    izrange = getIndexRange(*self.ZSim, zrange, STRIDE=zstride)
+    ixrange = MrIndexRange(*self.XSim, xrange, STRIDE=xstride)
+    izrange = MrIndexRange(*self.ZSim, zrange, STRIDE=zstride)
 
     ;Subset of data to read
     ;   - Data is still in SIMULATION coordinates.

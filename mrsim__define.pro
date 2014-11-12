@@ -494,7 +494,7 @@ Z=z
     if magnitude + x + y + z gt 1 then message, 'MAGNITUDE, X, Y, and Z are mutually exclusive.'
     
     _field = n_elements(field) eq 0 ? 'B' : strupcase(field)
-    if IsMember(['B', 'E'], _field) eq 0 $
+    if MrIsMember(['B', 'E'], _field) eq 0 $
         then message, 'FIELD must be either "B" or "E".'
     
     ;Get Data
@@ -1046,8 +1046,8 @@ FILENAME=filename
     ;   - Using the GetProperty method will select the current subset of the simulation
     ;       coordinates.
     self -> GetProperty, XSIM=xSim, ZSIM=zSim
-    ix = getIndexRange(xSim, xrange, STRIDE=xStride)
-    iz = getIndexRange(zSim, zrange, STRIDE=zStride)
+    ix = MrIndexRange(xSim, xrange, STRIDE=xStride)
+    iz = MrIndexRange(zSim, zrange, STRIDE=zStride)
 
     ;Select the subset of data to be returned
     data = data[ix[0]:ix[1]:xStride, iz[0]:iz[1]:zStride]
@@ -1486,9 +1486,9 @@ ZSIM = ZSim
     if arg_present(coord_system) then coord_system = self.coord_system
     if arg_present(directory)    then directory    = self.directory
     if arg_present(ion_scale)    then ion_scale    = self.ion_scale
-    if arg_present(ixrange)      then ixrange      = getIndexRange(*self.XSim, self.xrange)
-    if arg_present(iyrange)      then iyrange      = getIndexRange(*self.YSim, self.yrange)
-    if arg_present(izrange)      then izrange      = getIndexRange(*self.ZSim, self.zrange)
+    if arg_present(ixrange)      then ixrange      = MrIndexRange(*self.XSim, self.xrange)
+    if arg_present(iyrange)      then iyrange      = MrIndexRange(*self.YSim, self.yrange)
+    if arg_present(izrange)      then izrange      = MrIndexRange(*self.ZSim, self.zrange)
     if arg_present(mva_frame)    then mva_frame    = self.mva_frame
     if arg_present(orientation)  then orientation  = self.orientation
     if arg_present(simname)      then simname      = self.simname
@@ -1501,14 +1501,14 @@ ZSIM = ZSim
 
     ;Simulation Domain
     if arg_present(XSim) && n_elements(*self.XSim) gt 0 then begin
-        ix = getIndexRange(*self.XSim, self.xrange)
+        ix = MrIndexRange(*self.XSim, self.xrange)
         XSim = (*self.XSim)[ix[0]:ix[1]]
     endif
     
     ;2D simulations have only 1 grid cell in Y
     if arg_present(YSim) then begin
         if n_elements(*self.YSim) gt 1 then begin
-            iy = getIndexRange(*self.YSim, self.yrange)
+            iy = MrIndexRange(*self.YSim, self.yrange)
             YSim = (*self.YSim)[iy[0]:iy[1]]
         endif else begin
             YSim = (*self.YSim)
@@ -1516,7 +1516,7 @@ ZSIM = ZSim
     endif
 
     if arg_present(ZSim) && n_elements(*self.ZSim) gt 0 then begin
-        iz = getIndexRange(*self.ZSim, self.zrange)
+        iz = MrIndexRange(*self.ZSim, self.zrange)
         ZSim = (*self.ZSim)[iz[0]:iz[1]]
     endif
 end
@@ -2353,13 +2353,13 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
     if horizontal eq 0 then begin
         ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(YSim, cut_yrange)
+        iRange = MrIndexRange(YSim, cut_yrange)
         pos = YSim[iRange[0]:iRange[1]]
 
         ;X-locations of the subset of vertical cuts to be displayed. If matches are
         ;not exact, round up instead of down.
         iCuts = value_locate(XSim, locations)
-        void = ismember(XSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
+        void = MrIsMember(XSim[iCuts], locations, COMPLEMENT=bumpThese)
         if n_elements(bumpThese) ne 0 then iCuts[bumpThese] += 1
     
         ;data as a function of z along the vertical line.
@@ -2371,13 +2371,13 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
     endif else begin
         ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(XSim, cut_xrange)
+        iRange = MrIndexRange(XSim, cut_xrange)
         pos = XSim[iRange[0]:iRange[1]]
 
         ;Z-locations of the subset of vertical cuts to be displayed. If matches are
         ;not exact, round up instead of down.
         iCuts = value_locate(YSim, locations)
-        void = ismember(YSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
+        void = MrIsMember(YSim[iCuts], locations, COMPLEMENT=bumpThese)
         if n_elements(bumpThese) ne 0 then icut_pts[bumpThese] += 1
 
         ;data as a function of x along the horizontal line.
@@ -2488,13 +2488,13 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
     if horizontal then begin
         ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(XSim, cut_xrange, STRIDE=stride)
+        iRange = MrIndexRange(XSim, cut_xrange, STRIDE=stride)
         pos = XSim[iRange[0]:iRange[1]:stride]
 
         ;Z-locations of the subset of vertical cuts to be displayed. If matches are
         ;not exact, round up instead of down.
         iCuts = value_locate(ZSim, locations)
-        void = ismember(ZSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
+        void = MrIsMember(ZSim[iCuts], locations, COMPLEMENT=bumpThese)
         if n_elements(bumpThese) ne 0 then icuts[bumpThese] += 1
 
         ;data as a function of x along the horizontal line.
@@ -2505,13 +2505,13 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
     endif else begin
         ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(ZSim, cut_zrange, STRIDE=stride)
+        iRange = MrIndexRange(ZSim, cut_zrange, STRIDE=stride)
         pos = ZSim[iRange[0]:iRange[1]:stride]
 
         ;X-locations of the subset of vertical cuts to be displayed. If matches are
         ;not exact, round up instead of down.
         iCuts = value_locate(XSim, locations)
-        void = ismember(XSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
+        void = MrIsMember(XSim[iCuts], locations, COMPLEMENT=bumpThese)
         if n_elements(bumpThese) ne 0 then icuts[bumpThese] += 1
     
         ;data as a function of z along the vertical line.
