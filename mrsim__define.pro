@@ -1609,7 +1609,7 @@ Z=z
     ;Get the location
     case 1 of
         x: cell = value_locate(*self.xSim, coord)
-        y: cell = value_locate(*self.ySim, coord)
+        y: cell = n_elements(*self.ySim) eq 1 ? 0 : value_locate(*self.ySim, coord)
         z: cell = value_locate(*self.zSim, coord)
     endcase
     

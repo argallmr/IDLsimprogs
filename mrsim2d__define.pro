@@ -502,6 +502,7 @@ end
 ;       DATA:               Electron particle data.
 ;-
 function MrSim2D::ReadElectrons, filename, $
+DIST3D=dist3D, $
 FMAP_DIR=fmap_dir, $
 ORIGINAL=original, $
 PAR_PERP=par_perp, $

@@ -102,12 +102,14 @@ DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
 EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
+FMAP_DIR=fMap_dir, $
+DIST3D=dist3D
 compile_opt strictarr
 on_error, 2
 
     directory = '/data2/daughton/mime1836/by0.0/data/'
     dtxwci    = 2.0
+    dist3D     = 0
     if arg_present(ascii_version) then ascii_version = 2
     if arg_present(fMap_dir)      then fMap_dir      = '/home/guanlai/pic/by00/'
     if arg_present(eCountFactor)  then eCountFactor  = 2
@@ -195,19 +197,21 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_mime1836_by05, tIndex, $
-    INFO_ASCII=info_ascii, $
-    ASCII_VERSION=ascii_version, $
-    INFO_BINARY=info_binary, $
-    DTXWCI=dtxwci, $
-    ECOUNTFACTOR=eCountFactor, $
-    EFILE=eFile, $
-    EREGIONS=eRegions, $
-    FMAP_DIR=fMap_dir
+INFO_ASCII=info_ascii, $
+ASCII_VERSION=ascii_version, $
+INFO_BINARY=info_binary, $
+DTXWCI=dtxwci, $
+ECOUNTFACTOR=eCountFactor, $
+EFILE=eFile, $
+EREGIONS=eRegions, $
+FMAP_DIR=fMap_dir, $
+DIST3D=dist3D
     compile_opt strictarr
     on_error, 2
     
     directory = '/data2/daughton/mime1836/by0.05/data/'
     dtxwci = 2.0
+    dist3D     = 0
     if arg_present(ascii_version) then ascii_version = 2
     if arg_present(fMap_dir)     then fMap_dir     = '/home/guanlai/pic/by05/'
     if arg_present(eCountFactor) then eCountFactor = 2
@@ -298,12 +302,14 @@ DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
 EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
+FMAP_DIR=fMap_dir, $
+DIST3D=dist3D
     compile_opt strictarr
     on_error, 2
     
     directory = '/data2/daughton/mime1836/by0.1/data/'
     dtxwci    = 2.0
+    dist3D     = 0
     if arg_present(ascii_version) then ascii_version = 2
     if arg_present(fMap_dir)      then fMap_dir      = '/home/guanlai/pic/by10/'
     if arg_present(eCountFactor)  then eCountFactor  = 2
@@ -394,12 +400,14 @@ DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
 EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
+FMAP_DIR=fMap_dir, $
+DIST3D=dist3D
     compile_opt strictarr
     on_error, 2
     
     directory = '/data2/daughton/mime1836/by0.4/data/'
     dtxwci = 2.0
+    dist3D     = 0
     if arg_present(ascii_version) then ascii_version = 2
     if arg_present(fMap_dir)      then fMap_dir      = '/home/guanlai/pic/by40/'
     if arg_present(eCountFactor)  then eCountFactor  = 2
@@ -612,12 +620,14 @@ DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
 EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
+FMAP_DIR=fMap_dir, $
+DIST3D=dist3D
     compile_opt strictarr
     on_error, 2
 
     directory = '/data2/Asymm-Large-2D/data/'
     dtxwci    = 2.0
+    dist3D     = 0
     if arg_present(ascii_version) then ascii_version = 1
     if arg_present(fMap_dir)      then fMap_dir      = !Null
     if arg_present(eCountFactor)  then eCountFactor  = !Null
@@ -687,22 +697,24 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_AsymmLarge2D_NEW, tIndex, $
-INFO_ASCII=info_ascii, $
 ASCII_VERSION=ascii_version, $
-INFO_BINARY=info_binary, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
 EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
+FMAP_DIR=fMap_dir, $
+INFO_ASCII=info_ascii, $
+INFO_BINARY=info_binary, $
+DIST3D=dist3D
     compile_opt strictarr
     on_error, 2
 
     ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
     directory = '/data2/Asymm-2D-Large/data/'
     dtxwci    = 5.0
+    dist3D     = 0
     if arg_present(ascii_version) then ascii_version = 1
-    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/Asymm-Large-2D-NEW/'
+    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/fmaps/'
 
     ;Binary Info File
     ;   - Stored in the data directory
@@ -808,15 +820,17 @@ DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
 EREGIONS=eRegions, $
-FMAP_DIR=fMap_dir
+FMAP_DIR=fMap_dir, $
+DIST3D=dist3D
     compile_opt strictarr
     on_error, 2
 
     ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
     directory = '/data2/Asymm-Scan/By0/data/'
     dtxwci    = 2.0
+    dist3D     = 0
     if arg_present(ascii_version) then ascii_version = 1
-    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/Asymm-Scan/By0/'
+    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/fmaps/'
     if arg_present(eCountFactor)  then eCountFactor  = 1L
 
     ;Binary Info File
@@ -907,15 +921,17 @@ EFILE=eFile, $
 EREGIONS=eRegions, $
 FMAP_DIR=fMap_dir, $
 INFO_ASCII=info_ascii, $
-INFO_BINARY=info_binary
+INFO_BINARY=info_binary, $
+DIST3D=dist3D
     compile_opt strictarr
     on_error, 2
 
     ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
     directory = '/data2/Asymm-Scan/By1/data/'
     dtxwci    = 2.0
+    dist3D     = 0
     if arg_present(ascii_version) then ascii_version = 1
-    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/Asymm-Scan/By1/'
+    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/fmaps/'
     if arg_present(eCountFactor)  then eCountFactor  = 1L
 
     ;Binary Info File
@@ -1005,13 +1021,15 @@ EFILE=eFile, $
 EREGIONS=eRegions, $
 FMAP_DIR=fMap_dir, $
 INFO_ASCII=info_ascii, $
-INFO_BINARY=info_binary
+INFO_BINARY=info_binary, $
+DIST3D=dist3D
     compile_opt strictarr
     on_error, 2
 
     ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
     directory = '/data1/sim1/data/'
     dtxwci    = 0.25
+    dist3D     = 0
     if arg_present(ascii_version) then ascii_version = 1
     if arg_present(fMap_dir)      then fMap_dir     = '/home/argall/simulations/Sim1/'
     if arg_present(eCountFactor)  then eCountFactor = 2L

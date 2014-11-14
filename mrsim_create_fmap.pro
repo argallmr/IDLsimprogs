@@ -292,7 +292,7 @@ end
 ; Main-Level Example Program: IDL> .r MrSim_Create_fMap //////////////
 ;---------------------------------------------------------------------
 ;Files and directories
-filename = '/data2/Asymm-2D-Large/electrons-t90.bin'
+filename = '/data2/Asymm-Scan/By0/electrons-twci68-it125800.bin'
 save_dir = '/home/argall/simulations/fmaps/'
 
 ;Read the particle data
