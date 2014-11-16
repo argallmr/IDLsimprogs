@@ -104,6 +104,7 @@
 ; :History:
 ;   Modification History::
 ;       2014-11-14  -   Written by Matthew Argall
+;       2014-11-15  -   Remove leading white-space from prameters. - MRA
 ;-
 pro MrSim_Trace_Init, theSim, time, bin_center, half_width, vx_range, vy_range, vz_range, $
 DIRECTION=direction, $
@@ -227,34 +228,34 @@ ZMAX=zmax
 	openw, lun, oParamFile, /GET_LUN
 
 	;Inputs
-	printf, lun, fix(gda_dir,    TYPE=7)    ;String
-	printf, lun, fix(time,       TYPE=2)    ;Short
-	printf, lun, fix(is3D,       TYPE=2)    ;Short
-	printf, lun, fix(direction,  TYPE=2)    ;Short
-	printf, lun, fix(stepMax,    TYPE=2)    ;Short
-	printf, lun, fix(dt,         TYPE=5)    ;Double
+	printf, lun, fix(gda_dir,    TYPE=7), FORMAT='(a0)'    ;String
+	printf, lun, fix(time,       TYPE=2), FORMAT='(i0)'    ;Short
+	printf, lun, fix(is3D,       TYPE=2), FORMAT='(i0)'    ;Short
+	printf, lun, fix(direction,  TYPE=2), FORMAT='(i0)'    ;Short
+	printf, lun, fix(stepMax,    TYPE=2), FORMAT='(i0)'    ;Short
+	printf, lun, fix(dt,         TYPE=5), FORMAT='(f0)'    ;Double
 
 	;Simulation parameters
-	printf, lun, fix(n_e,        TYPE=3)    ;Short
-	printf, lun, fix(n_i,        TYPE=2)    ;Short
-	printf, lun, fix(eMass,      TYPE=5)    ;Double
-	printf, lun, fix(iMass,      TYPE=5)    ;Double
+	printf, lun, fix(n_e,        TYPE=3), FORMAT='(i0)'    ;Short
+	printf, lun, fix(n_i,        TYPE=2), FORMAT='(i0)'    ;Short
+	printf, lun, fix(eMass,      TYPE=5), FORMAT='(f0)'    ;Double
+	printf, lun, fix(iMass,      TYPE=5), FORMAT='(f0)'    ;Double
 
 	;Simulation Size
-	printf, lun, fix(nx,         TYPE=3)    ;Long
-	printf, lun, fix(ny,         TYPE=3)    ;Long
-	printf, lun, fix(nz,         TYPE=3)    ;Long
-	printf, lun, fix(dx,         TYPE=5)    ;Double
-	printf, lun, fix(dy,         TYPE=5)    ;Double
-	printf, lun, fix(dz,         TYPE=5)    ;Double
-	printf, lun, fix(xmax,       TYPE=5)    ;Double
-	printf, lun, fix(ymax,       TYPE=5)    ;Double
-	printf, lun, fix(zmax,       TYPE=5)    ;Double
+	printf, lun, fix(nx,         TYPE=3), FORMAT='(i0)'    ;Long
+	printf, lun, fix(ny,         TYPE=3), FORMAT='(i0)'    ;Long
+	printf, lun, fix(nz,         TYPE=3), FORMAT='(i0)'    ;Long
+	printf, lun, fix(dx,         TYPE=5), FORMAT='(f0)'    ;Double
+	printf, lun, fix(dy,         TYPE=5), FORMAT='(f0)'    ;Double
+	printf, lun, fix(dz,         TYPE=5), FORMAT='(f0)'    ;Double
+	printf, lun, fix(xmax,       TYPE=5), FORMAT='(f0)'    ;Double
+	printf, lun, fix(ymax,       TYPE=5), FORMAT='(f0)'    ;Double
+	printf, lun, fix(zmax,       TYPE=5), FORMAT='(f0)'    ;Double
 
 	;Output
-	printf, lun, fix(stepPrint,  TYPE=2)    ;Short
-	printf, lun, fix(oInitFile,  TYPE=7)    ;String
-	printf, lun, fix(oFilename,  TYPE=7)    ;String
+	printf, lun, fix(stepPrint,  TYPE=2), FORMAT='(i0)'    ;Short
+	printf, lun, fix(oInitFile,  TYPE=7), FORMAT='(a0)'    ;String
+	printf, lun, fix(oFilename,  TYPE=7), FORMAT='(a0)'    ;String
 
 	;Close the file
 	free_lun, lun

@@ -89,95 +89,103 @@
 ;       2014/11/13  -   Written by Matthew Argall
 ;-
 function MrSim_Trace_Positions, theSim, position, velocity, $
+BUFFER = buffer, $
 C_NAME = c_name, $
 CURRENT = current, $
 IM_NAME = im_name, $
 NLEVELS = nLevels, $
 OFILENAME = ofilename, $
 SIM_OBJECT = oSim, $
+XRANGE = xrange, $
 XY_PLANE = xy_plane, $
 XZ_PLANE = xz_plane, $
+YRANGE = yrange, $
 YZ_PLANE = yz_plane, $
+ZRANGE = zrange, $
 _REF_EXTRA = extra
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if osim_created        && arg_present(oSim)    eq 0 then obj_destroy, oSim
-        if obj_valid(colorWin) && keyword_set(current) eq 0 then obj_destroy, colorWin
-        void = cgErrorMSG()
-        return, obj_new()
-    endif
+	compile_opt strictarr
+
+	;Error handling
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /cancel
+		if osim_created        && arg_present(oSim)    eq 0 then obj_destroy, oSim
+		if obj_valid(colorWin) && keyword_set(current) eq 0 then obj_destroy, colorWin
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
 
 ;-------------------------------------------------------
 ; Check Simulation /////////////////////////////////////
 ;-------------------------------------------------------
-    osim_created = 0B
-    
-    ;Simulation name or number?
-    if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
-        oSim = MrSim_Create(theSim, time, yslice, _STRICT_EXTRA=extra)
-        if obj_valid(oSim) eq 0 then return, obj_new()
-        osim_created = 1B
-        
-    ;Object?
-    endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM') eq 0 $
-            then message, 'THESIM must be a subclass of the MrSim class.' $
-            else oSim = theSim
-            
-    ;Somthing else
-    endif else begin
-        MrSim_Which
-        message, 'THESIM must be a simulation name, number, or object.'
-    endelse
-    sim_class = obj_class(oSim)
+	osim_created = 0B
+
+	;Simulation name or number?
+	if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
+		oSim = MrSim_Create(theSim, time, yslice, _STRICT_EXTRA=extra)
+		if obj_valid(oSim) eq 0 then return, obj_new()
+		osim_created = 1B
+	
+	;Object?
+	endif else if MrIsA(theSim, 'OBJREF') then begin
+		if obj_isa(theSim, 'MRSIM') eq 0 $
+			then message, 'THESIM must be a subclass of the MrSim class.' $
+			else oSim = theSim
+		
+	;Somthing else
+	endif else begin
+		MrSim_Which
+		message, 'THESIM must be a simulation name, number, or object.'
+	endelse
+	sim_class = obj_class(oSim)
 
 ;-------------------------------------------------------
 ; Defaults /////////////////////////////////////////////
 ;-------------------------------------------------------
-    current  = keyword_set(current)
-    xy_plane = keyword_set(xy_plane)
-    xz_plane = keyword_set(xz_plane)
-    yz_plane = keyword_set(yz_plane)
-    if n_elements(c_name)    eq 0 then c_name    = ''
-    if n_elements(im_name)   eq 0 then im_name   = ''
-    if n_elements(ofilename) eq 0 then ofilename = ''
-    if n_elements(nlevels)   eq 0 then nlevels   = 15
+	buffer   = keyword_set(buffer)
+	current  = keyword_set(current)
+	xy_plane = keyword_set(xy_plane)
+	xz_plane = keyword_set(xz_plane)
+	yz_plane = keyword_set(yz_plane)
+	if n_elements(c_name)    eq 0 then c_name    = ''
+	if n_elements(im_name)   eq 0 then im_name   = ''
+	if n_elements(ofilename) eq 0 then ofilename = ''
+	if n_elements(nlevels)   eq 0 then nlevels   = 15
+	if n_elements(xrange)    eq 0 then xrange    = [min(position[0,*], MAX=xMax), xMax]
+	if n_elements(yrange)    eq 0 then yrange    = [min(position[1,*], MAX=yMax), yMax]
+	if n_elements(zrange)    eq 0 then zrange    = [min(position[2,*], MAX=zMax), zMax]
 
-    ;If none were chosen, pick all
-    if xy_plane + xz_plane + yz_plane eq 0 then begin
-        xy_plane = 1
-        xz_plane = 1
-        yz_plane = 1
-    endif
+	;If none were chosen, pick all
+	if xy_plane + xz_plane + yz_plane eq 0 then begin
+		xy_plane = 1
+		xz_plane = 1
+		yz_plane = 1
+	endif
 
-    ;Buffer the output?
-    if current eq 0 then $
-        if ofilename eq '' then buffer = 0 else buffer = 1
-    
+	;Buffer the output?
+	if current eq 0 then $
+		if ofilename ne '' then buffer = 1
+
 ;-------------------------------------------------------
 ;Prepare Ranges ////////////////////////////////////////
 ;-------------------------------------------------------
-    ;Get the simulation size and time
-    oSim -> GetProperty, TIME=time, XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange
-    oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
-    
-    ;Rename items
-;    _name = MrSim_Rename(name, coord_system, MVA_FRAME=mva_frame, /SUBSCRIPT)
-    units = MrSim_Rename(units, /SUBSCRIPT)
+	;Get the simulation size and time
+	oSim -> GetProperty, TIME=time
+	oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
 
-    ;Time interval in wci given?
-    ;   - Display time in terms of t*wci.
-    ;   - Display the time index.
-    if n_elements(dtxwci) gt 0 $
-        then title = 't$\Omega$$\downci$=' + string(time*dtxwci, FORMAT='(f0.1)') $
-        else title = 't$\downindex$=' + string(time, FORMAT='(i0)')
-        
-    ;Destroy the object
-    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
+	;Rename items
+	;    _name = MrSim_Rename(name, coord_system, MVA_FRAME=mva_frame, /SUBSCRIPT)
+	units = MrSim_Rename(units, /SUBSCRIPT)
+
+	;Time interval in wci given?
+	;   - Display time in terms of t*wci.
+	;   - Display the time index.
+	if n_elements(dtxwci) gt 0 $
+		then title = 't$\Omega$$\downci$=' + string(time*dtxwci, FORMAT='(f0.1)') $
+		else title = 't$\downindex$=' + string(time, FORMAT='(i0)')
+	
+	;Destroy the object
+	if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
 
 ;-------------------------------------------------------
 ;Make Plots ////////////////////////////////////////////
@@ -188,83 +196,94 @@ _REF_EXTRA = extra
 ;        vmag = bytscl(vmag)
 ;    endif
 
-    ;Create a window
-    if current $
-        then colorWin = GetMrWindows(/CURRENT) $
-        else colorWin = MrWindow(XSIZE=600, YSIZE=500, YGAP=4, BUFFER=buffer, REFRESH=0)
+	;Create a window
+	if current $
+		then colorWin = GetMrWindows(/CURRENT) $
+		else colorWin = MrWindow(XSIZE=600, YSIZE=500, YGAP=4, BUFFER=buffer, REFRESH=0)
 
-    ;Plot in XY-Plane
-    if xy_plane then begin
-        ;Create a set of axes
-        xyPlot = MrPlot([0], [0], /CURRENT, $
-                        /NODATA, $
-                        NAME   ='Trajectory XY-plane', $
-                        XRANGE = xrange, $
-                        XTITLE = 'X (' + units + ')', $
-                        YRANGE = yrange, $
-                        YTITLE = 'Y (' + units + ')')
-    
-        ;Plot the trajectory
-        xyPath = MrPlotS(position[0,*], position[1,*], $
-                         COLOR  = vmag, $
-                         NAME   = 'XY Position', $
-                         NOCLIP = 0, $
-                         PSYM   = 2, $
-                         TARGET = xyPlot)
-    endif
+	;Plot in XY-Plane
+	if xy_plane then begin
+		xyPlot = MrPlot([0], [0], /CURRENT, $
+		                /NODATA, $
+		                NAME   ='Positions XY-plane', $
+		                XRANGE = xrange, $
+		                XTITLE = 'X (' + units + ')', $
+		                YRANGE = yrange, $
+		                YTITLE = 'Y (' + units + ')')
 
-    ;Plot in XZ-Plane
-    if xz_plane then begin
-        ;Create a set of axes
-        xzPlot = MrPlot([0], [0], /CURRENT, $
-                        /NODATA, $
-                        NAME   = 'Trajectory XZ-plane', $
-                        XRANGE = xrange, $
-                        XTITLE = 'X (' + units + ')', $
-                        YRANGE = zrange, $
-                        YTITLE = 'Z (' + units + ')')
-    
-        ;Plot the trajectory
-        xzPath = MrPlotS(position[0,*], position[2,*], $
-                         COLOR  = vmag, $
-                         NAME   = 'XZ Trajectory', $
-                         NOCLIP = 0, $
-                         PSYM   = 2, $
-                         TARGET = xzPlot)
-    endif
+		;Plot the trajectory
+		xyPath = MrPlotS(position[0,*], position[1,*], $
+	                 COLOR  = vmag, $
+	                 NAME   = 'XY Positions', $
+	                 NOCLIP = 0, $
+	                 PSYM   = 2, $
+	                 TARGET = xyPlot)
+	endif
 
-    ;Plot in YZ-Plane
-    if yz_plane then begin
-        ;Create a set of axes
-        yzPlot = MrPlot([0], [0], /CURRENT, $
-                        /NODATA, $
-                        NAME   = 'Trajectory YZ-plane', $
-                        XRANGE = yrange, $
-                        XTITLE = 'Y (' + units + ')', $
-                        YRANGE = zrange, $
-                        YTITLE = 'Z (' + units + ')')
-    
-        ;Plot the trajectory
-        yzPath = MrPlotS(position[1,*], position[2,*], $
-                         COLOR  = vmag, $
-                         NAME   = 'YZ Trajectory', $
-                         NOCLIP = 0, $
-                         PSYM   = 2, $
-                         TARGET = yzPlot)
-    endif
+	;Plot in XZ-Plane
+	if xz_plane then begin
+		;Contour plot
+		if c_name ne '' then begin
+			xzPlot = MrSim_Contour(oSim, c_name, /CURRENT, $
+			                       NAME   = 'Positions XZ-plane', $
+			                       TITLE  = '', $
+			                       XRANGE = xrange, $
+			                       XTITLE = 'X (' + units + ')', $
+			                       YRANGE = zrange, $
+			                       YTITLE = 'Z (' + units + ')')
+	
+		;Create a set of axes
+		endif else begin
+			xzPlot = MrPlot([0], [0], /CURRENT, $
+			                /NODATA, $
+			                NAME   = 'Positions XZ-plane', $
+			                XRANGE = xrange, $
+			                XTITLE = 'X (' + units + ')', $
+			                YRANGE = zrange, $
+			                YTITLE = 'Z (' + units + ')')
+		endelse
 
-    ;Put a title on the plot    
-    case 1 of
-        xy_plane: xyPlot.TITLE = title
-        xz_plane: xyPlot.TITLE = title
-        yz_plane: xyPlot.TITLE = title
-    endcase
+		;Plot the trajectory
+		xzPath = MrPlotS(position[0,*], position[2,*], $
+		                 COLOR  = vmag, $
+		                 NAME   = 'XZ Positions', $
+		                 NOCLIP = 0, $
+		                 PSYM   = 2, $
+		                 TARGET = xzPlot)
+	endif
 
-    ;Refresh and output, if requested.
-    if current eq 0 then begin
-        colorWin -> Refresh
-        if ofilename ne '' then colorWin -> Save, ofilename
-    endif
+	;Plot in YZ-Plane
+	if yz_plane then begin
+		;Create a set of axes
+		yzPlot = MrPlot([0], [0], /CURRENT, $
+		                /NODATA, $
+		                NAME   = 'Positions YZ-plane', $
+		                XRANGE = yrange, $
+		                XTITLE = 'Y (' + units + ')', $
+		                YRANGE = zrange, $
+		                YTITLE = 'Z (' + units + ')')
 
-    return, colorWin
+		;Plot the trajectory
+		yzPath = MrPlotS(position[1,*], position[2,*], $
+		                 COLOR  = vmag, $
+		                 NAME   = 'YZ Positions', $
+		                 NOCLIP = 0, $
+		                 PSYM   = 2, $
+		                 TARGET = yzPlot)
+	endif
+
+	;Put a title on the plot    
+	case 1 of
+		xy_plane: xyPlot.TITLE = title
+		xz_plane: xyPlot.TITLE = title
+		yz_plane: xyPlot.TITLE = title
+	endcase
+
+	;Refresh and output, if requested.
+	if current eq 0 then begin
+		colorWin -> Refresh
+		if ofilename ne '' then colorWin -> Save, ofilename
+	endif
+
+	return, colorWin
 end
