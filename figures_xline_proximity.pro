@@ -110,8 +110,8 @@ function XLP_Figure2_Scaled
 ;---------------------------------------------------------------------
     ;Add a 2D color plot
     ;   - Will automatically be added to location [1,1]
-    !Null = MrSim_ColorSlab('Jey', C_NAME='Ay', /CURRENT, $
-                            HORIZ_LINE=[150.9, 150.3, 148.4], SIM_OBJECT=oSim)
+    !Null = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay', /CURRENT, $
+                            HORIZ_LINE=[150.9, 150.3, 148.4])
 
     ;Move the colorbar to the bottom of the figure
     Fig2['CB: Color Jey'] -> SetProperty, NAME='t=32 CB: Color Jey', $
@@ -296,17 +296,22 @@ function XLP_Figure2
 ;---------------------------------------------------------------------
 ; 2D Sim, t=32 ///////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    dir  = '/home/argall/Work/AssymectricSim/asymm-2D-large/'
-    time = 32
-    oSim = obj_new('MrSim2D', time, ION_SCALE=1, XRANGE=[2,-2], ZRANGE=150.9+[-3.0,3.0], $
-                              DIRECTORY=dir+'data', INFO_FILE=dir+'info', $
-                              COORD_SYSTEM='MAGNETOPAUSE', /MVA_FRAME)
+    theSim    = 'Asymm-Large-2D'
+    time      = 32
+    xrange    = [2,-2]
+    zrange    = 150.9+[-3.0,3.0]
+    ion_scale = 1
+    mva_frame = 1
+    coord_sys = 'Magnetopause'
+    oSim      = MrSim_Create(theSim, time, XRANGE=xrange, ZRANGE=zrange, $
+                             ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
+                             COORD_SYSTEM=coord_sys)
     
 ;---------------------------------------------------------------------
 ; Cuts within the Exhaust ////////////////////////////////////////////
 ;---------------------------------------------------------------------
     ;Create cuts of Bx, By, ni, Uix, Ez
-    Fig2 = MrSim_XProximity([150.9, 150.3, 148.4], SIM_OBJECT=oSim)
+    Fig2 = MrSim_XProximity(oSim, [150.9, 150.3, 148.4])
     Fig2 -> Refresh, /DISABLE
 
     ;Format the y-axes
@@ -325,8 +330,8 @@ function XLP_Figure2
 ;---------------------------------------------------------------------
     ;Add a 2D color plot
     ;   - Will automatically be added to location [1,1]
-    !Null = MrSim_ColorSlab('Jey', C_NAME='Ay', /CURRENT, $
-                            HORIZ_LINE=[150.9, 150.3, 148.4], SIM_OBJECT=oSim)
+    !Null = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay', /CURRENT, $
+                            HORIZ_LINE=[150.9, 150.3, 148.4])
 
     ;Format the X-axis
     Fig2['Color Jey']  -> SetProperty, TITLE='', XTICKS=2, XTICKFORMAT='(f4.1)'
@@ -354,7 +359,7 @@ function XLP_Figure2
 ; Cuts within the Exhaust ////////////////////////////////////////////
 ;---------------------------------------------------------------------
     ;Line plots of cuts surrounding the X-line
-    difwin = MrSim_XProximity([153.3, 150.8, 148.0], SIM_OBJECT=oSim)
+    difwin = MrSim_XProximity(oSim, [153.3, 150.8, 148.0])
     difwin -> Refresh, /DISABLE
 
     difwin['Cut Bx']  -> SetProperty, YTICKINTERVAL=0.25
@@ -397,8 +402,8 @@ function XLP_Figure2
 ; 2D Color Plot  /////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
     ;Plot Jey
-    cwin = MrSim_ColorSlab('Jey', C_NAME='Ay', $
-                           HORIZ_LINE=[153.3, 150.8, 148.0], SIM_OBJECT=oSim)
+    cwin = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay', $
+                           HORIZ_LINE=[153.3, 150.8, 148.0])
     obj_destroy, oSim
     
     ;Turn refresh off
@@ -506,17 +511,26 @@ function XLP_Figure3
 ;---------------------------------------------------------------------
 ; 3D Sim, t=120816, y=1400 ///////////////////////////////////////////
 ;---------------------------------------------------------------------
-    dir    = '/home/argall/Work/AssymectricSim/asymm-3D/'
-    time   = 120816
-    yslice = 860
-    oSim   = obj_new('MrSim3D', time, yslice, /ION_SCALE, XRANGE=[5,-4], ZRANGE=45.3+[-15,15], $
-                                              DIRECTORY=dir+'data', INFO_FILE=dir+'info', $
-                                              COORD_SYSTEM='MAGNETOPAUSE', /MVA_FRAME)
+    theSim    = 'Asymm-3D'
+    time      = 120816
+    yslice    = 860
+    xrange    = [5,-4]
+    zrange    = 45.3+[-15,15]
+    coord_sys = 'Magnetopause'
+    mva_frame = 1
+    ion_scale = 1
+    oSim      = MrSim_Create(theSim, time, XRANGE=xrange, ZRANGE=zrange, $
+                             ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
+                             COORD_SYSTEM=coord_sys)
+    
+    ;Get the y-range
+    ycoord = oSim -> GetCoord(yslice, /Y)
+    oSim.YRANGE = [ycoord, ycoord]
 
 ;---------------------------------------------------------------------
 ; Cuts within the Exhaust ////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    Fig3 = MrSim_XProximity([45.2, 43.7, 35.2], SIM_OBJECT=oSim)
+    Fig3 = MrSim_XProximity(oSim, [45.2, 43.7, 35.2])
     Fig3 -> Refresh, /DISABLE
     
     ;Change properties
@@ -534,7 +548,7 @@ function XLP_Figure3
 ;---------------------------------------------------------------------
     ;Aadd a 2D color plot
     ;   - Automatically added to location [1,1]
-    cwin = MrSim_ColorSlab('Jey', /CURRENT, HORIZ_LINE=[45.2, 43.7, 35.2], SIM_OBJECT=oSim)
+    cwin = MrSim_ColorSlab(oSim, 'Jey', /CURRENT, HORIZ_LINE=[45.2, 43.7, 35.2])
     
     ;Split the title into two lines. Change the tick interval.
     cwin['Color Jey'] -> SetProperty, TITLE='', XTICKINTERVAL=3, XTICKS=2
@@ -561,7 +575,7 @@ function XLP_Figure3
 ;---------------------------------------------------------------------
 ; Cuts within the Exhaust ////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    difwin = MrSim_XProximity([44.7, 39.0, 32.0], SIM_OBJECT=oSim)
+    difwin = MrSim_XProximity(oSim, [44.7, 39.0, 32.0])
     difwin -> Refresh, /DISABLE
 
     ;Change properties
@@ -603,7 +617,7 @@ function XLP_Figure3
 ; 2D Color Plot  /////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
     ;Plot Jey
-    cwin = MrSim_ColorSlab('Jey', HORIZ_LINE=[44.7, 39.0, 32.0], SIM_OBJECT=oSim)
+    cwin = MrSim_ColorSlab(oSim, 'Jey', HORIZ_LINE=[44.7, 39.0, 32.0])
     cwin -> Refresh, /DISABLE
     obj_destroy, oSim
     
@@ -785,16 +799,44 @@ end
 ;       FIGURE:         in, optional, type=string
 ;                       Figure number of the figure to be created.
 ;-
-function Figures_XLine_Proximity, figure
+function Figures_XLine_Proximity, figure, $
+SAVE=tf_save
     compile_opt strictarr
     on_error, 2
 
+    figures = [['Figure 2     ', '2D simulation.'], $
+               ['Figure 3     ', '3D simulation.']]
+    if n_elements(figure) eq 0 then begin
+        print, figures
+        return, !Null
+    endif
+
     ;Create the figure    
-    case figure of
-        '2': win = XLP_Figure2()
-        '3': win = XLP_Figure3()
+    case strupcase(figure) of
+        'FIGURE 2': win = XLP_Figure2()
+        'FIGURE 3': win = XLP_Figure3()
         else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
     endcase
+    
+;---------------------------------------------------------------------
+; Save to File? //////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    if keyword_set(tf_save) then begin
+        ;Create the file name
+        froot = '/home/argall/figures/'
+        fname = 'MrProximity_' + idl_validname(figure, /CONVERT_ALL)
+        fbase = filepath(fname, ROOT_DIR=froot)
+        
+        ;Save a variety of file types.
+        win -> Refresh
+        win -> Save, fbase + '_im.png'
+        win -> Save, fbase + '.eps'
+        win -> Save, fbase + '.ps'
+        
+        ;Take a snapshot
+        win.SAVEAS -> SetProperty, IM_RASTER=0
+        win -> Save, fbase + '-ss.png'
+    endif
     
     return, win
 end

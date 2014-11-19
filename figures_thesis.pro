@@ -24,6 +24,90 @@
 ;-
 ;*****************************************************************************************
 ;+
+;   Create Figure 2: 2D simulation.
+;-
+function FigThesis_AsymmScanBy0_Prox
+    compile_opt idl2
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(win)  then obj_destroy, win
+        if obj_valid(cwin) then obj_destroy, cwin
+        void = cgErrorMSG()
+        return, obj_new()
+    endif
+    
+    ;Layout
+    charsize  = 1.5
+    layout    = [2,5]
+    oymargin  = [4,4]
+    xsize     = 700
+    ysize     = 550
+
+;---------------------------------------------------------------------
+; 2D Sim, t=32 ///////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    theSim    = 'Asymm-Scan/By0'
+    time      = 28
+    xrange    = [2,-2]
+    zrange    = 36.77 + [-5, 5]
+    ion_scale = 1
+    mva_frame = 1
+    coord_sys = 'Magnetopause'
+    im_name   = 'Dng_e'
+    oSim      = MrSim_Create(theSim, time, XRANGE=xrange, ZRANGE=zrange, $
+                             ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
+                             COORD_SYSTEM=coord_sys)
+    
+;---------------------------------------------------------------------
+; Cuts within the Exhaust ////////////////////////////////////////////
+;---------------------------------------------------------------------
+    cuts = [36.77, 34.9, 33.0]
+    
+    ;Create cuts of Bx, By, ni, Uix, Ez
+    win = MrSim_XProximity(oSim, cuts)
+    win -> Refresh, /DISABLE
+    
+    ;Create a second column
+    win -> SetProperty, LAYOUT=layout, CHARSIZE=charsize, OYMARGIN=oymargin, XSIZE=xsize, YSIZE=ysize
+
+    ;Move all graphics into it
+    graphics = win -> Get(/ALL, ISA='MrPlot')
+    foreach gfx, graphics do begin
+        thisLay = gfx.LAYOUT
+        colrow  = win -> ConvertLocation(thisLay[2], thisLay[0:1], /PINDEX, /TO_COLROW)
+        gfx -> SetLayout, [2, colrow[1]]
+    endforeach
+
+;---------------------------------------------------------------------
+; Jey Color Plot /////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    ;Create a 2D color plot
+    cwin = MrSim_ColorSlab(oSim, im_name, C_NAME='Ay', HORIZ_LINE=cuts)
+    
+    ;Move into the other window
+    graphics = cwin -> Get(/ALL)
+    foreach gfx, graphics do gfx -> SwitchWindows, win
+    obj_destroy, cwin
+    
+    ;Calculate the positions
+    pos = MrLayout(layout, CHARSIZE=charsize, OYMARGIN=oymargin)
+    im_pos     = [pos[0,8], pos[1,8], pos[2,0], pos[3,0]]
+    im_pos[3] -= 0.05
+    
+    ;Adjust properties
+    win['Color '     + im_name] -> SetProperty, POSITION=im_pos, TITLE=''
+    win['CB: Color ' + im_name] -> SetProperty, CBLOCATION='Top', OFFSET=0.5, WIDTH=1.5, TICKINTERVAL=0.05
+
+    win -> SetGlobal, CHARSIZE=charsize
+    win -> Refresh
+    return, win
+end
+
+
+
+;+
 ;   eMap for the Asymm-3D simulation.
 ;-
 function FigThesis_AsymmLarge2D_OhmsLaw, $
@@ -44,17 +128,27 @@ FNAME=fname
     ;Simulation
     theSim       = 'Asymm-Large-2D'
     tIndex       = 32
-    xrange       = 150.9 + [-3.0, 3.0]
-    zrange       = [-2.0, 2.0]
-    coord_system = 'Simulation'
+    xrange       = [2.0, -2.0]
+    zrange       = 150.9 + [-3.0, 3.0]
+    coord_system = 'Magnetopause'
     mva_frame    = 1
     ion_scale    = 1
-    horizontal   = 0
+    horizontal   = 1
+    component    = 'X'
+    
+;    theSim       = 'Asymm-Large-2D'
+;    tIndex       = 32
+;    xrange       = 150.9 + [-3.0, 3.0]
+;    zrange       = [-2.0, 2.0]
+;    coord_system = 'Simulation'
+;    mva_frame    = 1
+;    ion_scale    = 1
+;    horizontal   = 0
+;    component    = 'Z'
     oSim   = MrSim_Create(theSim, tIndex, COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame, $
                           ION_SCALE=ion_scale, XRANGE=xrange, ZRANGE=zrange)
 
     ;Ohm's Law
-    component = 'Z'
     cut       = [150.9, 150.3, 148.4] 
     win       = MrSim_OhmsLaw(oSim, component, cut[0], HORIZONTAL=horizontal)
     win2      = MrSim_OhmsLaw(oSim, component, cut[1], HORIZONTAL=horizontal)
@@ -138,9 +232,9 @@ FNAME=fname
             ;Set Properties
             gfx.yrange = yrange
             if col gt 1 then gfx -> SetProperty, YTITLE='', YTICKFORMAT='(a1)'
-            if col eq 1 then gfx -> SetProperty, YTITLE='E$\downN$'
-            if row eq 1 then gfx -> SetProperty, TITLE='$\Omega$$\downci$$\up-1$=64.0 L=' + string(cut[col-1], FORMAT='(f0.1)') + 'd$\downi$'
-            if row eq nRows then gfx -> SetProperty, XTITLE='N (d$\downi$)'
+;            if col eq 1 then gfx -> SetProperty, YTITLE='E$\downN$'
+;            if row eq 1 then gfx -> SetProperty, TITLE='$\Omega$$\downci$$\up-1$=64.0 L=' + string(cut[col-1], FORMAT='(f0.1)') + 'd$\downi$'
+;            if row eq nRows then gfx -> SetProperty, XTITLE='N (d$\downi$)'
         endfor
 
         ;Set Properties
@@ -152,17 +246,10 @@ FNAME=fname
 ; Move Legends /////////////////////////////////////////
 ;-------------------------------------------------------
     ;Relocate the legends
-    win["Ohm's Law"]               -> SetProperty, LOCATION=8, TARGET=win['150.300 Total E' + component], $
-                                      TITLES=['E$\downZ$', '(-VxB)$\downZ$', '(JxB)$\downZ$/ne', '(divPe)$\downZ$']
-    win["Ohm's Law: VxB term"]     -> SetProperty, LOCATION=8, TARGET=win['150.300 E' + component + ' vs. Ec'], $
-                                      TITLES=['E$\downZ$', '(-VxB)$\downZ$', '-V$\downL$xB$\downM$', 'V$\downM$xB$\downL$']
-    win["Ohm's Law: JxB term"]     -> SetProperty, LOCATION=8, TARGET=win['150.300 E' + component + ' vs. Hall E'], $
-                                      TITLES=['E$\downZ$', '(JxB)$\downZ$/ne', 'J$\downL$xB$\downM$', '-J$\downM$xB$\downL$']
-    win["Ohm's Law: div(Pe) term"] -> SetProperty, LOCATION=8, TARGET=win['150.300 E' + component + ' vs. E inert'], $
-                                      TITLES=['E$\downZ$', '(divPe)$\downN$', '(divPe)$\downL$$\downN$', '(divPe)$\downM$$\downN$', '(divPe)$\downN$$\downN$']
-    
-    
-    
+    win["Ohm's Law"]               -> SetProperty, LOCATION=8, TARGET=win['150.300 Total E' + component]
+    win["Ohm's Law: VxB term"]     -> SetProperty, LOCATION=8, TARGET=win['150.300 E' + component + ' vs. Ec']
+    win["Ohm's Law: JxB term"]     -> SetProperty, LOCATION=8, TARGET=win['150.300 E' + component + ' vs. Hall E']
+    win["Ohm's Law: div(Pe) term"] -> SetProperty, LOCATION=8, TARGET=win['150.300 E' + component + ' vs. E inert']    
     
     ;Overview
     im_win = MrSim_ColorSlab(oSim, 'Ez', C_NAME='Ay', HORIZ_LINES=cut, $
@@ -198,7 +285,9 @@ SAVE=tf_save
 ;---------------------------------------------------------------------
     
     ;Current list of figures
-    list_of_figures = [['Asymm-Large-2D', ''], $
+    list_of_figures = [['Asymm-Scan-By0', ''], $
+                       ['    Prox',       ''], $
+                       ['Asymm-Large-2D', ''], $
                        ['    Ohms Law',   '']]
     
     ;Print the list of figures?
@@ -217,35 +306,29 @@ SAVE=tf_save
     tf_save = keyword_set(tf_save)
 
     case _figure of
+        'ASYMM-SCAN-BY0 PROX':     win = FigThesis_AsymmScanBy0_Prox()
         'ASYMM-LARGE-2D OHMS LAW': win = FigThesis_AsymmLarge2D_OhmsLaw()
         else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
     endcase
-
+    
 ;---------------------------------------------------------------------
-; Save Figures ///////////////////////////////////////////////////////
-;---------------------------------------------------------------------  
-    if tf_save then begin
-        directory = '/home/argall/figures/Asymm-3D/eMap-Scan/'
-        if n_elements(fname) eq 0 then fname = _figure
+; Save to File? //////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    if keyword_set(tf_save) then begin
+        ;Create the file name
+        froot = '/home/argall/figures/'
+        fname = 'MrThesis_' + idl_validname(figure, /CONVERT_ALL)
+        fbase = filepath(fname, ROOT_DIR=froot)
         
-        nPlots = n_elements(win)
+        ;Save a variety of file types.
+        win -> Refresh
+        win -> Save, fbase + '_im.png'
+        win -> Save, fbase + '.eps'
+        win -> Save, fbase + '.ps'
         
-        ;Single plot
-        if nPlots eq 1 then begin
-            ;Take a snapshot
-            saveas = win.SaveAs
-            saveas -> SetProperty, IM_RASTER=0
-            win -> Save, filepath(fname + '.png', ROOT_DIR=directory)
-            
-        ;Multiple plots
-        endif else begin
-            for i = 0, nPlots-1 do begin
-                ;Take a snapshot
-                saveas = win[i].SaveAs
-                saveas -> SetProperty, IM_RASTER=0
-                win[i] -> Save, filepath(fname[i] + '.png', ROOT_DIR=directory)
-            endfor
-        endelse
+        ;Take a snapshot
+        win.SAVEAS -> SetProperty, IM_RASTER=0
+        win -> Save, fbase + '-ss.png'
     endif
     
     return, win

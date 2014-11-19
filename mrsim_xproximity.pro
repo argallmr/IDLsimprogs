@@ -83,7 +83,7 @@
 ;                           simulations. - MRA
 ;       2014/07/25  -   Renamed from Sim_DiffRegion.pro to MrSim_XProximity.pro - MRA
 ;-
-function MrSim_XProximity, cuts, time, $
+function MrSim_XProximity, theSim, cuts, time, $
 CUT_RANGE = cut_range, $
 C_NAME = c_name, $
 OFILENAME = ofilename, $
@@ -97,11 +97,35 @@ _REF_EXTRA = extra
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
-        if arg_present(oSim) eq 0 then obj_destroy, oSim
+        if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
         if obj_valid(drWin) then obj_destroy, drWin
         void = cgErrorMSG()
         return, obj_new()
     endif
+
+;-------------------------------------------------------
+; Check Simulation /////////////////////////////////////
+;-------------------------------------------------------
+    osim_created = 0B
+    
+    ;Simulation name or number?
+    if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
+        oSim = MrSim_Create(theSim, time, yslice, _STRICT_EXTRA=extra)
+        if obj_valid(oSim) eq 0 then return, obj_new()
+        osim_created = 1B
+        
+    ;Object?
+    endif else if MrIsA(theSim, 'OBJREF') then begin
+        if obj_isa(theSim, 'MRSIM') eq 0 $
+            then message, 'THESIM must be a subclass of the MrSim class.' $
+            else oSim = theSim
+            
+    ;Somthing else
+    endif else begin
+        MrSim_Which
+        message, 'THESIM must be a simulation name, number, or object.'
+    endelse
+    sim_class = obj_class(oSim)
 
 ;-------------------------------------------------------
 ;Define Ranges /////////////////////////////////////////
@@ -110,20 +134,9 @@ _REF_EXTRA = extra
     ;Set defaults
     nCuts = n_elements(cuts)
     Sim3D = keyword_set(Sim3D)
-    if n_elements(c_name) eq 0 then c_name = ''
+    if n_elements(c_name)    eq 0 then c_name    = ''
     if n_elements(ofilename) eq 0 then ofilename = ''
-    if n_elements(nlevels) eq 0 then nlevels = 15
-
-    ;Create a simulation object
-    if n_elements(oSim) eq 0 then begin
-        if Sim3D then sim_class = 'MrSim3D' else sim_class = 'MrReadSim'
-        oSim = obj_new(sim_class, time, DIRECTORY=directory, NSMOOTH=nsmooth, $
-                                  XRANGE=xrange, ZRANGE=zrange)
-        if obj_valid(oSim) eq 0 then return, obj_new()
-    endif else begin
-        if obj_valid(oSim) eq 0 || obj_isa(oSim, 'MrSim') eq 0 then $
-            message, 'SIM_OBJECT must valid SIM_OBJECT object.'
-    endelse
+    if n_elements(nlevels)   eq 0 then nlevels   = 15
 
     ;Get/Make the window
     if ofilename eq '' then buffer = 0 else buffer = 1
@@ -177,11 +190,10 @@ _REF_EXTRA = extra
 ; Create a 2D Color Plot? //////////////////////////////
 ;-------------------------------------------------------
     if c_name ne '' then begin
-        drWin = MrSim_ColorSlab(c_name, time, /CURRENT, $
+        drWin = MrSim_ColorSlab(oSim, c_name, time, /CURRENT, $
                                 NLEVELS = nlevels, $
                                 VERT_LINES = vert_lines, $
-                                HORIZ_LINES = horiz_lines, $
-                                SIM_OBJECT = oSim)
+                                HORIZ_LINES = horiz_lines)
 
         ;Change some properties
         drWin['Color ' + c_name] -> SetProperty, XTICKFORMAT='(a1)', XTITLE=''
@@ -213,7 +225,7 @@ _REF_EXTRA = extra
     endif
 
     ;Destroy the object.
-    if arg_present(oSim) eq 0 then obj_destroy, oSim
+    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
 
 ;-------------------------------------------------------
 ;Prepare output ////////////////////////////////////////

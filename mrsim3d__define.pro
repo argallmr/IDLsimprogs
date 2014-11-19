@@ -96,9 +96,9 @@ RANGES=ranges
 ;-------------------------------------------------------
     ;Cell location in the current coordinate system.
     if ranges then begin
-        ix = getIndexRange(*self.xSim, self.xrange)
-        iy = reform(getIndexRange(*self.ySim, self.yrange))
-        iz = getIndexRange(*self.zSim, self.zrange)
+        ix = MrIndexRange(*self.xSim, self.xrange)
+        iy = reform(MrIndexRange(*self.ySim, self.yrange))
+        iz = MrIndexRange(*self.zSim, self.zrange)
     endif else begin
         ix = value_locate(*self.xSim, coords[0,*])
         iy = value_locate(*self.ySim, coords[1,*])

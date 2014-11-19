@@ -1080,7 +1080,7 @@ end
 ;       DATA:               The requested data. If the data product does not exist,
 ;                               then !Null will be returned.
 ;-
-function MrSim::GetData, data_product, $
+function MrSim::GetData, name, $
 DX=dx, $
 DZ=dz
     compile_opt strictarr
@@ -1104,54 +1104,51 @@ DZ=dz
     dz = keyword_set(dz)
     if dx + dz gt 1 then message, 'DX and DZ are mutually exclusive.'
 
-    _data_product = strupcase(data_product)
+    _name = strupcase(name)
 ;-------------------------------------------------------
 ;Had Data been Read? ///////////////////////////////////
 ;-------------------------------------------------------
-    
+
     ;If the data has not been read, then try to read it from a file.
-    if self -> HasData(_data_product) eq 0 then begin
-        if _data_product eq 'E-' $
-            then self -> ReadElectrons $
-            else self -> ReadData, data_product
-    endif
-    
+    if _name eq 'E-' then $
+        if self -> HasData(_name) eq 0 then self -> ReadElectrons
+
     ;Check to see if the data has already been read first.
-    case strupcase(_data_product) of
-        'AY':     data = *self.Ay
-        'BX':     data = *self.Bx
-        'BY':     data = *self.By
-        'BZ':     data = *self.Bz
-        'E-':     data = *self.electrons
-        'EX':     data = *self.Ex
-        'EY':     data = *self.Ey
-        'EZ':     data = *self.Ez
-        'NE':     data = *self.n_e
-        'NI':     data = *self.n_i
-        'PE-XX':  data = *self.Pe_xx
-        'PE-XY':  data = *self.Pe_xy
-        'PE-XZ':  data = *self.Pe_xz
-        'PE-YX':  data = *self.Pe_yx
-        'PE-YY':  data = *self.Pe_yy
-        'PE-YZ':  data = *self.Pe_yz
-        'PE-ZX':  data = *self.Pe_zx
-        'PE-ZY':  data = *self.Pe_zy
-        'PE-ZZ':  data = *self.Pe_zz
-        'PI-XX':  data = *self.Pi_xx
-        'PI-XY':  data = *self.Pi_xy
-        'PI-XZ':  data = *self.Pi_xz
-        'PI-YX':  data = *self.Pi_yx
-        'PI-YY':  data = *self.Pi_yy
-        'PI-YZ':  data = *self.Pi_yz
-        'PI-ZX':  data = *self.Pi_zx
-        'PI-ZY':  data = *self.Pi_zy
-        'PI-ZZ':  data = *self.Pi_zz
-        'UEX':    data = *self.Uex
-        'UEY':    data = *self.Uey
-        'UEZ':    data = *self.Uez
-        'UIX':    data = *self.Uix
-        'UIY':    data = *self.Uiy
-        'UIZ':    data = *self.Uiz
+    case strupcase(_name) of
+        'AY':     data = self -> GetGDA('Ay')
+        'BX':     data = self -> GetGDA('Bx')
+        'BY':     data = self -> GetGDA('By')
+        'BZ':     data = self -> GetGDA('Bz')
+        'E-':     *self.electrons
+        'EX':     data = self -> GetGDA('Ex')
+        'EY':     data = self -> GetGDA('Ey')
+        'EZ':     data = self -> GetGDA('Ez')
+        'NE':     data = self -> GetGDA('ne')
+        'NI':     data = self -> GetGDA('ni')
+        'PE-XX':  data = self -> GetGDA('Pe-xx')
+        'PE-XY':  data = self -> GetGDA('Pe-xy')
+        'PE-XZ':  data = self -> GetGDA('Pe-xz')
+        'PE-YX':  data = self -> GetGDA('Pe-xy')
+        'PE-YY':  data = self -> GetGDA('Pe-yy')
+        'PE-YZ':  data = self -> GetGDA('Pe-yz')
+        'PE-ZX':  data = self -> GetGDA('Pe-xz')
+        'PE-ZY':  data = self -> GetGDA('Pe-yz')
+        'PE-ZZ':  data = self -> GetGDA('Pe-zz')
+        'PI-XX':  data = self -> GetGDA('Pi-xx')
+        'PI-XY':  data = self -> GetGDA('Pi-xy')
+        'PI-XZ':  data = self -> GetGDA('Pi-xz')
+        'PI-YX':  data = self -> GetGDA('Pi-xy')
+        'PI-YY':  data = self -> GetGDA('Pi-yy')
+        'PI-YZ':  data = self -> GetGDA('Pi-yz')
+        'PI-ZX':  data = self -> GetGDA('Pi-xz')
+        'PI-ZY':  data = self -> GetGDA('Pi-yz')
+        'PI-ZZ':  data = self -> GetGDA('Pi-zz')
+        'UEX':    data = self -> GetGDA('Uex')
+        'UEY':    data = self -> GetGDA('Uey')
+        'UEZ':    data = self -> GetGDA('Uez')
+        'UIX':    data = self -> GetGDA('Uix')
+        'UIY':    data = self -> GetGDA('Uiy')
+        'UIZ':    data = self -> GetGDA('Uiz')
         
         ;Custom Data Products
         'A0_E':       data = self -> A0_e()
@@ -1251,6 +1248,85 @@ DZ=dz
     if dz then data = self -> D_DZ(data, /OVERWRITE)
     
     return, data
+end
+
+
+;+
+;   The purpose of this program is to read data from a ".gda" file produced by 
+;   one of Bill Daughton's simulation runs.
+;
+; :Params:
+;       DATA_PRODUCT:       in, required, type=string, default=
+;                           The name of the data product to be read. For a list of
+;                               available data product, call mr_readSIM without any
+;                               arguments.
+;
+; :Keywords:
+;       DX:                 in, optional, type=boolean, default=0
+;                           If set, the derivative of `DATA_PRODUCT` with respect to X
+;                               will be taken.
+;       DZ:                 in, optional, type=boolean, default=0
+;                           If set, the derivative of `DATA_PRODUCT` with respect to Z
+;                               will be taken.
+;
+; :Returns:
+;       DATA:               The requested data. If the data product does not exist,
+;                               then !Null will be returned.
+;-
+function MrSim::GetGDA, name
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ;Convert name from current coordinate system to simulation coordinates
+    simName = MrSim_GDA_Rename(name, self.coord_system)
+
+    ;Read the data
+    if self -> HasData(simName) eq 0 then self -> ReadData, simName
+    
+    ;Return the data
+    case strupcase(simName) of
+        'AY':    return, *self.Ay
+        'BX':    return, *self.Bx
+        'BY':    return, *self.By
+        'BZ':    return, *self.Bz
+        'EX':    return, *self.Ex
+        'EY':    return, *self.Ey
+        'EZ':    return, *self.Ez
+        'NE':    return, *self.n_e
+        'NI':    return, *self.n_i
+        'PE-XX': return, *self.Pe_xx
+        'PE-XY': return, *self.Pe_xy
+        'PE-XZ': return, *self.Pe_xz
+        'PE-YX': return, *self.Pe_xy
+        'PE-YY': return, *self.Pe_yy
+        'PE-YZ': return, *self.Pe_yz
+        'PE-ZX': return, *self.Pe_xz
+        'PE-ZY': return, *self.Pe_yz
+        'PE-ZZ': return, *self.Pe_zz
+        'PI-XX': return, *self.Pi_xx
+        'PI-XY': return, *self.Pi_xy
+        'PI-XZ': return, *self.Pi_xz
+        'PI-YX': return, *self.Pi_xy
+        'PI-YY': return, *self.Pi_yy
+        'PI-YZ': return, *self.Pi_yz
+        'PI-ZX': return, *self.Pi_xz
+        'PI-ZY': return, *self.Pi_yz
+        'PI-ZZ': return, *self.Pi_zz
+        'UEX':   return, *self.Uex
+        'UEY':   return, *self.Uey
+        'UEZ':   return, *self.Uez
+        'UIX':   return, *self.Uix
+        'UIY':   return, *self.Uiy
+        'UIZ':   return, *self.Uiz
+        else: message, 'Not a valid GDA product: "' + name + '".'
+    endcase
 end
 
 
@@ -1720,20 +1796,20 @@ function MrSim::HasData, data_product
         'PE-XX': if n_elements(*self.Pe_xx)     gt 0 then tf_has = 1B
         'PE-XY': if n_elements(*self.Pe_xy)     gt 0 then tf_has = 1B
         'PE-XZ': if n_elements(*self.Pe_xz)     gt 0 then tf_has = 1B
-        'PE-YX': if n_elements(*self.Pe_yx)     gt 0 then tf_has = 1B
+        'PE-YX': if n_elements(*self.Pe_xy)     gt 0 then tf_has = 1B
         'PE-YY': if n_elements(*self.Pe_yy)     gt 0 then tf_has = 1B
         'PE-YZ': if n_elements(*self.Pe_yz)     gt 0 then tf_has = 1B
-        'PE-ZX': if n_elements(*self.Pe_zx)     gt 0 then tf_has = 1B
-        'PE-ZY': if n_elements(*self.Pe_zy)     gt 0 then tf_has = 1B
+        'PE-ZX': if n_elements(*self.Pe_xz)     gt 0 then tf_has = 1B
+        'PE-ZY': if n_elements(*self.Pe_yz)     gt 0 then tf_has = 1B
         'PE-ZZ': if n_elements(*self.Pe_zz)     gt 0 then tf_has = 1B
         'PI-XX': if n_elements(*self.Pi_xx)     gt 0 then tf_has = 1B
         'PI-XY': if n_elements(*self.Pi_xy)     gt 0 then tf_has = 1B
         'PI-XZ': if n_elements(*self.Pi_xz)     gt 0 then tf_has = 1B
-        'PI-YX': if n_elements(*self.Pi_yx)     gt 0 then tf_has = 1B
+        'PI-YX': if n_elements(*self.Pi_xy)     gt 0 then tf_has = 1B
         'PI-YY': if n_elements(*self.Pi_yy)     gt 0 then tf_has = 1B
         'PI-YZ': if n_elements(*self.Pi_yz)     gt 0 then tf_has = 1B
-        'PI-ZX': if n_elements(*self.Pi_zx)     gt 0 then tf_has = 1B
-        'PI-ZY': if n_elements(*self.Pi_zy)     gt 0 then tf_has = 1B
+        'PI-ZX': if n_elements(*self.Pi_xz)     gt 0 then tf_has = 1B
+        'PI-ZY': if n_elements(*self.Pi_yz)     gt 0 then tf_has = 1B
         'PI-ZZ': if n_elements(*self.Pi_zz)     gt 0 then tf_has = 1B
         'UEX':   if n_elements(*self.Uex)       gt 0 then tf_has = 1B
         'UEY':   if n_elements(*self.Uey)       gt 0 then tf_has = 1B
@@ -1857,20 +1933,20 @@ pro MrSim::SetData, name, data
         'PE-XX': *self.Pe_xx = data
         'PE-XY': *self.Pe_xy = data
         'PE-XZ': *self.Pe_xz = data
-        'PE-YX': *self.Pe_yx = data
+        'PE-YX': *self.Pe_xy = data
         'PE-YY': *self.Pe_yy = data
         'PE-YZ': *self.Pe_yz = data
-        'PE-ZX': *self.Pe_zx = data
-        'PE-ZY': *self.Pe_zy = data
+        'PE-ZX': *self.Pe_xz = data
+        'PE-ZY': *self.Pe_yz = data
         'PE-ZZ': *self.Pe_zz = data
         'PI-XX': *self.Pi_xx = data
         'PI-XY': *self.Pi_xy = data
         'PI-XZ': *self.Pi_xz = data
-        'PI-YX': *self.Pi_yx = data
+        'PI-YX': *self.Pi_xy = data
         'PI-YY': *self.Pi_yy = data
         'PI-YZ': *self.Pi_yz = data
-        'PI-ZX': *self.Pi_zx = data
-        'PI-ZY': *self.Pi_zy = data
+        'PI-ZX': *self.Pi_xz = data
+        'PI-ZY': *self.Pi_yz = data
         'PI-ZZ': *self.Pi_zz = data
         'UEX':   *self.Uex = data
         'UEY':   *self.Uey = data
@@ -2688,8 +2764,7 @@ function MrSim::divPe_x
     Pe_xx = self -> getData('Pe-xx')
     Pe_xy = self -> getData('Pe-xy')
     Pe_xz = self -> getData('Pe-xz')
-    n_e = self -> getData('ne')
-    
+    n_e   = self -> getData('ne')
     dims = size(Pe_xx, /DIMENSIONS)
     
     ;Get the x-size of a grid cell in electron skin depth

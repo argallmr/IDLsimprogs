@@ -675,6 +675,17 @@ NSMOOTH=nSmooth
 
     ;Check if NAME has an underscore. Replace it with a hyphen (i.e. "Pe_xx" -> "Pe-xx")
     _name = stregex(name, '_', /BOOLEAN) ? strjoin(strsplit(name, '_'), '-') : name
+
+    ;Rename pressure tensor terms
+    case _name of
+        'Pe-yx': _name = 'Pe-xy'
+        'Pe-zx': _name = 'Pe-xz'
+        'Pe-zy': _name = 'Pe-yz'
+        'Pi-yx': _name = 'Pi-xy'
+        'Pi-zx': _name = 'Pi-xz'
+        'Pi-zy': _name = 'Pi-yz'
+        else: ;Do nothing
+    endcase
     
     ;Check if the file exists. If not, throw an error.
     f_name = filepath(_name + '.gda', ROOT_DIR=self.directory)
