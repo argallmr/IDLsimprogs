@@ -222,13 +222,8 @@ _REF_EXTRA = extra
 
     ;Get the simulation size and time
     oSim -> GetProperty, TIME=time, XSIM=XSim, YSIM=YSim, ZSIM=ZSim, AXIS_LABELS=axLabls, $
-                         COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame, $
-                         ORIENTATION=orientation
+                         COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame, ORIENTATION=orientation
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
-    
-    ;Make sure the data exists. Do this /after/ OSIM has a chance to be destroyed
-    ;and before the graphic window is created.
-    if data eq !Null then return, obj_new()
 
 ;-------------------------------------------------------
 ;Prepare Ranges ////////////////////////////////////////
@@ -249,10 +244,12 @@ _REF_EXTRA = extra
         'XY': begin
             x = temporary(xSim)
             y = temporary(ySim)
-            xtitle  = axLabls[0] + ' (' + units + ')'
-            ytitle  = axLabls[1] + ' (' + units + ')'
+            xtitle = axLabls[0] + ' (' + units + ')'
+            ytitle = axLabls[1] + ' (' + units + ')'
             
-            oSim -> GetProperty, ZRANGE=zrange
+            ;Get ranges
+            oSim -> GetProperty, XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange
+
             title  += '  ' + axLabls[2] + '=' + string(zrange[0], FORMAT='(f0.1)') + units
         endcase
     
@@ -262,10 +259,11 @@ _REF_EXTRA = extra
             xtitle = axLabls[0] + ' (' + units + ')'
             ytitle = axLabls[2] + ' (' + units + ')'
             
-            if oSim.dimension eq '3D' then begin
-                oSim -> GetProperty, YRANGE=yrange
-                title += '  ' + axLabls[1] + '=' + string(yrange[0], FORMAT='(f0.1)') + units
-            endif
+            ;Get ranges
+            oSim -> GetProperty, XRANGE=xrange, YRANGE=yr, ZRANGE=yrange
+            
+            if obj_class(oSim) eq 'MRSIM3D' $
+                then title += '  ' + axLabls[1] + '=' + string(yr[0], FORMAT='(f0.1)') + units
         endcase
     
         'YZ': begin
@@ -273,6 +271,9 @@ _REF_EXTRA = extra
             y = temporary(zSim)
             xtitle = axLabls[1] + ' (' + units + ')'
             ytitle = axLabls[2] + ' (' + units + ')'
+            
+            ;Get ranges
+            oSim -> GetProperty, YRANGE=xrange, ZRANGE=yrange
         endcase
     
         else: message, 'Orientation unknown: "' + orientation + '".'
@@ -280,6 +281,10 @@ _REF_EXTRA = extra
         
     ;Destroy the object
     if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
+    
+    ;Make sure the data exists. Do this /after/ OSIM has a chance to be destroyed
+    ;and before the graphic window is created.
+    if data eq !Null then return, obj_new()
 
 ;-------------------------------------------------------
 ;Make Plots ////////////////////////////////////////////
@@ -297,7 +302,9 @@ _REF_EXTRA = extra
                       NAME    = 'Color ' + name, $
                       RANGE   = range, $
                       TITLE   = title, $
+                      XRANGE  = xrange, $
                       XTITLE  = xtitle, $
+                      YRANGE  = yrange, $
                       YTITLE  = ytitle)
 
     ;Create a color bar

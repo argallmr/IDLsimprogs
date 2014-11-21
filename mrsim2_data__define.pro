@@ -53,6 +53,8 @@
 ;   Modification History::
 ;
 ;       2014/09/06  -   Written by Matthew Argall
+;       2014/11/20  -   Keywords properly checked in many routines. Divergence of a tensor
+;                           is computed correctly. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -224,80 +226,8 @@ end
 
 
 ;+
-;   Take the cross product of two quantities.
-;
-; :Params:
-;       V1:             in, required, type=NxMx3 float or string
-;                       A vectory quantity or the name of the vectory quantity to
-;                           be crossed into `V2`.
-;       V2:             in, required, type=NxMx3 float or string
-;                       A vectory quantity or the name of the vectory quantity to
-;                           be crossed with `V1`.
-;
-; :Keywords:
-;       MAGNITUDE:      in, optional, type=boolean, default=0
-;                       If set, the magnitude will be returned.
-;       X:              in, optional, type=boolean, default=0
-;                       If set, the x-component will be returned.
-;       Y:              in, optional, type=boolean, default=0
-;                       If set, the y-component will be returned.
-;       Z:              in, optional, type=boolean, default=0
-;                       If set, the z-component will be returned.
-;
-; :Returns:
-;       V1XV2:          Cross product of `V1` and `V2`. If no keywords are set, an
-;                           NxMx3 array will be retured, where the last demension
-;                           corresponds to the x-, y-, and z-components.
-;-
-function MrSim2_Data::CrossProduct, v1, v2, $
-MAGNITUDE=magnitude, $
-X=x, $
-Y=y, $
-Z=z
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if ptr_valid(_v1) then ptr_free, _v1
-        if ptr_valid(_v2) then ptr_free, _v2
-        void = cgErrorMSG()
-        return, !Null
-    endif
-    
-    ;Was a name or data given?
-    if MrIsA(v1, 'STRING') $
-        then _v1 = ptr_new(self -> GetData(v1)) $
-        else _v1 = ptr_new(v1)
-        
-    if MrIsA(v2, 'STRING') $
-        then _v2 = ptr_new(self -> GetData(v2)) $
-        else _v2 = ptr_new(v2)
-        
-    ;Compute the cross product
-    v1xv2 = [[[(*_v1)[*,*,1] * (*_v2)[*,*,2] - (*_v1)[*,*,2] * (*_v2)[*,*,1]]], $
-             [[(*_v1)[*,*,2] * (*_v2)[*,*,0] - (*_v1)[*,*,0] * (*_v2)[*,*,2]]], $
-             [[(*_v1)[*,*,0] * (*_v2)[*,*,1] - (*_v1)[*,*,1] * (*_v2)[*,*,0]]]]
-    
-    ;Free the pointers
-    ptr_free, _v1
-    ptr_free, _v2
-    
-    ;return
-    case 1 of
-        x:         return, v1xv2[*,*,0]
-        y:         return, v1xv2[*,*,1]
-        z:         return, v1xv2[*,*,2]
-        magnitude: return, sqrt(total(v1xv2^2, 3))
-        else:      return, v1xv2
-    endcase
-end
-
-
-;+
-;   A helper method for the ::GetData method. Used to retrieve single data products when
-;   no operation is specified.
+;   A helper method for ::GetDataByName method. Used to retrieve GDA data and ensure it
+;   is returned in the proper coordinate system.
 ;
 ; :Private:
 ;
@@ -311,305 +241,105 @@ end
 ;       DATA:               The requested data. If the data product does not exist,
 ;                               then !Null will be returned.
 ;-
-function MrSim2_Data::DataGet, name
+function MrSim2_Data::GetGDAByName, name
     compile_opt strictarr
     on_error, 2
 
-    ;If no parameters were given, print a list of available data products.
-    if n_params() eq 0 then begin
-        message, 'Use: data = mySim -> GetData(name)'
-        MrSim -> ListProducts
-        return, !Null
-    endif
+    ;Translate between coordinate systems
+    ;   - NAME is given in the current coordinate system
+    ;   - GDA names reference the simulation coordinate system
+    ;   - Vector and Tensor products (without [xyz] subscripts) are not affected
+    ;       o Must be re-ordered below.
+    _name = MrSim_GDA_Rename(name, self.coord_system)
 
-    ;Check to see if the data has already been read first.
-    case strupcase(name) of
-        'ANS':    data = *self.answer
-        'AY':     data = self -> A(/Y)
-        'BX':     data = self -> B(/X)
-        'BY':     data = self -> B(/Y)
-        'BZ':     data = self -> B(/Z)
-        'E-':     data = *self.electrons
-        'EX':     data = self -> E(/X)
-        'EY':     data = self -> E(/Y)
-        'EZ':     data = self -> E(/Z)
-        'NE':     data = self -> n_i()
-        'NI':     data = self -> n_e()
-        'PE_XX':  data = self -> Pe(/TXX)
-        'PE_XY':  data = self -> Pe(/TXY)
-        'PE_XZ':  data = self -> Pe(/TXZ)
-        'PE_YX':  data = self -> Pe(/TXY)
-        'PE_YY':  data = self -> Pe(/TYY)
-        'PE_YZ':  data = self -> Pe(/TYZ)
-        'PE_ZX':  data = self -> Pe(/TXZ)
-        'PE_ZY':  data = self -> Pe(/TYZ)
-        'PE_ZZ':  data = self -> Pe(/TZZ)
-        'PI_XX':  data = self -> Pi(/TXX)
-        'PI_XY':  data = self -> Pi(/TXY)
-        'PI_XZ':  data = self -> Pi(/TXZ)
-        'PI_YX':  data = self -> Pi(/TXY)
-        'PI_YY':  data = self -> Pi(/TYY)
-        'PI_YZ':  data = self -> Pi(/TYZ)
-        'PI_ZX':  data = self -> Pi(/TXZ)
-        'PI_ZY':  data = self -> Pi(/TYZ)
-        'PI_ZZ':  data = self -> Pi(/TZZ)
-        'UEX':    data = self -> Ue(/X)
-        'UEY':    data = self -> Ue(/Y)
-        'UEZ':    data = self -> Ue(/Z)
-        'UIX':    data = self -> Ui(/X)
-        'UIY':    data = self -> Ui(/Y)
-        'UIZ':    data = self -> Ui(/Z)
+    ;Read and/or get the data.
+    case strupcase(_name) of
+        ;Vectors
+        'B':      data = self -> B(/VECTOR)
+        'E':      data = self -> E(/VECTOR)
+        'UE':     data = self -> Ue(/VECTOR)
+        'UI':     data = self -> Ui(/VECTOR)
         
-        ;Custom Data Products
-        'B':      data = self ->  B(/VECTOR)
-        'E':      data = self ->  E(/VECTOR)
+        ;Tensors
         'PE':     data = self -> Pe(/TENSOR)
         'PI':     data = self -> Pi(/TENSOR)
-        'Ue':     data = self -> Ue(/VECTOR)
-        'Ui':     data = self -> Ui(/VECTOR)
-        'A0_E':   data = self -> A0_e()
-        'AN_E':   data = self -> An_e()
-        'DNG_E':  data = self -> Dng_e()
-        else: message, 'Data product not available: "' + name + '".'
+        
+        ;Components
+        'AY':     return, self -> A(/Y)
+        'BX':     return, self -> B(/X)
+        'BY':     return, self -> B(/Y)
+        'BZ':     return, self -> B(/Z)
+        'E-':     return, *self.electrons
+        'EX':     return, self -> E(/X)
+        'EY':     return, self -> E(/Y)
+        'EZ':     return, self -> E(/Z)
+        'NE':     return, self -> n_i()
+        'NI':     return, self -> n_e()
+        'PE_XX':  return, self -> Pe(/TXX)
+        'PE_XY':  return, self -> Pe(/TXY)
+        'PE_XZ':  return, self -> Pe(/TXZ)
+        'PE_YX':  return, self -> Pe(/TXY)
+        'PE_YY':  return, self -> Pe(/TYY)
+        'PE_YZ':  return, self -> Pe(/TYZ)
+        'PE_ZX':  return, self -> Pe(/TXZ)
+        'PE_ZY':  return, self -> Pe(/TYZ)
+        'PE_ZZ':  return, self -> Pe(/TZZ)
+        'PI_XX':  return, self -> Pi(/TXX)
+        'PI_XY':  return, self -> Pi(/TXY)
+        'PI_XZ':  return, self -> Pi(/TXZ)
+        'PI_YX':  return, self -> Pi(/TXY)
+        'PI_YY':  return, self -> Pi(/TYY)
+        'PI_YZ':  return, self -> Pi(/TYZ)
+        'PI_ZX':  return, self -> Pi(/TXZ)
+        'PI_ZY':  return, self -> Pi(/TYZ)
+        'PI_ZZ':  return, self -> Pi(/TZZ)
+        'UEX':    return, self -> Ue(/X)
+        'UEY':    return, self -> Ue(/Y)
+        'UEZ':    return, self -> Ue(/Z)
+        'UIX':    return, self -> Ui(/X)
+        'UIY':    return, self -> Ui(/Y)
+        'UIZ':    return, self -> Ui(/Z)
+        else:     message, 'Not a GDA data product: "' + name + '".'
     endcase
+    
+    ;
+    ;If we get to here, a tensor or vector was requested.
+    ;   - Rearrange the components so that the match the current coordinate system
+    ;       not the simulation coordinate system.
+    ;
+    
+    ;Get the dimensions
+    dims = size(data, /DIMENSIONS)
+
+    ;Vector
+    if dims[2] eq 3 then begin
+        case self.coord_system of
+            'SIMULATION':   ;Do nothing
+            
+            ; Vx -> Vz
+            ; Vy -> Vy
+            ; Vz -> Vx
+            'MAGNETOPAUSE': data = data[*,*,[2,1,0]]
+            'MAGNETOTAIL':  ;Do nothing
+        endcase
+        
+    ;Tensor
+    endif else if dims[2] eq 6 then begin
+        case self.coord_system of
+            'SIMULATION':   ;Do nothing
+            
+            ; Txx -> Tzz
+            ; Txy -> Tzy = Tyz
+            ; Txz -> Tzx = Txz
+            ; Tyy -> Tyy
+            ; Tyz -> Tyx = Txy
+            ; Tzz -> Txx
+            'MAGNETOPAUSE': data = data[*,*,[5,4,2,3,1,0]]
+            'MAGNETOTAIL':  ;Do nothing
+        endcase
+    endif
     
     return, data
-end
-
-
-;+
-;   Take the dot product of two quantities.
-;
-; :Params:
-;       V1:             in, required, type=NxMx3 float or string
-;                       A vectory quantity or the name of the vectory quantity to
-;                           be dotted into `V2`.
-;       V2:             in, required, type=NxMx3 float or string
-;                       A vectory quantity or the name of the vectory quantity to
-;                           be dotted with `V1`.
-;
-; :Keywords:
-;       X:              in, optional, type=boolean, default=0
-;                       If set, only the x-components will be used.
-;       Y:              in, optional, type=boolean, default=0
-;                       If set, only the y-components will be used.
-;       Z:              in, optional, type=boolean, default=0
-;                       If set, only the z-components will be used.
-;
-; :Returns:
-;       V1DOTV2:        Dot product of `V1` and `V2`.
-;-
-function MrSim2_Data::DotProduct, v1, v2, $
-X=x, $
-Y=y, $
-Z=z
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if ptr_valid(_v1) then ptr_free, _v1
-        if ptr_valid(_v2) then ptr_free, _v2
-        void = cgErrorMSG()
-        return, !Null
-    endif
-    
-    ;Was a name or data given?
-    if MrIsA(v1, 'STRING') $
-        then _v1 = ptr_new(self -> GetData(v1)) $
-        else _v1 = ptr_new(v1)
-        
-    if MrIsA(v2, 'STRING') $
-        then _v2 = ptr_new(self -> GetData(v2)) $
-        else _v2 = ptr_new(v2)
-    
-    ;return
-    case 1 of
-        x:    v1dotv2 =   (*_v1)[*,*,0] * (*_v2)[*,*,0]
-        y:    v1dotv2 =   (*_v1)[*,*,1] * (*_v2)[*,*,1]
-        z:    v1dotv2 =   (*_v1)[*,*,2] * (*_v2)[*,*,2]
-        else: v1dotv2 = ( (*_v1)[*,*,0] * (*_v2)[*,*,0] + $
-                          (*_v1)[*,*,1] * (*_v2)[*,*,1] + $
-                          (*_v1)[*,*,2] * (*_v2)[*,*,2] )
-    endcase
-        
-    ;Free the pointers
-    ptr_free, _v1
-    ptr_free, _v2
-    
-    return, v1dotv2
-end
-
-
-;+
-;   Compute the x-derivative of a data array.
-;
-; :Params:
-;       DATA:           in, required, type=string/NxM float
-;                       A string naming the data product or the actual data of which
-;                           the derivative is to be taken.
-;
-; :Returns:
-;       D_DX:           The derivative of `DATA` with respect to X
-;-
-function MrSim2_Data::d_dx, data
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if ptr_valid(_data) then ptr_free, _data
-        void = cgErrorMSG()
-        return, !Null
-    endif
-    
-    ;Get the data
-    ;   - Avoid copying the data by creating a pointer
-    if size(data, /TNAME) eq 'STRING' $
-        then _data = ptr_new(self -> GetData(data)) $
-        else _data = ptr_new(data)
-    
-    ;Get the x-size of the simulation in electron skin depths
-    self -> GetInfo, DX_DE=dx_de
-    dims = size(data, /DIMENSIONS)
-    if n_elements(dims) ne 2 then $
-        message, 'Data must be 2D in order to take the derivative.'
-    
-    ;Determine the orientation
-    ;   'XY' -> data[X,Y]
-    ;   'XZ' -> data[X,Z]
-    ;   etc.
-    xaxis = strmid(self.orientation, 0, 1)
-    yaxis = strmid(self.orientation, 1, 2)        
-    
-    ;Allocate memory
-    d_dx = fltarr(dims)
-
-    ;Take the centered difference.
-    case 'X' of
-        xaxis: d_dx[1:dims[0]-2,*] = ((*_data)[2:dims[0]-1,*] - (*_data)[0:dims[0]-3,*]) / (2.0 * dx_de)
-        yaxis: d_dx[*,1:dims[1]-2] = ((*_data)[*,2:dims[1]-1] - (*_data)[*,0:dims[1]-3]) / (2.0 * dx_de)
-        else:  message, 'Orientation "' + self.orientation + '" does not allow the derivative with respect to x.'
-    endcase
-    
-    ptr_free, _data
-    return, d_dx
-end
-
-
-;+
-;   Compute the y-derivative of a data array.
-;
-; :Params:
-;       DATA:           in, required, type=string/NxM float
-;                       A string naming the data product or the actual data of which
-;                           the derivative is to be taken.
-;
-; :Returns:
-;       D_DY:           The derivative of `DATA` with respect to Y.
-;-
-function MrSim2_Data::d_dy, data
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if ptr_valid(_data) then ptr_free, _data
-        void = cgErrorMSG()
-        return, !Null
-    endif
-    
-    ;Get the data
-    ;   - Avoid copying the data by creating a pointer
-    if size(data, /TNAME) eq 'STRING' $
-        then _data = ptr_new(self -> GetData(data)) $
-        else _data = ptr_new(data)
-    
-    ;Get the x-size of the simulation in electron skin depths
-    self -> GetInfo, DY_DE=dy_de
-    dims = size(data, /DIMENSIONS)
-    if n_elements(dims) ne 2 then $
-        message, 'Data must be 2D in order to take the derivative.'
-    
-    ;Determine the orientation
-    ;   'YZ' -> data[Y,Z]
-    ;   'XY' -> data[X,Y]
-    ;   etc.
-    xaxis = strmid(self.orientation, 0, 1)
-    yaxis = strmid(self.orientation, 1, 2)        
-    
-    ;Allocate memory
-    d_dy = fltarr(dims)
-
-    ;Take the centered difference.
-    case 'Y' of
-        xaxis: d_dy[1:dims[0]-2,*] = ((*_data)[2:dims[0]-1,*] - (*_data)[0:dims[0]-3,*]) / (2.0 * dy_de)
-        yaxis: d_dy[*,1:dims[1]-2] = ((*_data)[*,2:dims[1]-1] - (*_data)[*,0:dims[1]-3]) / (2.0 * dy_de)
-        else:  message, 'Orientation "' + self.orientation + '" does not allow the derivative with respect to x.'
-    endcase
-    
-    ptr_free, _data
-    return, d_dy
-end
-
-
-;+
-;   Compute the z-derivative of a data array.
-;
-; :Params:
-;       DATA:           in, required, type=string/NxM float
-;                       A string naming the data product or the actual data of which
-;                           the derivative is to be taken.
-;
-; :Returns:
-;       D_DZ:           The derivative of `DATA` with respect to Z.
-;-
-function MrSim2_Data::d_dz, data
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if ptr_valid(_data) then ptr_free, _data
-        void = cgErrorMSG()
-        return, !Null
-    endif
-    
-    ;Get the data
-    ;   - Avoid copying the data by creating a pointer
-    if size(data, /TNAME) eq 'STRING' $
-        then _data = ptr_new(self -> GetData(data)) $
-        else _data = ptr_new(data)
-    
-    ;Get the x-size of the simulation in electron skin depths
-    self -> GetInfo, DZ_DE=dz_de
-    dims = size(data, /DIMENSIONS)
-    if n_elements(dims) ne 2 then $
-        message, 'Data must be 2D in order to take the derivative.'
-    
-    ;Determine the orientation
-    ;   'YZ' -> data[Y,Z]
-    ;   'XZ' -> data[X,Z]
-    ;   etc.
-    xaxis = strmid(self.orientation, 0, 1)
-    yaxis = strmid(self.orientation, 1, 2)        
-    
-    ;Allocate memory
-    d_dz = fltarr(dims)
-
-    ;Take the centered difference.
-    case 'Z' of
-        xaxis: d_dz[1:dims[0]-2,*] = ((*_data)[2:dims[0]-1,*] - (*_data)[0:dims[0]-3,*]) / (2.0 * dz_de)
-        yaxis: d_dz[*,1:dims[1]-2] = ((*_data)[*,2:dims[1]-1] - (*_data)[*,0:dims[1]-3]) / (2.0 * dz_de)
-        else:  message, 'Orientation "' + self.orientation + '" does not allow the derivative with respect to x.'
-    endcase
-    
-    ptr_free, _data
-    return, d_dz
 end
 
 
@@ -678,6 +408,18 @@ Z=z
     ;Defaults
     show = keyword_set(show)
     test = keyword_set(test)
+    x    = keyword_set(x)
+    y    = keyword_set(y)
+    z    = keyword_set(z)
+    Txx  = keyword_set(Txx)
+    Txy  = keyword_set(Txy)
+    Txz  = keyword_set(Txz)
+    Tyy  = keyword_set(Tyy)
+    Tyz  = keyword_set(Tyz)
+    Tzz  = keyword_set(Tzz)
+    dx   = keyword_set(dx)
+    dy   = keyword_set(dy)
+    dz   = keyword_set(dz)
 
     ;Determine order of operations
     expr = self -> Op_Parser(expression, OPERATIONS=ops, COUNT=nOps)
@@ -692,12 +434,31 @@ Z=z
     endif
 
     ;If no operations are present, then EXPR is a data product
-    if nOps eq 0 then return, self -> DataGet(expr)
-    
+    if nOps eq 0 then begin
+        data = self -> GetDataByName(expr)
+
+        ;Get the correct component
+        case 1 of
+            X:    return, data[*,*,0]
+            Y:    return, data[*,*,1]
+            Z:    return, data[*,*,2]
+            TXX:  return, data[*,*,0]
+            TXY:  return, data[*,*,1]
+            TXZ:  return, data[*,*,2]
+            TYY:  return, data[*,*,3]
+            TYZ:  return, data[*,*,4]
+            TZZ:  return, data[*,*,5]
+            DX:   return, self -> Scalar_Derivative(data, /D_DX)
+            DY:   return, self -> Scalar_Derivative(data, /D_DY)
+            DZ:   return, self -> Scalar_Derivative(data, /D_DZ)
+            else: return, data
+        endcase
+    endif
+
     ;Step through each operation
     for i = 0, nOps - 1 do begin
-        lhs = self -> DataGet(ops[0,i])
-        rhs = self -> DataGet(ops[2,i])
+        lhs = self -> GetDataByName(ops[0,i])
+        rhs = self -> GetDataByName(ops[2,i])
         
         ;Show the computation
         if show then begin
@@ -711,20 +472,151 @@ Z=z
         endif
         
         ;Execute the operation
-        case ops of
+        case ops[1,i] of
             '+': *self.answer = lhs + rhs
             '-': *self.answer = lhs - rhs
             '*': *self.answer = lhs * rhs
             '/': *self.answer = lhs / rhs
             '^': *self.answer = lhs ^ rhs
-            '.': *self.answer = self -> DotProduct(  lhs, rhs, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-            'X': *self.answer = self -> CrossProduct(lhs, rhs, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+            '.': *self.answer = self -> Vector_DotProduct(  lhs, rhs )
+            'X': *self.answer = self -> Vector_CrossProduct(lhs, rhs )
             else: message, 'Operation invalid: "' + ops[1,i] + '".'
         endcase
     endfor
     
+    ;Take a component of the answer?
+    case 1 of
+        x:   *self.answer = (*self.answer)[*,*,0]
+        y:   *self.answer = (*self.answer)[*,*,1]
+        z:   *self.answer = (*self.answer)[*,*,2]
+        Txx: *self.answer = (*self.answer)[*,*,0]
+        Txy: *self.answer = (*self.answer)[*,*,1]
+        Txz: *self.answer = (*self.answer)[*,*,2]
+        Tyy: *self.answer = (*self.answer)[*,*,3]
+        Tyz: *self.answer = (*self.answer)[*,*,4]
+        Tzz: *self.answer = (*self.answer)[*,*,5]
+        DX:  *self.answer = self -> Scalar_Derivative(*self.answer, /D_DX)
+        DY:  *self.answer = self -> Scalar_Derivative(*self.answer, /D_DY)
+        DZ:  *self.answer = self -> Scalar_Derivative(*self.answer, /D_DZ)
+        else: ;Do nothing
+    endcase
+    
     ;Return the result
     return, *self.answer
+end
+
+
+;+
+;   A helper method for the ::GetData method. Used to retrieve single data products when
+;   no operation is specified.
+;
+; :Private:
+;
+; :Params:
+;       NAME:               in, required, type=string, default=
+;                           The name of the data product to be read. For a list of
+;                               available data product, call mr_readSIM without any
+;                               arguments.
+;
+; :Returns:
+;       DATA:               The requested data. If the data product does not exist,
+;                               then !Null will be returned.
+;-
+function MrSim2_Data::GetDataByName, name
+    compile_opt strictarr
+    on_error, 2
+
+    ;If no parameters were given, print a list of available data products.
+    if n_params() eq 0 then begin
+        message, 'Use: data = mySim -> GetData(name)'
+        MrSim -> ListProducts
+        return, !Null
+    endif
+
+    ;Check to see if the data has already been read first.
+    case strupcase(name) of
+        'ANS':    return, *self.answer
+        'AY':     return, self -> GetGDAByName('Ay')
+        'B':      return, self -> GetGDAByName('B')
+        'BX':     return, self -> GetGDAByName('Bx')
+        'BY':     return, self -> GetGDAByName('By')
+        'BZ':     return, self -> GetGDAByName('Bz')
+        'E-':     return, *self.electrons
+        'E':      return, self -> GetGDAByName('E')
+        'EX':     return, self -> GetGDAByName('Ex')
+        'EY':     return, self -> GetGDAByName('Ey')
+        'EZ':     return, self -> GetGDAByName('Ez')
+        'NE':     return, self -> GetGDAByName('Ne')
+        'NI':     return, self -> GetGDAByName('Ni')
+        'PE':     return, self -> GetGDAByName('Pe')
+        'PE_XX':  return, self -> GetGDAByName('Pe_xx')
+        'PE_XY':  return, self -> GetGDAByName('Pe_xy')
+        'PE_XZ':  return, self -> GetGDAByName('Pe_xz')
+        'PE_YX':  return, self -> GetGDAByName('Pe_yx')
+        'PE_YY':  return, self -> GetGDAByName('Pe_yy')
+        'PE_YZ':  return, self -> GetGDAByName('Pe_yz')
+        'PE_ZX':  return, self -> GetGDAByName('Pe_zx')
+        'PE_ZY':  return, self -> GetGDAByName('Pe_zy')
+        'PE_ZZ':  return, self -> GetGDAByName('Pe_zz')
+        'Pi':     return, self -> GetGDAByName('Pi')
+        'PI_XX':  return, self -> GetGDAByName('Pi_xx')
+        'PI_XY':  return, self -> GetGDAByName('Pi_xy')
+        'PI_XZ':  return, self -> GetGDAByName('Pi_xz')
+        'PI_YX':  return, self -> GetGDAByName('Pi_yx')
+        'PI_YY':  return, self -> GetGDAByName('Pi_yy')
+        'PI_YZ':  return, self -> GetGDAByName('Pi_yz')
+        'PI_ZX':  return, self -> GetGDAByName('Pi_zx')
+        'PI_ZY':  return, self -> GetGDAByName('Pi_zy')
+        'PI_ZZ':  return, self -> GetGDAByName('Pi_zz')
+        'UE':     return, self -> GetGDAByName('Ue')
+        'UEX':    return, self -> GetGDAByName('Uex')
+        'UEY':    return, self -> GetGDAByName('Uey')
+        'UEZ':    return, self -> GetGDAByName('Uez')
+        'UI':     return, self -> GetGDAByName('Ui')
+        'UIX':    return, self -> GetGDAByName('Uix')
+        'UIY':    return, self -> GetGDAByName('Uiy')
+        'UIZ':    return, self -> GetGDAByName('Uiz')
+        
+        ;Custom Data Products
+        'DIVPE':   data = self -> Tensor_Divergence('Pe')
+        'DIVPE_X': data = self -> Tensor_Divergence('Pe', /X)
+        'DIVPE_Y': data = self -> Tensor_Divergence('Pe', /Y)
+        'DIVPE_Z': data = self -> Tensor_Divergence('Pe', /Z)
+        'DIVPI':   data = self -> Tensor_Divergence('Pi')
+        'DIVPI_X': data = self -> Tensor_Divergence('Pi', /X)
+        'DIVPI_Y': data = self -> Tensor_Divergence('Pi', /Y)
+        'DIVPI_Z': data = self -> Tensor_Divergence('Pi', /Z)
+        'J':       data = self -> J(/VECTOR)
+        'JX':      data = self -> J(/X)
+        'JY':      data = self -> J(/Y)
+        'JZ':      data = self -> J(/Z)
+        'JE':      data = self -> Je(/VECTOR)
+        'JEX':     data = self -> Je(/X)
+        'JEY':     data = self -> Je(/Y)
+        'JEZ':     data = self -> Je(/Z)
+        'JI':      data = self -> Ji(/VECTOR)
+        'JIX':     data = self -> Ji(/X)
+        'JIY':     data = self -> Ji(/Y)
+        'JIZ':     data = self -> Ji(/Z)
+        'JXB':     data = self -> Vector_CrossProduct('J', 'B')
+        'JXB_X':   data = self -> Vector_CrossProduct('J', 'B', /X)
+        'JXB_Y':   data = self -> Vector_CrossProduct('J', 'B', /Y)
+        'JXB_Z':   data = self -> Vector_CrossProduct('J', 'B', /Z)
+        'V':       data = self -> V(/VECTOR)
+        'VX':      data = self -> V(/X)
+        'VY':      data = self -> V(/Y)
+        'VZ':      data = self -> V(/Z)
+        'VXB':     data = self -> Vector_CrossProduct('V', 'B')
+        'VXB_X':   data = self -> Vector_CrossProduct('V', 'B', /X)
+        'VXB_Y':   data = self -> Vector_CrossProduct('V', 'B', /Y)
+        'VXB_Z':   data = self -> Vector_CrossProduct('V', 'B', /Z)
+        'A0_E':    data = self -> A0_e()
+        'AN_E':    data = self -> An_e()
+        'DNG_E':   data = self -> Dng_e()
+        else: message, 'Data product not available: "' + name + '".'
+    endcase
+    
+    return, data
 end
 
 
@@ -764,7 +656,7 @@ function MrSim2_Data::HasData, data_product
     
     ;Check to see if the data has already been read first.
     case strupcase(data_product) of
-        'ANSWER': if n_elements(*self.answer)   gt 0 then tf_has = 1B
+        'ANSWER': if n_elements(*self.answer)    gt 0 then tf_has = 1B
         'AY':     if n_elements(*self.Ay)        gt 0 then tf_has = 1B
         'BX':     if n_elements(*self.Bx)        gt 0 then tf_has = 1B
         'BY':     if n_elements(*self.By)        gt 0 then tf_has = 1B
@@ -787,11 +679,11 @@ function MrSim2_Data::HasData, data_product
         'PI_XX':  if n_elements(*self.Pi_xx)     gt 0 then tf_has = 1B
         'PI_XY':  if n_elements(*self.Pi_xy)     gt 0 then tf_has = 1B
         'PI_XZ':  if n_elements(*self.Pi_xz)     gt 0 then tf_has = 1B
-        'PI_YX':  if n_elements(*self.Pi_yx)     gt 0 then tf_has = 1B
+        'PI_YX':  if n_elements(*self.Pi_xy)     gt 0 then tf_has = 1B
         'PI_YY':  if n_elements(*self.Pi_yy)     gt 0 then tf_has = 1B
         'PI_YZ':  if n_elements(*self.Pi_yz)     gt 0 then tf_has = 1B
-        'PI_ZX':  if n_elements(*self.Pi_zx)     gt 0 then tf_has = 1B
-        'PI_ZY':  if n_elements(*self.Pi_zy)     gt 0 then tf_has = 1B
+        'PI_ZX':  if n_elements(*self.Pi_xz)     gt 0 then tf_has = 1B
+        'PI_ZY':  if n_elements(*self.Pi_yz)     gt 0 then tf_has = 1B
         'PI_ZZ':  if n_elements(*self.Pi_zz)     gt 0 then tf_has = 1B
         'UEX':    if n_elements(*self.Uex)       gt 0 then tf_has = 1B
         'UEY':    if n_elements(*self.Uey)       gt 0 then tf_has = 1B
@@ -868,50 +760,6 @@ pro MrSim2_Data::ListProducts
     ;Print operations
     print, FORMAT='(%"  %s      %s       %s")', 'OPERATION', 'DESCRIPTION', 'EXAMPLE'
     print, FORMAT='(%"      %s          %-14s    %s")', ops
-end
-
-
-;+
-;   Compute the magnitude of a vector.
-;
-;   Calling Sequence:
-;       data = oSim -> Magnitude('E')
-;       data = oSim -> Magnitude(Ex, Ey, Ez)
-;
-; :Params:
-;       VX:             in, required, type=string,fltarr(N\,M)
-;                       Either the name or x-component of a vector quantity for which
-;                           the magnitude is to be found.
-;       VY:             in, optional, type=fltarr(N\,M)
-;                       If `VX` is an array, then VY represents the y-component of the
-;                           vector quantity for which the magnitude is to be computed.
-;       VZ:             in, optional, type=fltarr(N\,M)
-;                       If `VX` is an array, then VZ represents the z-component of the
-;                           vector quantity for which the magnitude is to be computed.
-;
-; :Returns:
-;       VMAG:           Magnitude of the vector quantity.
-;-
-function MrSim2_Data::Magnitude, vx, vy, vz
-    compile_opt strictarr
-    on_error, 2
-    
-    ;Was a name or data given?
-    if MrIsA(vx, 'STRING') then begin
-        names = vx
-    
-        ;Get the data
-        _vx = self -> GetData(name, /X)
-        vy  = self -> GetData(name, /Y)
-        vz  = self -> GetData(name, /Z)
-    endif else begin
-        _vx = vx
-    endelse
-    
-    ;Compute the magnitude
-    vmag = sqrt(_vx^2 + vy^2 + vz^2)
-    
-    return, vmag
 end
 
 
@@ -1246,132 +1094,6 @@ end
 
 
 ;+
-;   Compute the component of a vector parallel to another vector.
-;
-; :Params:
-;       V1:             in, required, type=NxMx3 float or string
-;                       A vectory quantity or the name of the vectory quantity to
-;                           for which the component parallel to `V2` is to be determined.
-;       V2:             in, required, type=NxMx3 float or string
-;                       A vectory quantity or the name of the vectory quantity indicating
-;                           the parallel direction.
-;
-; :Keywords:
-;       X:              in, optional, type=boolean, default=0
-;                       If set, only the x-components will be used.
-;       Y:              in, optional, type=boolean, default=0
-;                       If set, only the y-components will be used.
-;       Z:              in, optional, type=boolean, default=0
-;                       If set, only the z-components will be used.
-;
-; :Returns:
-;       V1_PAR:         The component of `V1` parallel to `V2`.
-;-
-function MrSim2_Data::Parallel, v1, v2, $
-X=x, $
-Y=y, $
-Z=z
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if ptr_valid(_v1) then ptr_free, _v1
-        if ptr_valid(_v2) then ptr_free, _v2
-        void = cgErrorMSG()
-        return, !Null
-    endif
-    
-    ;Was a name or data given?
-    if MrIsA(v1, 'STRING') $
-        then _v1 = ptr_new(self -> GetData(v1)) $
-        else _v1 = ptr_new(v1)
-        
-    if MrIsA(v2, 'STRING') $
-        then _v2 = ptr_new(self -> GetData(v2)) $
-        else _v2 = ptr_new(v2)
-    
-    ;Get Data
-    v2_mag = sqrt(total(*_v2^2, 3))
-    
-    ;Components
-    ;   par_x = vx * fx_hat
-    ;   par_y = vy * fy_hat
-    ;   par_z = vz * fz_hat
-    case 1 of
-        x:    v_par =   (*_v1)[*,*,0] * (*_v2)[*,*,0] / temporary(v2_mag)
-        y:    v_par =   (*_v1)[*,*,1] * (*_v2)[*,*,1] / temporary(v2_mag)
-        z:    v_par =   (*_v1)[*,*,2] * (*_v2)[*,*,2] / temporary(v2_mag)
-        else: v_par = ( (*_v1)[*,*,0] * (*_v2)[*,*,0] + $
-                        (*_v1)[*,*,1] * (*_v2)[*,*,1] + $
-                        (*_v1)[*,*,2] * (*_v2)[*,*,2] ) / temporary(v2_mag)
-    endcase
-    
-    ;Free the pointers
-    ptr_free, _v1
-    ptr_free, _v2
-    
-    return, v_par
-end
-
-
-;+
-;   Compute the component of a vector perpendicular to another vector.
-;
-; :Params:
-;       DATA:               in, required, type=NxM float
-;                           The data of which the derivative will be taken.
-;
-; :Keywords:
-;       OVERWRITE:          in, optional, type=boolean, default=0
-;                           If set, the derivative will overwrite `DATA` and avoids
-;                               having an extra copy in memory.
-;
-; :Returns:
-;       DERIVATIVE:         The derivative of `DATA` with respect to X
-;-
-function MrSim2_Data::Perpendicular, v1, v2, $
-FIELD=field
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if ptr_valid(_v1) then ptr_free, _v1
-        if ptr_valid(_v2) then ptr_free, _v2
-        void = cgErrorMSG()
-        return, !Null
-    endif
-    
-    ;Compute the parallel component
-    v1_par  = self -> Parallel(v1, v2)
-    
-    ;Get the data
-    ;   - Was a name or data given?
-    if MrIsA(v1, 'STRING') $
-        then _v1 = ptr_new(self -> GetData(v1)) $
-        else _v1 = ptr_new(v1)
-        
-    if MrIsA(v2, 'STRING') $
-        then _v2 = ptr_new(self -> GetData(v2)) $
-        else _v2 = ptr_new(v2)
-        
-    ;Find the perpendicular component
-    v1_mag2 = total(*_v1^2, 3)
-    v1_perp = sqrt(v_mag2 - v_par^2)
-    
-    ;Free pointers
-    ptr_free, _v1
-    ptr_free, _v2
-    
-    ;Perpendicular component
-    return, v_perp 
-end
-
-
-;+
 ;   The purpose of this program is to read data from a ".gda" file. It must be
 ;   over-ridden and, at the end, must store the data via the SetData method.
 ;
@@ -1442,20 +1164,20 @@ pro MrSim2_Data::SetData, name, data
         'PE_XX':  *self.Pe_xx     = data
         'PE_XY':  *self.Pe_xy     = data
         'PE_XZ':  *self.Pe_xz     = data
-        'PE_YX':  *self.Pe_yx     = data
+        'PE_YX':  *self.Pe_xy     = data
         'PE_YY':  *self.Pe_yy     = data
         'PE_YZ':  *self.Pe_yz     = data
-        'PE_ZX':  *self.Pe_zx     = data
-        'PE_ZY':  *self.Pe_zy     = data
+        'PE_ZX':  *self.Pe_xz     = data
+        'PE_ZY':  *self.Pe_yz     = data
         'PE_ZZ':  *self.Pe_zz     = data
         'PI_XX':  *self.Pi_xx     = data
         'PI_XY':  *self.Pi_xy     = data
         'PI_XZ':  *self.Pi_xz     = data
-        'PI_YX':  *self.Pi_yx     = data
+        'PI_YX':  *self.Pi_xy     = data
         'PI_YY':  *self.Pi_yy     = data
         'PI_YZ':  *self.Pi_yz     = data
-        'PI_ZX':  *self.Pi_zx     = data
-        'PI_ZY':  *self.Pi_zy     = data
+        'PI_ZX':  *self.Pi_xz     = data
+        'PI_ZY':  *self.Pi_yz     = data
         'PI_ZZ':  *self.Pi_zz     = data
         'UEX':    *self.Uex       = data
         'UEY':    *self.Uey       = data
@@ -1469,46 +1191,147 @@ end
 
 
 ;+
-;   Compute the component of a vector parallel to another vector.
+;   Compute the derivative of a data scalar quantity.
 ;
 ; :Params:
-;       V1:             in, required, type=NxMx3 float or string
-;                       A vectory quantity or the name of the vectory quantity to
-;                           for which the component parallel to `V2` is to be determined.
-;       V2:             in, required, type=NxMx3 float or string
-;                       A vectory quantity or the name of the vectory quantity indicating
-;                           the parallel direction.
-;
-; :Keywords:
-;       X:              in, optional, type=boolean, default=0
-;                       If set, only the x-components will be used.
-;       Y:              in, optional, type=boolean, default=0
-;                       If set, only the y-components will be used.
-;       Z:              in, optional, type=boolean, default=0
-;                       If set, only the z-components will be used.
+;       DATA:           in, required, type=string/NxM float
+;                       A string naming the data product or the actual data of which
+;                           the derivative is to be taken.
 ;
 ; :Returns:
-;       V1_PAR:         The component of `V1` parallel to `V2`.
+;       DER:            The derivative of `DATA`.
 ;-
-function MrSim2_Data::Tensor_Grad, tensor
+function MrSim2_Data::Scalar_Derivative, data, $
+D_DX=d_dx, $
+D_DY=d_dy, $
+D_DZ=d_dz
     compile_opt strictarr
     
     ;Error handling
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
-        if ptr_valid(_T) then ptr_free, _T
-        if ptr_valid(_V) then ptr_free, _V
+        if ptr_valid(_data) then ptr_free, _data
         void = cgErrorMSG()
         return, !Null
     endif
     
-    ;Was a name or data given?
-    if MrIsA(tensor, 'STRING') $
-        then _T = ptr_new(self -> GetData(T)) $
-        else _T = ptr_new(T)
+    ;Defaults
+    d_dx = keyword_set(d_dx)
+    d_dy = keyword_set(d_dy)
+    d_dz = keyword_set(d_dz)
+    if d_dx + d_dy + d_dz gt 1 then d_dx = 1
+    if d_dx + d_dy + d_dz gt 1 then message, 'D_DX, D_DY, and D_DZ are mutually exclusive.'
     
-    return, div_T
+    ;Get the data
+    ;   - Avoid copying the data by creating a pointer
+    if size(data, /TNAME) eq 'STRING' $
+        then _data = ptr_new(self -> GetData(data)) $
+        else _data = ptr_new(data)
+    
+    ;Ensure the data is a scalar quantity (i.e. not a vector or tensor)
+    dims = size(*_data, /DIMENSIONS)
+    if n_elements(dims) ne 2 then $
+        message, 'Data must be 2D in order to take the derivative.'
+    
+    ;Get the grid spacing of the simulation in electron skin depths
+    self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de
+    case self.coord_system of
+        'SIMULATION':   begin
+            dx = dx_de
+            dy = dy_de
+            dz = dz_de
+        endcase
+        'MAGNETOPAUSE': begin
+            dx = dz_de
+            dy = dy_de
+            dz = dx_de
+        endcase
+        'MAGNETOTAIL':  begin
+            dx = dx_de
+            dy = dy_de
+            dz = dz_de
+        endcase
+    endcase
+    
+    ;Determine the orientation
+    ;   'XY' -> data[X,Y]
+    ;   'XZ' -> data[X,Z]
+    ;   etc.
+    dim1 = strmid(self.orientation, 0, 1)
+    dim2 = strmid(self.orientation, 1, 2)
+    
+    ;Over which dimension will the derivative be taken?
+    if d_dx then begin
+        delta = dx
+        dimension = dim1 eq 'X' ? 1 : $
+                    dim2 eq 'X' ? 2 : 0
+    endif else if d_dy then begin
+        delta = dy
+        dimension = dim1 eq 'Y' ? 1 : $
+                    dim2 eq 'Y' ? 2 : 0
+    endif else begin
+        delta = dz
+        dimension = dim1 eq 'Z' ? 1 : $
+                    dim2 eq 'Z' ? 2 : 0
+    endelse
+    
+    ;Allocate memory and take centered difference
+    der = fltarr(dims)
+    case dimension of
+        0: message, 'Derivative not compatible with orientation "' + self.orientation + '".'
+        1: der[1:dims[0]-2,*] = ((*_data)[2:dims[0]-1,*] - (*_data)[0:dims[0]-3,*]) / (2.0 * delta)
+        2: der[*,1:dims[1]-2] = ((*_data)[*,2:dims[1]-1] - (*_data)[*,0:dims[1]-3]) / (2.0 * delta)
+    endcase
+    
+    ptr_free, _data
+    return, der
+end
+
+
+;+
+;   Compute the derivative of a data scalar quantity.
+;
+; :Params:
+;       DATA:           in, required, type=string/NxM float
+;                       A string naming the data product or the actual data of which
+;                           the derivative is to be taken.
+;
+; :Returns:
+;       DER:            The derivative of `DATA`.
+;-
+function MrSim2_Data::Scalar_Gradient, data, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_data) then ptr_free, _data
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Defaults
+    x = keyword_set(x)
+    y = keyword_set(y)
+    z = keyword_set(z)
+    
+    ;Take the derivatives
+    ds_dx = self -> Scalar_Derivative(data, /D_DX)
+    ds_dy = self -> Scalar_Derivative(data, /D_DY)
+    ds_dz = self -> Scalar_Derivative(data, /D_DZ)
+    
+    ;Return the desired part
+    case 1 of
+        x:    return, ds_dx
+        y:    return, ds_dy
+        z:    return, ds_sz
+        else: return, [[[temporary(ds_dx)]], [[temporary(ds_dy)]], [[temporary(ds_dz)]]]
+    endcase
 end
 
 
@@ -1536,7 +1359,7 @@ end
 ; :Returns:
 ;       V1_PAR:         The component of `V1` parallel to `V2`.
 ;-
-function MrSim2_Data::Tensor_Div, tensor, $
+function MrSim2_Data::Tensor_Divergence, tensor, $
 VECTOR=vec, $
 X=x, $
 Z=z
@@ -1553,13 +1376,9 @@ Z=z
     
     vec = keyword_set(vec)
     x   = keyword_set(x)
+    y   = keyword_set(y)
     z   = keyword_set(z)
-    
-    vec = vec || x + z gt 0
-    if vec then begin
-        x = 1
-        z = 1
-    endif
+    if x + z eq 0 then vec = 1
     
     ;Was a name or data given?
     if MrIsA(tensor, 'STRING') $
@@ -1567,54 +1386,37 @@ Z=z
         else T = ptr_new(T)
 
 ;-------------------------------------------------------
-;Get Data //////////////////////////////////////////////
-;-------------------------------------------------------
-    
-    dims = size(*T, /DIMENSIONS)
-    
-    ;Get the x-size of a grid cell in electron skin depth
-    self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de
-
-;-------------------------------------------------------
 ;Take Derivative ///////////////////////////////////////
 ;-------------------------------------------------------
 
     ;Allocate memory
-    divT = self.dimension eq '2D' ? fltarr(dims[0:1],2) : fltarr(dims[0:1],3)
+    dims = size(*T, /DIMENSIONS)
+    divT = fltarr([dims[0:1],3])
     
     ;Component 1
-    divT[1:dims[0]-2,*,0] = ((*T)[2:dims[0]-1,*,0] - (*T)[0:dims[0]-3,*,0]) + $
-                            ((*T)[2:dims[0]-1,*,1] - (*T)[0:dims[0]-3,*,1]) + $
-                            ((*T)[2:dims[0]-1,*,2] - (*T)[0:dims[0]-3,*,2])
+    ;   - ( div Pe)_x = d/dx Txx + d/dy Tyx + d/dz Tzx
+    ;   - d/dy = 0
+    divT[0,0,0] = self -> Scalar_Derivative( (*T)[*,*,0], /D_DX) + $      ;Txx = Txx
+                  self -> Scalar_Derivative( (*T)[*,*,2], /D_DZ)          ;Txz = Tzx
     
     ;Component 2
-    divT[1:dims[0]-2,*,1] = ((*T)[*,2:dims[1]-1,1] - (*T)[*,0:dims[1]-3,1]) + $
-                            ((*T)[*,2:dims[1]-1,3] - (*T)[*,0:dims[1]-3,3]) + $
-                            ((*T)[*,2:dims[1]-1,4] - (*T)[*,0:dims[1]-3,4])
+    ;   - ( div Pe)_y = d/dx Txy + d/dy Tyy + d/dz Tzy
+    ;   - d/dy = 0
+    divT[0,0,1] = self -> Scalar_Derivative( (*T)[*,*,1], /D_DX) + $      ;Txy
+                  self -> Scalar_Derivative( (*T)[*,*,4], /D_DZ)          ;Tyz = Tzy
     
-    ;Divide by the proper width.idl
-    case self.orientation of
-        'XY': begin
-            divT[*,*,0] /= (2.0 * dx_de)
-            divT[*,*,1] /= (2.0 * dy_de)
-        endcase
-        
-        'XZ': begin
-            divT[*,*,0] /= (2.0 * dx_de)
-            divT[*,*,1] /= (2.0 * dz_de)
-        endcase
-        
-        'YZ': begin
-            divT[*,*,0] /= (2.0 * dy_de)
-            divT[*,*,1] /= (2.0 * dz_de)
-        endcase
-    endcase
+    ;Component 3
+    ;   - ( div Pe)_z = d/dx Txz + d/dy Tyz + d/dz Tzz
+    ;   - d/dy = 0
+    divT[0,0,2] = self -> Scalar_Derivative( (*T)[*,*,2], /D_DX) + $      ;Txz
+                  self -> Scalar_Derivative( (*T)[*,*,5], /D_DZ)          ;Tzz
     
     ;Return
     case 1 of
         vec: return, divT
         x:   return, divT[*,*,0]
-        z:   return, divT[*,*,1]
+        y:   return, difT[*,*,1]
+        z:   return, divT[*,*,2]
     endcase
 end
 
@@ -1641,7 +1443,7 @@ end
 ; :Returns:
 ;       V1_PAR:         The component of `V1` parallel to `V2`.
 ;-
-function MrSim2_Data::Tensor_Par, T, V
+function MrSim2_Data::Tensor_Parallel, T, V
     compile_opt strictarr
     
     ;Error handling
@@ -1664,7 +1466,7 @@ function MrSim2_Data::Tensor_Par, T, V
         else _V = ptr_new(V)
     
     ;Get Data
-    v_hat = _V / sqrt(total(*_V^2, 3))
+    v_hat = *_V / sqrt(total(*_V^2, 3))
     ptr_free, _V
     
     ;Parallel pressure.
@@ -1701,7 +1503,7 @@ end
 ; :Returns:
 ;       V1_PAR:         The component of `V1` parallel to `V2`.
 ;-
-function MrSim2_Data::Tensor_Perp, T, V
+function MrSim2_Data::Tensor_Perpendicular, T, V
     compile_opt strictarr
     
     ;Error handling
@@ -1722,12 +1524,392 @@ function MrSim2_Data::Tensor_Perp, T, V
 
     ;Perpendicular pressure
     ;   - Assuming the pressure tensor is mostly gyrotropic, P = P_par + 2 P_perp
-    T_perp = (_T[*,*,0] + _T[*,*,0] + _T[*,*,0] - T_par) / 2.0
+    T_perp = ((*_T)[*,*,0] + (*_T)[*,*,3] + (*_T)[*,*,5] - T_par) / 2.0
     
     ;Free the pointers
     ptr_free, _T
     
     return, T_perp
+end
+
+
+;+
+;   Take the cross product of two quantities.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be crossed into `V2`.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be crossed with `V1`.
+;
+; :Keywords:
+;       MAGNITUDE:      in, optional, type=boolean, default=0
+;                       If set, the magnitude will be returned.
+;       X:              in, optional, type=boolean, default=0
+;                       If set, the x-component will be returned.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, the y-component will be returned.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, the z-component will be returned.
+;
+; :Returns:
+;       V1XV2:          Cross product of `V1` and `V2`. If no keywords are set, an
+;                           NxMx3 array will be retured, where the last demension
+;                           corresponds to the x-, y-, and z-components.
+;-
+function MrSim2_Data::Vector_CrossProduct, v1, v2, $
+MAGNITUDE=magnitude, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_v1) then ptr_free, _v1
+        if ptr_valid(_v2) then ptr_free, _v2
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Defaults
+    magnitude = keyword_set(magnitude)
+    x = keyword_set(x)
+    y = keyword_set(y)
+    z = keyword_set(z)
+    
+    ;Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _v1 = ptr_new(self -> GetData(v1)) $
+        else _v1 = ptr_new(v1)
+        
+    if MrIsA(v2, 'STRING') $
+        then _v2 = ptr_new(self -> GetData(v2)) $
+        else _v2 = ptr_new(v2)
+
+    ;Compute the cross product
+    v1xv2 = [[[(*_v1)[*,*,1] * (*_v2)[*,*,2] - (*_v1)[*,*,2] * (*_v2)[*,*,1]]], $
+             [[(*_v1)[*,*,2] * (*_v2)[*,*,0] - (*_v1)[*,*,0] * (*_v2)[*,*,2]]], $
+             [[(*_v1)[*,*,0] * (*_v2)[*,*,1] - (*_v1)[*,*,1] * (*_v2)[*,*,0]]]]
+
+    ;Free the pointers
+    ptr_free, _v1
+    ptr_free, _v2
+
+    ;return
+    case 1 of
+        x:         return, v1xv2[*,*,0]
+        y:         return, v1xv2[*,*,1]
+        z:         return, v1xv2[*,*,2]
+        magnitude: return, sqrt(total(v1xv2^2, 3))
+        else:      return, v1xv2
+    endcase
+end
+
+
+;+
+;   Take the dot product of two quantities.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be dotted into `V2`.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be dotted with `V1`.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, only the x-components will be used.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, only the y-components will be used.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, only the z-components will be used.
+;
+; :Returns:
+;       V1DOTV2:        Dot product of `V1` and `V2`.
+;-
+function MrSim2_Data::Vector_Divergence, vec, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_V) then ptr_free, _V
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Defaults
+    x = keyword_set(x)
+    y = keyword_set(y)
+    z = keyword_set(z)
+    
+    ;Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _V = ptr_new(self -> GetData(vec)) $
+        else _V = ptr_new(vec)
+    
+    ;Take the derivative of each component.
+    dv_dx = self -> Scalar_Derivative((*_V)[*,*,0], /D_DX)
+    dv_dy = self -> Scalar_Derivative((*_V)[*,*,1], /D_DY)
+    dv_dz = self -> Scalar_Derivative((*_V)[*,*,2], /D_DZ)
+    
+    ;Divergence terms
+    case 1 of
+        x:    div = temporary(dv_dx)
+        y:    div = temporary(dv_dy)
+        z:    div = temporary(dv_dz)
+        else: div = temporary(dv_dx) + temporary(dv_dy) + temporary(dv_dz)
+    endcase
+        
+    ;Free the pointers
+    ptr_free, _V
+    
+    return, div
+end
+
+
+;+
+;   Take the dot product of two quantities.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be dotted into `V2`.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be dotted with `V1`.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, only the x-components will be used.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, only the y-components will be used.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, only the z-components will be used.
+;
+; :Returns:
+;       V1DOTV2:        Dot product of `V1` and `V2`.
+;-
+function MrSim2_Data::Vector_DotProduct, v1, v2, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_v1) then ptr_free, _v1
+        if ptr_valid(_v2) then ptr_free, _v2
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _v1 = ptr_new(self -> GetData(v1)) $
+        else _v1 = ptr_new(v1)
+        
+    if MrIsA(v2, 'STRING') $
+        then _v2 = ptr_new(self -> GetData(v2)) $
+        else _v2 = ptr_new(v2)
+    
+    ;return
+    case 1 of
+        x:    v1dotv2 =   (*_v1)[*,*,0] * (*_v2)[*,*,0]
+        y:    v1dotv2 =   (*_v1)[*,*,1] * (*_v2)[*,*,1]
+        z:    v1dotv2 =   (*_v1)[*,*,2] * (*_v2)[*,*,2]
+        else: v1dotv2 = ( (*_v1)[*,*,0] * (*_v2)[*,*,0] + $
+                          (*_v1)[*,*,1] * (*_v2)[*,*,1] + $
+                          (*_v1)[*,*,2] * (*_v2)[*,*,2] )
+    endcase
+        
+    ;Free the pointers
+    ptr_free, _v1
+    ptr_free, _v2
+    
+    return, v1dotv2
+end
+
+
+;+
+;   Compute the magnitude of a vector.
+;
+;   Calling Sequence:
+;       data = oSim -> Vector_Magnitude('E')
+;       data = oSim -> Vector_Magnitude(Ex, Ey, Ez)
+;
+; :Params:
+;       VX:             in, required, type=string,fltarr(N\,M)
+;                       Either the name or x-component of a vector quantity for which
+;                           the magnitude is to be found.
+;       VY:             in, optional, type=fltarr(N\,M)
+;                       If `VX` is an array, then VY represents the y-component of the
+;                           vector quantity for which the magnitude is to be computed.
+;       VZ:             in, optional, type=fltarr(N\,M)
+;                       If `VX` is an array, then VZ represents the z-component of the
+;                           vector quantity for which the magnitude is to be computed.
+;
+; :Returns:
+;       VMAG:           Magnitude of the vector quantity.
+;-
+function MrSim2_Data::Vector_Magnitude, vx, vy, vz
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Was a name or data given?
+    if MrIsA(vx, 'STRING') then begin
+        names = vx
+    
+        ;Get the data
+        _vx = self -> GetData(name, /X)
+        vy  = self -> GetData(name, /Y)
+        vz  = self -> GetData(name, /Z)
+    endif else begin
+        _vx = vx
+    endelse
+    
+    ;Compute the magnitude
+    vmag = sqrt(_vx^2 + vy^2 + vz^2)
+    
+    return, vmag
+end
+
+
+;+
+;   Compute the component of a vector parallel to another vector.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           for which the component parallel to `V2` is to be determined.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity indicating
+;                           the parallel direction.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, only the x-components will be used.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, only the y-components will be used.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, only the z-components will be used.
+;
+; :Returns:
+;       V1_PAR:         The component of `V1` parallel to `V2`.
+;-
+function MrSim2_Data::Vector_Parallel, v1, v2, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_v1) then ptr_free, _v1
+        if ptr_valid(_v2) then ptr_free, _v2
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _v1 = ptr_new(self -> GetData(v1)) $
+        else _v1 = ptr_new(v1)
+        
+    if MrIsA(v2, 'STRING') $
+        then _v2 = ptr_new(self -> GetData(v2)) $
+        else _v2 = ptr_new(v2)
+    
+    ;Get Data
+    v2_mag = sqrt(total(*_v2^2, 3))
+    
+    ;Components
+    ;   par_x = vx * fx_hat
+    ;   par_y = vy * fy_hat
+    ;   par_z = vz * fz_hat
+    case 1 of
+        x:    v_par =   (*_v1)[*,*,0] * (*_v2)[*,*,0] / temporary(v2_mag)
+        y:    v_par =   (*_v1)[*,*,1] * (*_v2)[*,*,1] / temporary(v2_mag)
+        z:    v_par =   (*_v1)[*,*,2] * (*_v2)[*,*,2] / temporary(v2_mag)
+        else: v_par = ( (*_v1)[*,*,0] * (*_v2)[*,*,0] + $
+                        (*_v1)[*,*,1] * (*_v2)[*,*,1] + $
+                        (*_v1)[*,*,2] * (*_v2)[*,*,2] ) / temporary(v2_mag)
+    endcase
+    
+    ;Free the pointers
+    ptr_free, _v1
+    ptr_free, _v2
+    
+    return, v_par
+end
+
+
+;+
+;   Compute the component of a vector perpendicular to another vector.
+;
+; :Params:
+;       DATA:               in, required, type=NxM float
+;                           The data of which the derivative will be taken.
+;
+; :Keywords:
+;       OVERWRITE:          in, optional, type=boolean, default=0
+;                           If set, the derivative will overwrite `DATA` and avoids
+;                               having an extra copy in memory.
+;
+; :Returns:
+;       DERIVATIVE:         The derivative of `DATA` with respect to X
+;-
+function MrSim2_Data::Vector_Perpendicular, v1, v2, $
+FIELD=field
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_v1) then ptr_free, _v1
+        if ptr_valid(_v2) then ptr_free, _v2
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Compute the parallel component
+    v1_par  = self -> Vector_Parallel(v1, v2)
+    
+    ;Get the data
+    ;   - Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _v1 = ptr_new(self -> GetData(v1)) $
+        else _v1 = ptr_new(v1)
+        
+    if MrIsA(v2, 'STRING') $
+        then _v2 = ptr_new(self -> GetData(v2)) $
+        else _v2 = ptr_new(v2)
+        
+    ;Find the perpendicular component
+    v1_mag2 = total(*_v1^2, 3)
+    v1_perp = sqrt(v_mag2 - v_par^2)
+    
+    ;Free pointers
+    ptr_free, _v1
+    ptr_free, _v2
+    
+    ;Perpendicular component
+    return, v_perp 
 end
 
 
@@ -1856,12 +2038,13 @@ Z=z
     if z then if n_elements(*self.Bz) eq 0 then self -> SetData, 'Bz'
     
     ;Return the proper quantity
+    ;   - VECTOR must come before [XYZ].
     case 1 of
-        magnitude: return, self -> Magnitude(    'B')
-        tf_cross:  return, self -> CrossProduct( 'B', crossName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        tf_dot:    return, self -> DotProduct(   'B', dotName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        tf_par:    return, self -> Parallel(     'B', parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        tf_perp:   return, self -> Perpendicular('B', perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        magnitude: return, self -> Vector_Magnitude(    'B')
+        tf_cross:  return, self -> Vector_CrossProduct( 'B', crossName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_dot:    return, self -> Vector_DotProduct(   'B', dotName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_par:    return, self -> Vector_Parallel(     'B', parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Vector_Perpendicular('B', perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
         vec:       return, [[[*self.Bx]], [[*self.By]], [[*self.Bz]]]
         x:         return, *self.Bx
         y:         return, *self.By
@@ -1961,13 +2144,13 @@ Z=z
     if z then if n_elements(*self.Ez) eq 0 then self -> SetData, 'Ez'
     
     ;Return
-    ;   - The order is crucial.
+    ;   - VECTOR must come before [XYZ].
     case 1 of
-        magnitude: return, self -> Magnitude('E')
-        tf_cross:  return, self -> CrossProduct('E', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
-        tf_dot:    return, self -> DotProduct('E', dotName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
-        tf_par:    return, self -> Parallel('E', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        tf_perp:   return, self -> Perpendicular('E', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        magnitude: return, self -> Vector_Magnitude(    'E')
+        tf_cross:  return, self -> Vector_CrossProduct( 'E', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> Vector_DotProduct(   'E', dotName,   X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Vector_Parallel(     'E', parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Vector_Perpendicular('E', perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
         vec:       return, [[[*self.Ex], [*self.Ey], [*self.Ez]]]
         x:         return, *self.Ex
         y:         return, *self.Ey
@@ -2111,42 +2294,20 @@ TZZ=Tzz
     if Tzz then if n_elements(*self.Pe_zz) eq 0 then self -> SetData, 'Pe_zz'
     
     ;Return
-    ;   - The order is crucial.
+    ;   - TENSOR and DIAGONAL must come before T[XYZ][XYZ].
     case 1 of
-        tf_par:    return, self -> Tensor_Par('Pe', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        tf_perp:   return, self -> Tensor_Perp('Pe', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        magnitude: return, self -> Tensor_Mag('Pe')
+        tf_par:    return, self -> Tensor_Parallel('Pe', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Tensor_Perpendicular('Pe', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        magnitude: return, self -> Tensor_Magnitude('Pe')
+        diagonal:  return, [[[*self.Pe_xx]], [[*self.Pe_yy]], [[*self.Pe_zz]]]
+        tensor:    return, [[[*self.Pe_xx]], [[*self.Pe_xy]], [[*self.Pe_xz]], $
+                            [[*self.Pe_yy]], [[*self.Pe_yz]], [[*self.Pe_zz]]]
         Txx:       return, *self.Pe_xx
         Txy:       return, *self.Pe_xy
         Txz:       return, *self.Pe_xz
         Tyy:       return, *self.Pe_yy
         Tyz:       return, *self.Pe_yz
         Tzz:       return, *self.Pe_zz
-        diagonal: begin
-            ;Allocate memory
-            dims = size(*self.Pe_xx, /DIMENSIONS)
-            data = fltarr(dims[0], dims[1], 3)
-            
-            ;Return the diagonal
-            data[*,*,0] = *self.Pe_xx
-            data[*,*,1] = *self.Pe_yy
-            data[*,*,2] = *self.Pe_zz
-            return, data
-        endcase
-        tensor: begin
-            ;Allocate memory
-            dims = size(*self.Pe_xx, /DIMENSIONS)
-            data = fltarr(dims[0], dims[1], 6)
-            
-            ;Create the data product
-            data[*,*,0] = *self.Pe_xx
-            data[*,*,1] = *self.Pe_xy
-            data[*,*,2] = *self.Pe_xz
-            data[*,*,3] = *self.Pe_yy
-            data[*,*,4] = *self.Pe_yz
-            data[*,*,5] = *self.Pe_zz
-            return, data
-        endcase
     endcase
 end
 
@@ -2249,42 +2410,20 @@ TZZ=Tzz
     if Tzz then if n_elements(*self.Pi_zz) eq 0 then self -> SetData, 'Pi_zz'
     
     ;Return
-    ;   - The order is crucial.
+    ;   - TENSOR and DIAGONAL must come before T[XYZ][XYZ].
     case 1 of
-        parallel:      return, self -> Tensor_Par('Pi', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        perpendicular: return, self -> Tensor_Pirp('Pi', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        magnitude:     return, self -> Tensor_Mag('Pi')
+        parallel:      return, self -> Tensor_Pararallel('Pi', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        perpendicular: return, self -> Tensor_Perpendicular('Pi', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        magnitude:     return, self -> Tensor_Magnitude('Pi')
+        diagonal:      return, [[[*self.Pi_xx]], [[*self.Pi_yy]], [[*self.Pi_zz]]]
+        tensor:        return, [[[*self.Pi_xx]], [[*self.Pi_xy]], [[*self.Pi_xz]], $
+                                [[*self.Pi_yy]], [[*self.Pi_yz]], [[*self.Pi_zz]]]
         Txx:           return, *self.Pi_xx
         Txy:           return, *self.Pi_xy
         Txz:           return, *self.Pi_xz
         Tyy:           return, *self.Pi_yy
         Tyz:           return, *self.Pi_yz
         Tzz:           return, *self.Pi_zz
-        diagonal: begin
-            ;Allocate memory
-            dims = size(*self.Pi_xx, /DIMENSIONS)
-            data = fltarr(dims[0], dims[1], 3)
-            
-            ;Return the diagonal
-            data[*,*,0] = *self.Pi_xx
-            data[*,*,1] = *self.Pi_yy
-            data[*,*,2] = *self.Pi_zz
-            return, data
-        endcase
-        tensor: begin
-            ;Allocate memory
-            dims = size(*self.Pi_xx, /DIMENSIONS)
-            data = fltarr(dims[0], dims[1], 3, 3)
-            
-            ;Create the data product
-            data[*,*,0] = *self.Pi_xx
-            data[*,*,1] = *self.Pi_xy
-            data[*,*,2] = *self.Pi_xz
-            data[*,*,3] = *self.Pi_yy
-            data[*,*,4] = *self.Pi_yz
-            data[*,*,5] = *self.Pi_zz
-            return, data
-        endcase
     endcase
 end
 
@@ -2381,11 +2520,11 @@ Z=z
     ;Which to return?
     ;   - The order is crucial.
     case 1 of
-        magnitude: return, self -> Magnitude('Ui')
-        tf_cross:  return, self -> CrossProduct('Ui', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
-        tf_dot:    return, self -> DotProduct('Ui', dotName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
-        tf_par:    return, self -> Parallel( 'Ui', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        tf_perp:   return, self -> Perpendicular('Ui', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        magnitude: return, self -> Vector_Magnitude(    'Ui')
+        tf_cross:  return, self -> Vector_CrossProduct( 'Ui', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> Vector_DotProduct(   'Ui', dotName,   X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Vector_Parallel(     'Ui', parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Vector_Perpendicular('Ui', perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
         vec:       return, [[[*self.Uix]], [[*self.Uiy]], [[*self.Uiz]]]
         x:         return, *self.Uix
         y:         return, *self.Uiy
@@ -2454,6 +2593,8 @@ Z=z
     on_error, 2
     
     ;Defaults
+    tf_cross  = keyword_set(crossproduct)
+    tf_dot    = keyword_set(dotproduct)
     magnitude = keyword_set(magnitude)
     tf_par    = keyword_set(parallel)
     tf_perp   = keyword_set(perpendicular)
@@ -2483,11 +2624,11 @@ Z=z
     ;Which to return?
     ;   - The order is crucial.
     case 1 of
-        magnitude: return, self -> Magnitude('Ue')
-        tf_cross:  return, self -> CrossProduct('B', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
-        tf_dot:    return, self -> DotProduct('B', dotName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
-        tf_par:    return, self -> Parallel( 'Ue', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        tf_perp:   return, self -> Perpendicular('Ue', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        magnitude: return, self -> Vector_Magnitude(    'Ue')
+        tf_cross:  return, self -> Vector_CrossProduct( 'Ue', crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> Vector_DotProduct(   'Ue', dotName,   X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Vector_Parallel(     'Ue', parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Vector_Perpendicular('Ue', perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
         vec:       return, [[[*self.Uex]], [[*self.Uey]], [[*self.Uez]]]
         x:         return, *self.Uex
         y:         return, *self.Uey
@@ -2683,8 +2824,16 @@ Z=z
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
 
     ;Total Current
-    J = (-temporary(n_e) * temporary(Ue)) + $
-        ( temporary(n_i) * temporary(Ui))
+    if size(Ue, /N_DIMENSIONS) eq 3 then begin
+        dims = size(Ue, /DIMENSIONS)
+        J    = fltarr(dims)
+        J[0,0,0] = -n_e * Ue[*,*,0] + n_i * Ui[*,*,0]
+        J[0,0,1] = -n_e * Ue[*,*,1] + n_i * Ui[*,*,1]
+        J[0,0,2] = -n_e * Ue[*,*,2] + n_i * Ui[*,*,2]
+    endif else begin
+        J = (-temporary(n_e) * temporary(Ue)) + $
+            ( temporary(n_i) * temporary(Ui))
+    endelse
 
     return, J
 end
@@ -2710,7 +2859,7 @@ Y=y, $
 Z=z
 	compile_opt strictarr, hidden
 	on_error, 2
-	
+
 	;Number density
 	;   - ne is always stored as an object property.
 	;   - Only the X, Y, and Z components of Ue are object properties. Since we
@@ -2718,9 +2867,17 @@ Z=z
     n_e = self -> GetData('ne')
     Ue  = self -> GetData('Ue', MAGNITUDE=magnitude, X=x, Y=y, Z=z, VECTOR=vec, $
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
-    
-    ;Compute the current
-    Je = -1.0 * temporary(n_e) * temporary(Ue)
+
+    ;Total Current
+    if size(Ue, /N_DIMENSIONS) eq 3 then begin
+        dims                  = size(Ue, /DIMENSIONS)
+        Je                    = fltarr(dims)
+        Je[0,0,0] = -n_e * Ue[*,*,0]
+        Je[0,0,1] = -n_e * Ue[*,*,1]
+        Je[0,0,2] = -n_e * Ue[*,*,2]
+    endif else begin
+        Je = (-temporary(n_e) * temporary(Ue))
+    endelse
     
     return, Je
 end
@@ -2740,6 +2897,7 @@ function MrSim2_Data::Ji, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
 MAGNITUDE=magnitude, $
+VECTOR=vec, $
 X=x, $
 Y=y, $
 Z=z
@@ -2748,11 +2906,19 @@ Z=z
 	
 	;Number density
     n_i = self -> GetData('ni')
-    Ui  = self -> GetData('Ui', MAGNITUDE=magnitude, X=x, Y=y, Z=z, $
+    Ui  = self -> GetData('Ui', MAGNITUDE=magnitude, VECTOR=vec, X=x, Y=y, Z=z, $
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
     
-    ;Compute the current
-    Ji = temporary(n_i) * temporary(Ui)
+    ;Ion Current
+    if size(Ue, /N_DIMENSIONS) eq 3 then begin
+        dims                  = size(Ui, /DIMENSIONS)
+        Ji                    = fltarr(dims)
+        Ji[0,0,0] = -n_i * Ui[*,*,0]
+        Ji[0,0,1] = -n_i * Ui[*,*,1]
+        Ji[0,0,2] = -n_i * Ui[*,*,2]
+    endif else begin
+        Ji = (-temporary(n_e) * temporary(Ue))
+    endelse
     
     return, Ji
 end
@@ -2773,21 +2939,22 @@ function MrSim2_Data::V, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
 MAGNITUDE=magnitude, $
+VECTOR=vec, $
 X=x, $
 Y=y, $
 Z=z
 	compile_opt strictarr, hidden
 	
-	;Get the Electric and Magnetic Field data
+	;Get the ion and electron bulk velocities and masses
 	self -> GetInfo, MI_ME=mi_me
-	mi = mi_me
 	me = 1.0
-    Ue  = self -> GetData('Ue', MAGNITUDE=magnitude, X=x, Y=y, Z=z, $
+	mi = me * mi_me
+    Ue  = self -> GetData('Ue', MAGNITUDE=magnitude, VECTOR=vec, X=x, Y=y, Z=z, $
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
-    Ui  = self -> GetData('Ui', MAGNITUDE=magnitude, X=x, Y=y, Z=z, $
+    Ui  = self -> GetData('Ui', MAGNITUDE=magnitude, VECTOR=vec, X=x, Y=y, Z=z, $
                                 PARALLEL=parallel, PERPENDICULAR=perpendicular)
     
-    ;Calculate the magnitude of ExB
+    ;Calculate the fluid velocity
     V = (mi*Ui + me*Ue) / (mi + me)
     
     return, V
@@ -2814,7 +2981,7 @@ Z=z
 	
 	;Get the data
 	E    = self -> GetData('E', X=x, Y=y, Z=z)
-	UexB = self -> CrossProduct('Ue', 'B', X=x, Y=y, Z=z)
+	UexB = self -> Vector_CrossProduct('Ue', 'B', X=x, Y=y, Z=z)
 	
 	;Compute the force
 	Fe = -E + UexB
@@ -2850,7 +3017,7 @@ Z=z
 	
 	;Get the data
 	E    = self -> GetData('E', X=x, Y=y, Z=z)
-	UixB = self -> CrossProduct('Ui', 'B', X=x, Y=y, Z=z)
+	UixB = self -> Vector_CrossProduct('Ui', 'B', X=x, Y=y, Z=z)
 	
 	;Compute the force
 	Fi = E + UixB
@@ -2890,8 +3057,14 @@ Z=z
 	compile_opt strictarr, hidden
 	on_error, 2
 	
+	;Defaults
+	magnitude = keyword_set(magnitude)
+	x = keyword_set(x)
+	y = keyword_set(y)
+	z = keyword_set(z)
+	
 	;Get the Electric and Magnetic Field data
-	ExB  = self -> CrossProduct('E', 'B')
+	ExB  = self -> Vector_CrossProduct('E', 'B')
 	Bmag = self -> GetData('B', /MAGNITUDE)
     
     ;Compute the drift velocity

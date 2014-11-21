@@ -53,6 +53,7 @@
 ;   Modification History::
 ;
 ;       2014/09/06  -   Written by Matthew Argall
+;       2014/11/20  -   Get1DCut returns number of points along cut. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -221,7 +222,6 @@ ZRANGE = zrange
     ion_scale    = keyword_set(ion_scale)
     mva_frame    = keyword_set(mva_frame)
     coord_system = n_elements(coord_system) eq 0 ? 'SIMULATION'    : strupcase(coord_system)
-    _axis_labels = n_elements(axis_labels)  eq 0 ? ['x', 'y', 'z'] : axis_labels
     _orientation = n_elements(orientation)  eq 0 ? 'XZ'            : strupcase(orientation)
     
     ;Convert to units of "di"
@@ -239,22 +239,29 @@ ZRANGE = zrange
     if n_elements(yslice)  eq 0 then yslice  = 0L
     if n_elements(zrange)  eq 0 then zrange  = [-zsize/2.0, zsize/2.0]
     
+    ;Coordinate System
     if max(coord_system eq ['SIMULATION', 'MAGNETOPAUSE', 'MAGNETOTAIL']) eq 0 then $
         message, 'Coordinate system "' + coord_system + '" not recognized.'
     if max(_orientation eq ['XY', 'XZ', 'YZ']) eq 0 then $
         message, 'Orienatation "' + _orientation + '" not recognized.'
-    
-    ;MVA Frame?
-    if mva_frame then begin
-        case coord_system of
-            'MAGNETOPAUSE': _axis_labels = ['N', 'M', 'L']      ;N is along X-GSE
-            'MAGNETOTAIL':  _axis_labels = ['L', 'M', 'N']      ;N is along Z-GSE
-            else:           ;Do nothing
-        endcase
+
+    ;Axis labels
+    if n_elements(axis_labels) eq 0 then begin
+        ;MVA Frame?
+        if mva_frame then begin
+            case coord_system of
+                'SIMULATION':   axis_labels = ['L', 'M', 'N']
+                'MAGNETOPAUSE': axis_labels = ['N', 'M', 'L']      ;N is along X-GSE
+                'MAGNETOTAIL':  axis_labels = ['L', 'M', 'N']      ;N is along Z-GSE
+                else:           ;Do nothing
+            endcase
+        endif else begin
+            axis_labels = ['x', 'y', 'z']
+        endelse
     endif
 
     ;Set Properties
-    self.axis_labels  = _axis_labels
+    self.axis_labels  = axis_labels
     self.coord_system = coord_system
     self.directory    = directory
     self.ion_scale    = ion_scale
@@ -421,11 +428,80 @@ Z=z
     ;Get the location
     case 1 of
         x: cell = value_locate(*self.xSim, coord)
-        y: cell = value_locate(*self.ySim, coord)
+        y: cell = n_elements(*self.ySim) eq 1 ? 0 : value_locate(*self.ySim, coord)
         z: cell = value_locate(*self.zSim, coord)
     endcase
     
     return, cell
+end
+
+
+;+
+;   Given a particular location units of de (di of the ION_SCALE property is set) determine
+;   the equivalent grid cell. For a grid cell spanning [min, max] de, the provided
+;   location is rounded down and matched to min.
+;
+; :Params:
+;       COORD:          in, required, type=integer
+;                       Location at which the grid cell is to be determined. Units are
+;                           de unless ION_SCALE is specified.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, `COORD` is an x-coordinate.
+;                           This is the default if no keywords are set.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, `COORD` is an y-coordinate
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, `COORD` is an z-coordinate
+;
+; :Returns:
+;       CELL:           Grid cell/index corresponding to the given location along the
+;                           desired dimension.
+;-
+function MrSim2::Get1DCut, name, r0, r1, $
+COORDS=coords, $
+COUNT=count, $
+_REF_EXTRA=extra
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Make sure three coordinates were given.
+    _r0 = n_elements(r0) eq 2 ? [r0[0], 0, r0[1]] : r0
+    _r1 = n_elements(r1) eq 2 ? [r1[0], 0, r1[1]] : r1
+    
+    ;Get the coordinates of the line
+    !Null = self -> GridLine(_r0, _r1, COORDS=coords, COUNT=count)
+    
+    ;Locate the coordinates within the simulation domain
+    self -> GetProperty, XSIM=xSim, YSIM=ySim, ZSIM=zSim
+    ix = value_locate(xSim, reform(coords[0,*])) > 0
+    iz = value_locate(zSim, reform(coords[2,*])) > 0
+    iy = n_elements(ySim) eq 1 ? replicate(0, count) : value_locate(ySim, reform(coords[1,*])) > 0
+    
+    ;Get the desired data product
+    data = self -> GetData(name, _STRICT_EXTRA=extra)
+    
+    ;Extract the subregion
+    case self.orientation of
+        'XY':  data = data[ix, iy]
+        'XZ':  data = data[ix, iz]
+        'YZ':  data = data[iy, iz]
+        'XYZ': data = data[ix, iy, iz]
+    endcase
+
+    ;Extract the coordinates
+    if arg_present(coords) then begin
+        case self.orientation of
+            'XY':  coords = transpose([[xSim[ix]], [ySim[iy]]])
+            'XZ':  coords = transpose([[xSim[ix]], [zSim[iz]]])
+            'YZ':  coords = transpose([[ySim[ix]], [zSim[iz]]])
+            'XYZ': coords = transpose([[xSim[ix]], [ySim[iy]], [zSim[iz]]])
+        endcase
+    endif
+
+    ;Return the 1D cut
+    return, data
 end
 
 
@@ -693,14 +769,14 @@ ZSIM = ZSim
 
     ;Simulation Domain
     if arg_present(XSim) && n_elements(*self.XSim) gt 0 then begin
-        ix = getIndexRange(*self.XSim, self.xrange)
+        ix = MrIndexRange(*self.XSim, self.xrange)
         XSim = (*self.XSim)[ix[0]:ix[1]]
     endif
     
     ;2D simulations have only 1 grid cell in Y
     if arg_present(YSim) then begin
         if n_elements(*self.YSim) gt 1 then begin
-            iy = getIndexRange(*self.YSim, self.yrange)
+            iy = MrIndexRange(*self.YSim, self.yrange)
             YSim = (*self.YSim)[iy[0]:iy[1]]
         endif else begin
             YSim = (*self.YSim)
@@ -708,7 +784,7 @@ ZSIM = ZSim
     endif
 
     if arg_present(ZSim) && n_elements(*self.ZSim) gt 0 then begin
-        iz = getIndexRange(*self.ZSim, self.zrange)
+        iz = MrIndexRange(*self.ZSim, self.zrange)
         ZSim = (*self.ZSim)[iz[0]:iz[1]]
     endif
 end
@@ -729,6 +805,7 @@ end
 ;                                   then !Null will be returned.
 ;-
 function MrSim2::GridLine, r0, r1, $
+COUNT=count, $
 COORDS=coords
     compile_opt strictarr
     
@@ -741,14 +818,19 @@ COORDS=coords
     endif
 
     ;Determine the size of a grid cell in DE
-    self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de
+    self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de, MI_ME=mi_me
+    if self.ion_scale then begin
+        dx_de /= mi_me
+        dy_de /= mi_me
+        dz_de /= mi_me
+    endif
     
     ;Number of grid cells between r0 and r1
-    dr = sqrt( total( (r1 - r0)^2 ) )
-    n  = dr * dx_de
-    
+    dr    = sqrt( total( (r1 - r0)^2 ) )
+    count = fix(dr / dx_de, TYPE=3)
+
     ;Coordinates of each point on the line.
-    coords = MrLine3D(r0, r1, NPOINTS=n)
+    coords = MrLine3D(r0, r1, NPOINTS=count)
     
     ;Find the cells
     cells = coords
@@ -922,8 +1004,8 @@ RANGES=ranges
         ; and takes place in in three stages. The first is here.
         ;
         ;
-        ; The x- and z-axis need to be interchanged.
-        ;   - The reverse occurs here.
+        ; Fields point along Z (N-S).
+        ;   - Change order in which data is read from file (::ReadGDA_FilePos).
         ;
         ;           MSP                         MSP
         ; +z  *--------------|       ++x *--------------|
@@ -931,7 +1013,7 @@ RANGES=ranges
         ; -z  |--------------+        +x |--------------+
         ;     +x    MSH    ++x           -z     MSH    +z
         ;
-        ; To complete the transformation
+        ; Rotate so fields point vertically (with MSH-MSP field pointing S-N).
         ;   - Transpose data (::CoordTransform)
         ;
         ;                            ++z +--------|
@@ -945,7 +1027,7 @@ RANGES=ranges
         ;                             +z |--------*
         ;                               -x       +x
         ;
-        ; And finally
+        ; Make X point toward the sun (to the left)
         ;   - Reverse x-axis (::MakeSimDomain)
         ;
         ;  ++z +--------|        ++z +--------|
@@ -1027,7 +1109,6 @@ ORIENTATION=orientation
         return
     endif
 
-    _name   = strupcase(name)
     _orient = n_elements(orientation)  eq 0 ? self.orientation  : strupcase(orientation)
     _system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
 
@@ -1050,8 +1131,8 @@ ORIENTATION=orientation
             ;Now reverse the z-axes
             ;   Single negate Bz, Uiz, Pe-xz, Pe-yz, etc.
             case 1 of
-                stregex(_name, '[A-Z][a-z]*z$',   /BOOLEAN): data = -data
-                stregex(_name, '-(z[yx]|[xy]z)$', /BOOLEAN): data = -data
+                stregex(name, '[A-Z][a-z]*z$',   /BOOLEAN): data = -data
+                stregex(name, '-(z[yx]|[xy]z)$', /BOOLEAN): data = -data
                 else: ;Do nothing
             endcase
         end
@@ -1066,9 +1147,9 @@ ORIENTATION=orientation
             ;Now reverse the x-axes
             ;   Single negate Bx, Uix, Pe-xz, Pe-xy, etc.
             case 1 of
-                stregex(_name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
-                stregex(_name, '-(y|z)[x]$',      /BOOLEAN): data = -data
-                stregex(_name, '-[x](y|z)$',      /BOOLEAN): data = -data
+                stregex(name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
+                stregex(name, '-(y|z)[x]$',      /BOOLEAN): data = -data
+                stregex(name, '-[x](y|z)$',      /BOOLEAN): data = -data
                 else: ;Do nothing
             endcase
         end
@@ -1516,7 +1597,7 @@ NZ=nz
     ;   - Advance to the first desired column
     ;   - Read all desired columns(x)
     ;   - Advance row (y) and repeat.
-    ;   - When a full xy-plane is read, advance depth, repeat.
+    ;   - When a full xy-plane is read, advance depth (z), repeat.
     ix = ulong64(ixMin)
     
     ;Read the data
@@ -2042,7 +2123,10 @@ ZRANGE = zrange
         case old_sys of
             'SIMULATION': begin
                 case _coord_system of
-                    'SIMULATION':   ;Do nothing
+                    'SIMULATION': begin
+                        xrange = self.xrange
+                        zrange = self.zrange
+                    endcase
                     'MAGNETOPAUSE': begin
                         xrange = reverse(self.zrange)
                         zrange = self.xrange
@@ -2060,7 +2144,10 @@ ZRANGE = zrange
                         xrange = self.zrange
                         zrange = reverse(self.xrange)
                     endcase
-                    'MAGNETOPAUSE': ;Do nothing
+                    'MAGNETOPAUSE': begin
+                        xrange = self.xrange
+                        zrange = self.zrange
+                    endcase
                     'MAGNETOTAIL': begin
                         xrange = -self.zrange
                         zrange = reverse(self.xrange)
@@ -2078,7 +2165,10 @@ ZRANGE = zrange
                         xrange = reverse(self.zrange)
                         zrange = -self.xrange
                     endcase
-                    'MAGNETOTAIL': ;Do nothing
+                    'MAGNETOTAIL': begin
+                        xrange = self.xrange
+                        zrange = self.zrange
+                    endcase
                 endcase
             endcase
             
@@ -2088,7 +2178,7 @@ ZRANGE = zrange
         ;Set object properties
         self.xrange       = xrange
         self.zrange       = zrange
-        self.coord_system = coord_system
+        self.coord_system = _coord_system
         
         ;Remake the simulation domain
         self -> MakeSimDomain

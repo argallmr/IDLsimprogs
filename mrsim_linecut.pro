@@ -122,17 +122,19 @@
 ;                           one, add a legend indicating where the cuts were taken. - MRA
 ;       2014/09/30  -   Removed the SIM3D keyword and added the THESIM parameter.
 ;                           Repurposed the SIM_OBJECT keyword. - MRA
+;       2014/11/20  -   Supports XY, XZ, and YZ orientations and the new simulation object.
+;                           Forms line between 2 points from cuts direction and location. - MRA
 ;-
 function MrSim_LineCut, theSim, name, cuts, time, $
 ADD_LEGEND = add_legend, $
-CURRENT = current, $
 COLOR = color, $
-HCUT_RANGE = hcut_range, $
+CURRENT = current, $
+CUT_RANGE = cut_range, $
 HORIZONTAL = horizontal, $
 OFILENAME = ofilename, $
 OVERPLOT = overplot, $
+POINTS = points, $
 SIM_OBJECT = oSim, $
-VCUT_RANGE = vcut_range, $
 _REF_EXTRA = extra
     compile_opt strictarr
     
@@ -142,6 +144,7 @@ _REF_EXTRA = extra
         catch, /cancel
         if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
         if current eq 0 && obj_valid(lcWin) then obj_destroy, lcWin
+        void = cgErrorMSG()
         return, obj_new()
     endif
 
@@ -149,6 +152,7 @@ _REF_EXTRA = extra
 ; Check Simulat/////////////////////////////////////////
 ;-------------------------------------------------------
     osim_created = 0B
+    current      = keyword_set(current)
     
     ;Simulation name or number?
     if MrIsA(theSim, 'STRING') || MrIsA(theSim, 'INTEGER') then begin
@@ -158,7 +162,7 @@ _REF_EXTRA = extra
         
     ;Object?
     endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM') eq 0 $
+        if obj_isa(theSim, 'MRSIM2') eq 0 $
             then message, 'THESIM must be a subclass of the MrSim class.' $
             else oSim = theSim
             
@@ -175,23 +179,114 @@ _REF_EXTRA = extra
 
     ;Set defaults
     add_legend = keyword_set(add_legend)
-    current    = keyword_set(current)
     horizontal = keyword_set(horizontal)
     Sim3D      = keyword_set(Sim3D)
     if n_elements(ofilename) eq 0 then ofilename = ''
     nCuts = n_elements(cuts)
     
+    ;Define endpoints of cut
+    oSim -> GetProperty, ORIENTATION=orientation, AXIS_LABELS=axLabels, $
+                         XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange
+    oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
+    
+    ;Rename the data products
+    _name = MrSim_Rename(name, coord_system, MVA_FRAME=mva_frame, /SUBSCRIPT)
+    units = MrSim_Rename(units, /SUBSCRIPT)
+    
+    ;Create two points to define the line
+    r0 = fltarr(3,nCuts)
+    r1 = fltarr(3,nCuts)
+    case orientation of
+        'XY': begin
+            ;Range and points
+            cut_range = n_elements(cut_range) gt 0 ? cut_range : horizontal ? xrange : yrange
+            if horizontal then begin
+                r0[0,*] = cut_range[0]
+                r0[1,*] = cuts
+                r0[2,*] = zrange[0]
+                r1[0,*] = cut_range[1]
+                r1[1,*] = cuts
+                r1[2,*] = zrange[0]
+            endif else begin
+                r0[0,*] = cuts
+                r0[1,*] = cut_range[0]
+                r0[2,*] = zrange[0]
+                r1[0,*] = cuts
+                r1[1,*] = cut_range[1]
+                r1[2,*] = zrange[0]
+            endelse
+            
+            ;Title
+            xtitle = axLabels[0] + ' (' + units + ')'
+        endcase
+        
+        'XZ': begin
+            ;Range and points
+            cut_range = n_elements(cut_range) gt 0 ? cut_range : horizontal ? xrange : zrange
+            if horizontal then begin
+                r0[0,*] = cut_range[0]
+                r0[1,*] = yrange[0]
+                r0[2,*] = cuts
+                r1[0,*] = cut_range[1]
+                r1[1,*] = yrange[0]
+                r1[2,*] = cuts
+            endif else begin
+                r0[0,*] = cuts
+                r0[1,*] = yrange[0]
+                r0[2,*] = cut_range[0]
+                r1[0,*] = cuts
+                r1[1,*] = yrange[0]
+                r1[2,*] = cut_range[1]
+            endelse
+            
+            ;Title
+            xtitle = axLabels[0] + ' (' + units + ')'
+        endcase
+        
+        'YZ': begin
+            ;Range and points
+            cut_range = n_elements(cut_range) gt 0 ? cut_range : horizontal ? yrange : zrange
+            if horizontal then begin
+                r0[0,*] = xrange[0]
+                r0[1,*] = cut_range[0]
+                r0[2,*] = cuts
+                r1[0,*] = xrange[0]
+                r1[1,*] = cut_range[1]
+                r1[2,*] = cuts
+            endif else begin
+                r0[0,*] = xrange[0]
+                r0[1,*] = cuts
+                r0[2,*] = cut_range[0]
+                r1[0,*] = xrange[0]
+                r1[1,*] = cuts
+                r1[2,*] = cut_range[1]
+            endelse
+            
+            ;Title
+            xtitle = axLabels[1] + ' (' + units + ')'
+        endcase
+        else: message, 'Cuts not possible in orientation "' + orientation + '".'
+    endcase
+    if arg_present(points) then points = transpose([[[r0]], [[r1]]], [2,0,1])
+    
 ;-------------------------------------------------------
 ;Read Data /////////////////////////////////////////////
 ;-------------------------------------------------------
-    ;Create the object and get the data. Use Ay for contours.
-    data = oSim -> LineCuts(name, cuts, pos, HORIZONTAL=horizontal, $
-                            HCUT_RANGE=hcut_range, VCUT_RANGE=vcut_range)
+    ;Get the 1D cut.
+    temp = oSim -> Get1DCut(name, r0[*,0], r1[*,0], COORDS=coords, COUNT=nPts)
+    if nCuts gt 1 then begin
+        dimension = 1
+        data      = fltarr(nPts,nCuts)
+        data[0,0] = temporary(temp)
+        for i = 1, nCuts-1 do data[0,i] = oSim -> Get1DCut(name, r0[*,i], r1[*,i])
+    endif else begin
+        dimension = 0
+        data = temporary(temp)
+    endelse
+    pos  = horizontal ? reform(coords[0,*]) : reform(coords[1,*])
 
     ;Get the simulation size and time
-    oSim -> GetProperty, TIME=time, ORIENTATION=orientation, YSLICE=yslice, $
-                         COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame
-    oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
+    oSim -> GetProperty, TIME=time, COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame
         
     ;Destroy the object
     if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
@@ -199,20 +294,10 @@ _REF_EXTRA = extra
     ;Make sure the data exists. Do this /after/ OSIM has a chance to be destroyed
     ;and before the graphic window is created.
     if data eq !Null then return, obj_new()
-    
-    ;Rename the data products
-    _name = MrSim_Rename(name, coord_system, MVA_FRAME=mva_frame, /SUBSCRIPT)
-    units = MrSim_Rename(units, /SUBSCRIPT)
 
 ;-------------------------------------------------------
 ;Prepare Ranges ////////////////////////////////////////
 ;-------------------------------------------------------
-    xaxis = strlowcase(strmid(orientation, 0, 1))
-    yaxis = strlowcase(strmid(orientation, 1, 1))
-    
-    ;Dimension to plot
-    dimension = nCuts eq 1 ? 0 : 1
-
     ;Time is inverse gyro-time?
     if n_elements(dtxwci) gt 0 $
         then title = 't$\Omega$$\downci$$\up-1$=' + string(time*dtxwci, FORMAT='(f0.1)') $
@@ -235,26 +320,23 @@ _REF_EXTRA = extra
             then title += '  '  + caxis +   '='  + string(cuts, FORMAT='(f0.1)')  + units $
             else title += '  (' + caxis + 'y)=(' + strjoin(string(cuts, yslice, FORMAT='(f0.1)'), ',') + ')' + units
     endif else begin
-        if sim_class eq 'SIM3D' $
+        if sim_class eq 'MRSIM3D' $
             then title += '  ' + caxis + 'y=' + string(yslice, FORMAT='(f0.1)') + units
     endelse
 
 ;-------------------------------------------------------
 ;Make Plots ////////////////////////////////////////////
 ;-------------------------------------------------------
-    if horizontal $
-        then xrange = hcut_range $
-        else xrange = vcut_range
-
     ;Create a Line Plot of the named variable
+    yrange = [min(data, MAX=yMax), yMax]
     lineCut = MrPlot(pos, data, CURRENT=current, $
                      COLOR=color, $
                      DIMENSION=dimension, $
                      OVERPLOT=overplot, $
                      NAME=pname, $
                      TITLE=title, $
-                     XTITLE=xaxis + ' (' + units + ')', $
-                     XRANGE=xrange, $
+                     XTITLE=xtitle, $
+                     XRANGE=cut_range, $
                      YRANGE=yrange, $
                      YTITLE=_name)
     
