@@ -955,19 +955,31 @@ V_VA=v_va
     endif
     
     ;Units
+    dims = size(e_data, /DIMENSIONS)
     v_va = keyword_set(v_va)
     
     ;Get the perp1 and perp2-directions
     p2_hat = MrSim_eDist_Perp2_hat(xrange, yrange, zrange, sim_object, P1_HAT=p1_hat)
     
     ;Perpendicular directions
+    ;   - [x, z, ux, uy, uz]
+    ;   - [x, y, z, ux, uy, uz]
     e_data = transpose(e_data)
-    v_p1  = e_data[*,2] * p1_hat[0] + $
-            e_data[*,3] * p1_hat[1] + $
-            e_data[*,4] * p1_hat[2]
-    v_p2  = e_data[*,2] * p2_hat[0] + $
-            e_data[*,3] * p2_hat[1] + $
-            e_data[*,4] * p2_hat[2]
+    if dims[0] eq 5 then begin
+        v_p1  = e_data[*,2] * p1_hat[0] + $
+                e_data[*,3] * p1_hat[1] + $
+                e_data[*,4] * p1_hat[2]
+        v_p2  = e_data[*,2] * p2_hat[0] + $
+                e_data[*,3] * p2_hat[1] + $
+                e_data[*,4] * p2_hat[2]
+    endif else begin
+        v_p1  = e_data[*,3] * p1_hat[0] + $
+                e_data[*,4] * p1_hat[1] + $
+                e_data[*,5] * p1_hat[2]
+        v_p2  = e_data[*,3] * p2_hat[0] + $
+                e_data[*,4] * p2_hat[1] + $
+                e_data[*,5] * p2_hat[2]
+    endelse
     
     ;Histogram the data
     v_perp_perp = transpose([[temporary(v_p1)], [temporary(v_p2)]])
@@ -1098,7 +1110,7 @@ _REF_EXTRA=ref_extra
         
     ;Object?
     endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM2') eq 0 $
+        if obj_isa(theSim, 'MRSIM') eq 0 $
             then message, 'THESIM must be a subclass of the MrSim class.' $
             else oSim = theSim
             
@@ -1140,7 +1152,6 @@ _REF_EXTRA=ref_extra
 ;-------------------------------------------------------
 ;Select Data ///////////////////////////////////////////
 ;-------------------------------------------------------
-
     ;Pick out the data
     e_data = oSim -> ReadElectrons(filename, FMAP_DIR=fmap_dir, /VELOCITY, $
                                              XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)

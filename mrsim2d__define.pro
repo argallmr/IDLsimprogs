@@ -100,7 +100,7 @@
 ;+
 ;   This method initializes the MrSim2D class.
 ;-
-function MrSim2D::INIT, theSim, time, $
+function MrSim2D::INIT, theSim, time, yslice, $
 _REF_EXTRA=extra
     compile_opt strictarr
     
@@ -284,7 +284,8 @@ _REF_EXTRA=extra
     get_dtxwci = arg_present(dtxwci)
     get_eCF    = arg_present(eCountFactor)
     if get_dtxwci + get_eCF gt 0 then begin
-        MrSim_Which, self.simnum, TINDEX=self.time, ECOUNTFACTOR=eCountFactor, DTXWCI=dtxwci
+        if get_dtxwci then MrSim_Which, self.simnum, TINDEX=self.time, DTXWCI=dtxwci
+        if get_eCF    then MrSim_Which, self.simnum, TINDEX=self.time, ECOUNTFACTOR=eCountFactor
         
         ;DTXWCI
         if get_dtxwci && n_elements(dtxwci) eq 0 then begin
@@ -312,12 +313,179 @@ end
 ; :Private:
 ;
 ; :Params:
+;       NAME:               in, required, type=string
+;                           Name of the vector quantity for which a unit vector
+;                               is to be found.
+;
+; :Keywords:
+;       TIME:               in, optional, type=integer
+;                           Time index at which to create the unit vector.
+;       XRANGE:             in, optional, type=fltarr(2)
+;                           X-range (in de) over which particle data is to be kept.
+;       ZRANGE:             in, optional, type=fltarr(2)
+;                           Z-range (in de) over which particle data is to be kept.
+;
+; :Returns:
+;       DATA:               Electron particle data.
+;-
+function MrSim2D::Unit_Vector, name, $
+TIME=time, $
+XRANGE=xrange, $
+ZRANGE=zrange
+    compile_opt strictarr
+    
+    ;catch errors
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+    ;Set defaults
+    if n_elements(time)   eq 0 then time   = self.time
+    if n_elements(xrange) eq 0 then xrange = self.xrange
+    if n_elements(zrange) eq 0 then zrange = self.zrange
+    
+    ;Read vector component data
+    Vx = self -> ReadMoment(name + 'x', time, XRANGE=xrange, ZRANGE=zrange)
+    Vy = self -> ReadMoment(name + 'y', time, XRANGE=xrange, ZRANGE=zrange)
+    Vz = self -> ReadMoment(name + 'z', time, XRANGE=xrange, ZRANGE=zrange)
+    
+    ;Take the average over the given range
+    Vx = mean(Bx)
+    Vy = mean(By)
+    Vz = mean(Bz)
+    
+    ;Magnitude
+    Vmag = sqrt(Vx^2 + Vy^2 + Vz^2)
+    
+    ;Unit vector
+    V_hat = [Vx, Vy, Vz] / Vmag
+    
+    return, V_hat
+end
+
+
+;+
+;   The purpose of this method is to read the ASCII "info" file relating to Bill
+;   Daughton's simulations.
+;
+; :Private:
+;
+; :Params:
+;       NAME:               in, required, type=string
+;                           Name of the vector quantity for which a unit vector
+;                               is to be found.
+;
+; :Keywords:
+;       TIME:               in, optional, type=integer
+;                           Time index at which to create the unit vector.
+;       XRANGE:             in, optional, type=fltarr(2)
+;                           X-range (in de) over which particle data is to be kept.
+;       ZRANGE:             in, optional, type=fltarr(2)
+;                           Z-range (in de) over which particle data is to be kept.
+;
+; :Returns:
+;       DATA:               Electron particle data.
+;-
+function MrSim2D::Unit_Perp1, $
+B_HAT=B_hat, $
+E_HAT=E_hat, $
+TIME=time, $
+XRANGE=xrange, $
+ZRANGE=zrange
+    compile_opt strictarr
+    
+    ;catch errors
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+    ;E and B unit vectors.
+    B_hat = self -> Unit_Vector('B', TIME=time, XRANGE=xrange, ZRANGE=zrange)
+    E_hat = self -> Unit_Vector('E', TIME=time, XRANGE=xrange, ZRANGE=zrange)
+    
+    ;ExB direction
+    perp1  = [ E_hat[1]*B_hat[2] - E_hat[2]*B_hat[1], $
+               E_hat[2]*B_hat[0] - E_hat[0]*B_hat[2], $
+               E_hat[0]*B_hat[1] - E_hat[1]*B_hat[0] ]
+
+    ;Unit vector
+    p1_hat = perp1 / sqrt(total(perp1^2))
+    
+    return, p1_hat
+end
+
+
+;+
+;   The purpose of this method is to read the ASCII "info" file relating to Bill
+;   Daughton's simulations.
+;
+; :Private:
+;
+; :Params:
+;       NAME:               in, required, type=string
+;                           Name of the vector quantity for which a unit vector
+;                               is to be found.
+;
+; :Keywords:
+;       TIME:               in, optional, type=integer
+;                           Time index at which to create the unit vector.
+;       XRANGE:             in, optional, type=fltarr(2)
+;                           X-range (in de) over which particle data is to be kept.
+;       ZRANGE:             in, optional, type=fltarr(2)
+;                           Z-range (in de) over which particle data is to be kept.
+;
+; :Returns:
+;       DATA:               Electron particle data.
+;-
+function MrSim2D::Unit_Perp2, $
+B_HAT=B_hat, $
+E_HAT=E_hat, $
+P1_HAT=p1_hat, $
+TIME=time, $
+XRANGE=xrange, $
+ZRANGE=zrange
+    compile_opt strictarr
+    
+    ;catch errors
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+    ;Perp1 and B unit vectors.
+    p1_hat = self -> Unit_Perp1(B_HAT=B_hat, TIME=time, XRANGE=xrange, ZRANGE=zrange)
+    
+    ;Bx(ExB) direction
+    perp2  = [ B_hat[1]*p1_hat[2] - B_hat[2]*p1_hat[1], $
+               B_hat[2]*p1_hat[0] - B_hat[0]*p1_hat[2], $
+               B_hat[0]*p1_hat[1] - B_hat[1]*p1_hat[0] ]
+
+    ;Unit vector
+    p2_hat = perp2 / sqrt(total(perp2^2))
+    
+    return, p2_hat
+end
+
+
+;+
+;   The purpose of this method is to read the ASCII "info" file relating to Bill
+;   Daughton's simulations.
+;
+; :Private:
+;
+; :Params:
 ;       FILENAME:           in, required, type=string
 ;                           Name of the file containing particle data.
 ;
 ; :Keywords:
-;       ENERGY:             in, optional, type=boolean, default=0
-;                           If set, momentum will be converted to energy.
 ;       FMAP_DIR:           in, optional, type=string, default=pwd
 ;                           Directory in which to find an fMap. See MrSim_Create_fMap.pro.
 ;       VELOCITY:           in, optional, type=boolean, default=0
@@ -334,11 +502,19 @@ end
 ;       DATA:               Electron particle data.
 ;-
 function MrSim2D::ReadElectrons, filename, $
-ENERGY=energy, $
+DIST3D=dist3D, $
 FMAP_DIR=fmap_dir, $
+ORIGINAL=original, $
+PAR_PERP=par_perp, $
+PERP1_PERP2=perp1_perp2, $
+TEMPERATURE=temperature, $
 VELOCITY=velocity, $
 VERBOSE=verbose, $
+VX_RANGE=vx_range, $
+VY_RANGE=vy_range, $
+VZ_RANGE=vz_range, $
 XRANGE=xrange, $
+YRANGE=yrange, $
 ZRANGE=zrange
     compile_opt strictarr
     
@@ -351,20 +527,87 @@ ZRANGE=zrange
     endif
 
     ;Create defaults    
-    MrSim_Which, self.simname, EFILE=filename, FMAP_DIR=fMap_dir, TINDEX=self.time
+    MrSim_Which, self.simname, EFILE=eFile, FMAP_DIR=fMap, TINDEX=self.time
     
     ;Set defaults
+    par_perp    = keyword_set(par_perp)
+    perp1_perp2 = keyword_set(perp1_perp2)
     if n_elements(filename) eq 0 then filename = eFile
-    if n_elements(fmap_dir) eq 0 then fmap_dir = fmap
+    if n_elements(fmap_dir) eq 0 then fmap_dir = fMap
     if n_elements(xrange)   eq 0 then xrange   = self.xrange
     if n_elements(zrange)   eq 0 then zrange   = self.zrange
     
+    ;Cannot be used together.
+    if par_perp + perp1_perp2 gt 1 then $
+        message, 'PAR_PERP and PERP1_PERP2 are mutually exclusive.'
+    
     ;Read the simulation info file
     data = MrSim_ReadParticles(filename, xrange, zrange, $
-                               ENERGY           = energy, $
-                               FMAP_DIR         = fMap_dir, $
-                               VELOCITY         = velocity, $
-                               VERBOSE          = verbose)
+                               FMAP_DIR  = fMap_dir, $
+                               UX1_RANGE = vx_range, $
+                               UX2_RANGE = vy_range, $
+                               UX3_RANGE = vz_range, $
+                               VELOCITY  = velocity, $
+                               VERBOSE   = verbose)
+
+;-------------------------------------------------------
+; Parallel & Perpendicular /////////////////////////////
+;-------------------------------------------------------
+    if par_perp then begin
+        ;B unit vector
+        B_hat = self -> Unit_Vector('B', TIME=time, XRANGE=xrange, ZRANGE=zrange)
+        
+        ;Get the parallel and perpendicular components
+        v_mag_sqr = total(data[[2,3,4],*]^2, 1)
+        v_par     = data[2,*] * B_hat[0] + data[3,*] * B_hat[1] + data[4,*] * B_hat[3]
+        v_perp    = sqrt(temporary(v_mag_sqr) - v_par^2)
+    
+        ;Save the original data?
+        if arg_present(original) then original = data
+    
+        ;Fit into the data
+        data = data[0:3,*]
+        data[2,*] = temporary(v_par)
+        data[3,*] = temporary(v_perp)
+        
+        ;Calculate the temperature of the distribution
+        if arg_present(temperature) && velocity then begin
+            nParticles     = n_elements(data[0,*])
+            temperature    = fltarr(2)
+            temperature[0] =       total(data[2,*]^2) / nParticles
+            temperature[1] = 0.5 * total(data[3,*]^2) / nParticles
+        endif
+    endif
+    
+;-------------------------------------------------------
+; Perp1 & Perp2 ////////////////////////////////////////
+;-------------------------------------------------------
+    if perp1_perp2 then begin
+        ;B unit vector
+        p2_hat = self -> Unit_Perp2(B_HAT=B_hat, P1_HAT=p1_hat, TIME=time, XRANGE=xrange, ZRANGE=zrange)
+        
+        ;Get the parallel and perpendicular components
+        v_par     = data[2,*] *  B_hat[0] + data[3,*] *  B_hat[1] + data[4,*] *  B_hat[3]
+        v_perp1   = data[2,*] * p1_hat[0] + data[3,*] * p1_hat[1] + data[4,*] * p1_hat[3]
+        v_perp2   = data[2,*] * p2_hat[0] + data[3,*] * p2_hat[1] + data[4,*] * p2_hat[3]
+    
+        ;Save the original data?
+        if arg_present(original) then original = data
+    
+        ;Fit into the data
+        data[1,*] = temporary(v_par)
+        data[2,*] = temporary(v_perp1)
+        data[3,*] = temporary(v_perp2)
+        
+        ;Calculate the temperature of the distribution
+        if arg_present(temperature) && velocity then begin
+            nParticles     = n_elements(data[0,*])
+            temperature    = fltarr(3)
+            temperature[0] = total(data[2,*]^2) / nParticles
+            temperature[1] = total(data[3,*]^2) / nParticles
+            temperature[2] = total(data[4,*]^2) / nParticles
+        endif
+    endif
     
     return, data
 end
@@ -432,6 +675,17 @@ NSMOOTH=nSmooth
 
     ;Check if NAME has an underscore. Replace it with a hyphen (i.e. "Pe_xx" -> "Pe-xx")
     _name = stregex(name, '_', /BOOLEAN) ? strjoin(strsplit(name, '_'), '-') : name
+
+    ;Rename pressure tensor terms
+    case _name of
+        'Pe-yx': _name = 'Pe-xy'
+        'Pe-zx': _name = 'Pe-xz'
+        'Pe-zy': _name = 'Pe-yz'
+        'Pi-yx': _name = 'Pi-xy'
+        'Pi-zx': _name = 'Pi-xz'
+        'Pi-zy': _name = 'Pi-yz'
+        else: ;Do nothing
+    endcase
     
     ;Check if the file exists. If not, throw an error.
     f_name = filepath(_name + '.gda', ROOT_DIR=self.directory)
@@ -445,8 +699,8 @@ NSMOOTH=nSmooth
 ; Coordinate System -> Simulation Coordinates //////////
 ;-------------------------------------------------------
     ;Get the index range of data to read
-    ixrange = getIndexRange(*self.XSim, xrange, STRIDE=xstride)
-    izrange = getIndexRange(*self.ZSim, zrange, STRIDE=zstride)
+    ixrange = MrIndexRange(*self.XSim, xrange, STRIDE=xstride)
+    izrange = MrIndexRange(*self.ZSim, zrange, STRIDE=zstride)
 
     ;Subset of data to read
     ;   - Data is still in SIMULATION coordinates.
@@ -583,180 +837,6 @@ NSMOOTH=nSmooth
 
             ;Now reverse the x-axes
             ;   Single negate Bx, Uix, Pe-xz, Pe-xy, etc.
-            case 1 of
-                stregex(_name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
-                stregex(_name, '-(y|z)[x]$',      /BOOLEAN): data = -data
-                stregex(_name, '-[x](y|z)$',      /BOOLEAN): data = -data
-                else: ;Do nothing
-            endcase
-        end
-        
-        else: message, 'Coordinate system "' + self.coord_system + '" not recognized.'
-    endcase
-    
-    ;Smooth the data
-    if nSmooth gt 0 then data = smooth(data, nSmooth, /EDGE_TRUNCATE)
-    
-    return, data
-end
-
-
-;+
-;   The purpose of this program is to read data from a ".gda" file.
-;
-; :Private:
-;
-; :Params:
-;       NAME:                   in, required, type=string, default=
-;                               The name of the ".gda" data file (without the ".gda"
-;                                   file extension). GDA files are typically named after
-;                                   the parameter whose data they contain.
-;-
-function MrSim2D::ReadMoment_v1, name, tindex, xrange, zrange, $
-NSMOOTH=nSmooth
-    compile_opt strictarr
-
-    ;Catch any errors
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        if n_elements(lun) gt 0 then free_lun, lun
-        void = cgErrorMSG()
-        return, !Null
-    endif
-
-    ;Defaults
-    if n_elements(nSmooth) eq 0 then nSmooth = self.nSmooth
-    if n_elements(tindex)  eq 0 then tindex  = self.time
-    if n_elements(xrange)  eq 0 then xrange  = self.xrange
-    if n_elements(zrange)  eq 0 then zrange  = self.zrange
-
-    ;Check if NAME has an underscore. Replace it with a hyphen (i.e. "Pe_xx" -> "Pe-xx")
-    _name = stregex(name, '_', /BOOLEAN) ? strjoin(strsplit(name, '_'), '-') : name
-    
-    ;Check if the file exists. If not, throw an error.
-    f_name = filepath(_name + '.gda', ROOT_DIR=self.directory)
-    if file_test(f_name) eq 0 then begin
-        f_name = cgPickFile(TITLE='Choose .gda Field or Moment File.', /READ)
-        if f_name eq '' then return, !Null
-    endif
-
-;-------------------------------------------------------
-; Coordinate System -> Simulation Coordinates //////////
-;-------------------------------------------------------
-    ;Get the index range of data to read
-    ixrange = getIndexRange(*self.XSim, xrange)
-    izrange = getIndexRange(*self.ZSim, zrange)
-    
-    ;Subset of data to read
-    ;   - Data is still in SIMULATION coordinates.
-    ;   - Ranges are in COORD_SYSTEM coordinates.
-    ;   - Must traslate from COORD_SYSTEM to SIMULATION.
-    case self.coord_system of
-        'SIMULATION': ;Do nothing
-        
-        ;Interchange indices
-        ;   x -> -z (negation occurs below)
-        ;   y -> +y
-        ;   z -> +x
-        'MAGNETOPAUSE': begin
-            ;Interchange x and z
-            iTemp   = ixrange
-            ixrange = izrange
-            izrange = temporary(iTemp)
-        endcase
-        
-        ;Interchange indices
-        ;   x -> -x (negation occurs below)
-        'MAGNETOTAIL': ;Do nothing
-        
-        else: ;Nothing
-    endcase
-
-;-------------------------------------------------------
-; Read Data ////////////////////////////////////////////
-;-------------------------------------------------------
-
-    ;Get the system size
-    self -> GetInfo, NX=nx, NZ=nz
-
-    ;Create an associated variable for the data file. Each data image is [nx] x [nz]
-    ;points large and there is 1 time-stamp associated with each image.
-    struct = { data: fltarr(nx, nz), $
-               time: 0.0, $
-               it:   500000 $
-             }
-
-    ;Open the data file.
-    openr, lun, f_name, /SWAP_IF_BIG_ENDIAN, /GET_LUN
-    
-    ;FIELD will be an array of structures with one [nx] x [ny] image and one time-stamp
-    ;per element. STRUCT will be the image at the desired time step of the simulation.
-    field  = assoc(lun, struct)
-    struct = field[tindex]
-    free_lun, lun
-
-    ;Trim the data
-    data   = struct.data[ixrange[0]:ixrange[1], izrange[0]:izrange[1]]
-    struct = !Null
-
-;-------------------------------------------------------
-; Change from SIMULATION Coordinates? //////////////////
-;-------------------------------------------------------
-    ;Change coordinate Systems?
-    case self.coord_system of
-        'SIMULATION': ;Do nothing
-        
-        'MAGNETOPAUSE': begin
-            ;Re-orient the axes
-            ;   - x and z have been switch from SIMULATION coordinates arleady (above).
-            ;   - IDL draws the bottom row of the image first: img[*,0]
-            ;       * When transpose, the bottom row becomes the left-most column.
-            ;   - Ordering bottom axis as [+x, -x] requires two steps.
-            ;       * Negate all data products with a single "z" in them (below).
-            ;       * Reverse the x-axis itself (::MakeSimDomain method).
-            ;
-            ;                            ++z +--------|
-            ;                                |        |
-            ;           MSP                  |        |
-            ; +x  *--------------|         M |        | M
-            ;     |              |   ===>  S |        | S
-            ; -x  |--------------+         H |        | P
-            ;     +z    MSH    ++z           |        |
-            ;                                |        |
-            ;                             +z |--------*
-            ;                               -x       +x
-            ;
-            case self.orientation of
-                'XY': ;Do nothing
-                'XZ': data = transpose(data)
-                else: message, 'Orienatation "' + self.orientation + '" not recognized.'
-            endcase
-
-            ;Now reverse the z-axes
-            ;   Single negate Bz, Uiz, Pe-xz, Pe-yz, etc.
-            case 1 of
-                stregex(_name, '[A-Z][a-z]*z$',   /BOOLEAN): data = -data
-                stregex(_name, '-(z[yx]|[xy]z)$', /BOOLEAN): data = -data
-                else: ;Do nothing
-            endcase
-        end
-        
-        'MAGNETOTAIL': begin
-            ;Re-orient the axes
-            ;   - x and z are the same orientation as simulation coordinates
-            ;   - Ordering bottom axis as [+x, -x] requires two steps.
-            ;       * Negate all data products with a single "x" in them (below).
-            ;       * Reverse the x-axis itself (::MakeSimDomain method).
-            case self.orientation of
-                'XY': ;Do nothing
-                'XZ': ;Do nothing
-                else: message, 'Orienatation "' + self.orientation + '" not recognized.'
-            endcase
-
-            ;Now reverse the x-axes
-            ;   single negate Pe-xy, Pe-xz, etc.
-            ;   double negate Pe-xx
             case 1 of
                 stregex(_name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
                 stregex(_name, '-(y|z)[x]$',      /BOOLEAN): data = -data

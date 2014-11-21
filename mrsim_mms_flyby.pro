@@ -1,7 +1,7 @@
 ; docformat = 'rst'
 ;
 ; NAME:
-;    MrSim_FlyBy
+;    MrSim_MMS_FlyBy
 ;
 ;*****************************************************************************************
 ;   Copyright (c) 2014, Matthew Argall                                                   ;
@@ -94,8 +94,9 @@
 ; :History:
 ;    Modification History::
 ;       2014/10/18  -   Written by Matthew Argall
+;       2014/11/20  -   Renamed from MrSim_FlyBy to MrSim_MMS_FlyBy. - MRA
 ;-
-function MrSim_FlyBy, theSim, name, r0, r1, time, $
+function MrSim_MMS_FlyBy, theSim, name, r0, r1, time, $
 ADD_LEGEND = add_legend, $
 C_NAME = c_name, $
 CURRENT = current, $

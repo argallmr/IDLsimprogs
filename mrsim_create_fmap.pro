@@ -95,9 +95,16 @@
 ;    Modification History::
 ;       2014/09/05  -   Written by Matthew Argall
 ;       2014/10/30  -   Added the SIM3D keyword. - MRA
+;       2014/11/06  -   Added the OVERWRITE keyword and changed the output file name to
+;                           create fewer conflicts. - MRA
+;       2014/11/10  -   For 2D simulations, MAP_ENTRY has only two range fields instead
+;                           of three. D[123] refer to the 1st, 2nd, and 3rd dimension,
+;                           respectively, regardless of whether they are [XY], [XZ], 
+;                           [XYZ], etc. - MRA
 ;-
 pro MrSim_Create_fMap, filename, $
 N_RECS_PER_CHUNK=n_rec_per_chunk, $
+OVERWRITE=overwrite, $
 RANGE1=range1, $
 RANGE2=range2, $
 RANGE3=range3, $
@@ -117,8 +124,9 @@ VERBOSE=verbose
 
     ;Defaults
     ;   - There are five 4-byte numbers associated with each particle.
-    sim3d   = keyword_set(sim3d)
-    verbose = keyword_set(verbose)
+    overwrite = keyword_set(overwrite)
+    sim3d     = keyword_set(sim3d)
+    verbose   = keyword_set(verbose)
     if n_elements(n_recs_per_chunk) eq 0 then n_recs_per_chunk = 1000000ULL
     if n_elements(rec_sample)       eq 0 then rec_sample       = sim3d ? fltarr(6) : fltarr(5)
     if n_elements(save_dir)         eq 0 then void             = cgRootName(filename, DIRECTORY=save_dir)
@@ -126,6 +134,17 @@ VERBOSE=verbose
     ;Make sure the file exists
     if file_test(filename) eq 0 then $
         message, 'File does not exist: "' + filename + '".'
+    
+    ;Form the output file name
+    fbase    = cgRootName(filename, DIRECTORY=directory)
+    sname    = idl_validname(file_basename(directory), /CONVERT_ALL)
+    file_out = filepath('MrFMap' + (sim3d ? '3d' : '2d') + '_' + sname + '_' + fbase + '.sav', ROOT_DIR=save_dir)
+    
+    ;Check if the output file exists already
+    if file_test(file_out) then begin
+        if ~overwrite then $
+            message, 'Output file name already exists. Use /OVERWRITE. "' + file_out + '".'
+    endif
 
 ;---------------------------------------------------------------------
 ;Record Info /////////////////////////////////////////////////////////
@@ -166,26 +185,34 @@ VERBOSE=verbose
     ;Print information about the file
     if verbose then begin
         print, 'Information about ' + filename + ':'
-        print, '   # per rec          : ', n_per_rec
-        print, '   record type        : ', tname
-        print, '   record size        : ', rec_size
-        print, '   filesize           : ', finfo.size
-        print, '   #records in file   : ', n_recs
-        print, '   #records per chunk : ', n_recs_per_chunk
-        print, '   #chunks to read    : ', n_chunks
+        print, FORMAT='(%"   # per rec          : %i")', n_per_rec
+        print, FORMAT='(%"   record type        : %s")', tname
+        print, FORMAT='(%"   record size        : %i")', rec_size
+        print, FORMAT='(%"   filesize           : %i")', finfo.size
+        print, FORMAT='(%"   #records in file   : %i")', n_recs
+        print, FORMAT='(%"   #records per chunk : %i")', n_recs_per_chunk
+        print, FORMAT='(%"   #chunks to read    : %i")', n_chunks
         if n_recs_last gt 0 then $
-            print, '   last chunk size    : ', n_recs_last
+            print, FORMAT='(%"   last chunk size    : %i")', n_recs_last
     endif
 
 ;---------------------------------------------------------------------
 ; Allocate Memory ////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    map_entry = { pos:      0ULL, $
-                  nRecs:    0ULL, $
-                  d1_range: fltarr(2), $
-                  d2_range: fltarr(2), $
-                  d3_range: fltarr(2) $
-                }
+    if sim3d then begin
+        map_entry = { pos:      0ULL, $
+                      nRecs:    0ULL, $
+                      d1_range: fltarr(2), $
+                      d2_range: fltarr(2), $
+                      d3_range: fltarr(2) $
+                    }
+    endif else begin
+        map_entry = { pos:      0ULL, $
+                      nRecs:    0ULL, $
+                      d1_range: fltarr(2), $
+                      d2_range: fltarr(2) $
+                    }
+    endelse
     map_entry = replicate(map_entry, n_chunks)
     data      = make_array(n_per_rec, n_recs_per_chunk, TYPE=type)
     
@@ -214,7 +241,7 @@ VERBOSE=verbose
         map_entry[i].pos = filepos
 
         ;Print info
-        if verbose then if ((i+1) mod 10 eq 0) || (i eq n_chunks-1) then begin
+        if verbose then if i eq 0 || ((i+1) mod 10 eq 0) || (i eq n_chunks-1) then begin
             print, FORMAT='(%"Chunk %i of %i. Bytes %i-%i of %i")', $
                    i+1, n_chunks, n_recs_read*rec_size, (n_recs_read+n_recs_per_chunk)*rec_size, finfo.size
         endif
@@ -223,54 +250,35 @@ VERBOSE=verbose
         ;Read the data
         readu, lun, data
         
+        ;Get the minimum and maximum values in the two spacial dimensions
+        d1_min = min(data[0,*], MAX=d1_max)
+        d2_min = min(data[1,*], MAX=d2_max)
+        map_entry[i].d1_range = [d1_min, d1_max]
+        map_entry[i].d2_range = [d2_min, d2_max]
+        
+        ;Record the domain being read
+        range1[0] <= d1_min
+        range1[1] >= d1_max
+        range2[0] <= d2_min
+        range2[1] >= d2_max
+        
         ;3D electron data?
         if sim3d then begin
-            ;Get the minimum and maximum values in the two spacial dimensions
-            d1_min = min(data[0,*], MAX=d1_max)
-            d2_min = min(data[1,*], MAX=d2_max)
             d3_min = min(data[2,*], MAX=d3_max)
-            map_entry[i].d1_range = [d1_min, d1_max]
-            map_entry[i].d2_range = [d2_min, d2_max]
             map_entry[i].d3_range = [d3_min, d3_max]
-        
-            ;Record the domain being read
-            range1[0] <= d1_min
-            range1[1] >= d1_max
-            range2[0] <= d2_min
-            range2[1] >= d2_max
             range3[0] <= d3_min
             range3[1] >= d3_max
-        
-        ;2D electron data
-        endif else begin
-            ;Get the minimum and maximum values in the two spacial dimensions
-            d1_min = min(data[0,*], MAX=d1_max)
-            d3_min = min(data[1,*], MAX=d3_max)
-            map_entry[i].d1_range = [d1_min, d1_max]
-            map_entry[i].d3_range = [d3_min, d3_max]
-        
-            ;Record the domain being read
-            range1[0] <= d1_min
-            range1[1] >= d1_max
-            range2[0]  = 0
-            range2[1]  = 0
-            range3[0] <= d3_min
-            range3[1] >= d3_max
-        endelse
+        endif
     endfor
 
     ;Close the file
     free_lun, lun
-    
-    ;Create the output filename
-    fbase    = cgRootName(filename)
-    file_out = filepath(fbase + '_mrfMap' + (sim3d ? '3d' : '2d') + '.sav', ROOT_DIR=save_dir)
 
     ;Display the range
     if verbose then begin
         print, FORMAT='(%"Range1 = [%f, %f]")', range1
         print, FORMAT='(%"Range2 = [%f, %f]")', range2
-        print, FORMAT='(%"Range3 = [%f, %f]")', range3
+        if sim3d then print, FORMAT='(%"Range3 = [%f, %f]")', range3
     endif
 
     ;Save data
@@ -284,11 +292,10 @@ end
 ; Main-Level Example Program: IDL> .r MrSim_Create_fMap //////////////
 ;---------------------------------------------------------------------
 ;Files and directories
-filename = '/home/daughton/Asymm-3D/electrons-y905.bin'
-save_dir = '/home/argall/Work/AssymectricSim/fmaps/'
+filename = '/data2/Asymm-Scan/By0/electrons-twci68-it125800.bin'
+save_dir = '/home/argall/simulations/fmaps/'
 
 ;Read the particle data
 MrSim_Create_fMap, filename, SAVE_DIR=save_dir, /VERBOSE
-
 
 end

@@ -96,9 +96,9 @@ RANGES=ranges
 ;-------------------------------------------------------
     ;Cell location in the current coordinate system.
     if ranges then begin
-        ix = getIndexRange(*self.xSim, self.xrange)
-        iy = reform(getIndexRange(*self.ySim, self.yrange))
-        iz = getIndexRange(*self.zSim, self.zrange)
+        ix = MrIndexRange(*self.xSim, self.xrange)
+        iy = reform(MrIndexRange(*self.ySim, self.yrange))
+        iz = MrIndexRange(*self.zSim, self.zrange)
     endif else begin
         ix = value_locate(*self.xSim, coords[0,*])
         iy = value_locate(*self.ySim, coords[1,*])
@@ -936,6 +936,8 @@ end
 ; :Keywords:
 ;-
 pro MrSim3D::GetInfo, $
+DTXWCI=dtxwci, $
+INFO_DTXWCI=info_dtxwci, $
 DX_DE=dx_de, $
 DY_DE=dy_de, $
 DZ_DE=dz_de, $
@@ -955,9 +957,30 @@ _REF_EXTRA=extra
     if arg_present(dx_de) then dx_de = (*self.info).lx_de / (*self.info).nx
     if arg_present(dy_de) then dy_de = (*self.info).ly_de / (*self.info).ny
     if arg_present(dz_de) then dz_de = (*self.info).lz_de / (*self.info).nz
+    
+    ;Hard code -- the one simulation that we have has a subset of time indices.
+    get_dtxwci = arg_present(dtxwci)
+    get_eCF    = arg_present(eCountFactor)
+    if get_dtxwci + get_eCF gt 0 then begin
+        MrSim_Which, self.simnum, TINDEX=self.time, ECOUNTFACTOR=eCountFactor, DTXWCI=dtxwci
+        
+        ;DTXWCI
+        if get_dtxwci && n_elements(dtxwci) eq 0 then begin
+            message, 'dt*wci unknown for simulatio #' + strtrim(self.simnum, 2) + '. ' + $
+                     'Setting dt*wci = 2', /INFORMATIONAL
+            dtxwci = 2
+        endif
+        
+        ;ECOUNTFACTOR
+        if get_eCF && n_elements(eCountFactor) eq 0 then begin
+            message, 'No explicit eCountFactor set. Setting eCountFactor = 1.', /INFORMATIONAL
+            eCountFactor = 1
+        endif
+    endif
 
     ;More Info
-    if n_elements(extra) gt 0 then self -> MrSim::GetInfo, _STRICT_EXTRA=extra
+    if n_elements(extra) gt 0 || n_elements(info_dtxwci) gt 0 $
+        then self -> MrSim::GetInfo, DTXWCI=info_dtxwci, _STRICT_EXTRA=extra
 end
 
 
@@ -1018,11 +1041,16 @@ end
 ;                           Name of the "info" file to be read.
 ;-
 function MrSim3D::ReadElectrons, filename, $
+DIST3D=dist3D, $
 ENERGY=energy, $
 FMAP_DIR=fmap_dir, $
+VX_RANGE=vx_range, $
+VY_RANGE=vy_range, $
+VZ_RANGE=vz_range, $
 VELOCITY=velocity, $
 VERBOSE=verbose, $
 XRANGE=xrange, $
+YRANGE=yrange, $
 ZRANGE=zrange
     compile_opt strictarr
     
@@ -1034,24 +1062,113 @@ ZRANGE=zrange
         return, !Null
     endif
 
-    ;Get the y-grid-cell
-    yslice = self -> GetCell(self.yrange[0], /Y)
 
-    ;Create defaults    
-    MrSim_Which, self.simname, EFILE=filename, FMAP_DIR=fMap_dir, TINDEX=self.time, YSLICE=yslice
-    
+    ;Create defaults
+    if n_elements(fMap_dir) eq 0 then MrSim_Which, self.simname, FMAP_DIR=fMap_dir
+    if n_elements(filename) eq 0 then begin
+        ;Get the y-grid-cell
+        yslice = self -> GetCell(self.yrange[0], /Y)
+        
+        ;Get the file name
+        MrSim_Which, self.simname, EFILE=filename, DIST3D=dist3D, $
+                     TINDEX=self.time, YSLICE=yslice
+    endif
+
     ;Set defaults
-    if n_elements(filename) eq 0 then filename = eFile
-    if n_elements(fmap_dir) eq 0 then fmap_dir = fmap
+    dist3D      = keyword_set(dist3D)
+    par_perp    = keyword_set(par_perp)
+    perp1_perp2 = keyword_set(perp1_perp2)
     if n_elements(xrange)   eq 0 then xrange   = self.xrange
+    if n_elements(yrange)   eq 0 then yrange   = self.yrange
     if n_elements(zrange)   eq 0 then zrange   = self.zrange
     
+    ;Cannot be used together.
+    if par_perp + perp1_perp2 gt 1 then $
+        message, 'PAR_PERP and PERP1_PERP2 are mutually exclusive.'
+
     ;Read the simulation info file
-    data = MrSim_ReadParticles(filename, xrange, zrange, $
-                               ENERGY           = energy, $
-                               FMAP_DIR         = fMap_dir, $
-                               VELOCITY         = velocity, $
-                               VERBOSE          = verbose)
+    if dist3D then begin
+        data = MrSim_ReadParticles(filename, xrange, yrange, zrange, $
+                                   FMAP_DIR  = fMap_dir, $
+                                   UX1_RANGE = vx_range, $
+                                   UX2_RANGE = vy_range, $
+                                   UX3_RANGE = vz_range, $
+                                   VELOCITY  = velocity, $
+                                   VERBOSE   = verbose)
+    endif else begin
+        data = MrSim_ReadParticles(filename, xrange, zrange, $
+                                   FMAP_DIR  = fMap_dir, $
+                                   UX1_RANGE = vx_range, $
+                                   UX2_RANGE = vy_range, $
+                                   UX3_RANGE = vz_range, $
+                                   VELOCITY  = velocity, $
+                                   VERBOSE   = verbose)
+    endelse
+
+;-------------------------------------------------------
+; Parallel & Perpendicular /////////////////////////////
+;-------------------------------------------------------
+    if par_perp then begin
+        ;Indices at which momentum/velocity is stored
+        if dist3D then iu = [2,3,4] else iu = [3,4,5]
+    
+        ;B unit vector
+        B_hat = self -> Unit_Vector('B', TIME=time, XRANGE=xrange, ZRANGE=zrange)
+        
+        ;Get the parallel and perpendicular components
+        v_mag_sqr = total(data[iu,*]^2, 1)
+        v_par     = data[iu[0],*] * B_hat[0] + data[iu[1],*] * B_hat[1] + data[iu[2],*] * B_hat[3]
+        v_perp    = sqrt(temporary(v_mag_sqr) - v_par^2)
+    
+        ;Save the original data?
+        if arg_present(original) then original = data
+    
+        ;Fit into the data
+        data = data[0:iu[1],*]
+        data[iu[0],*] = temporary(v_par)
+        data[iu[1],*] = temporary(v_perp)
+        
+        ;Calculate the temperature of the distribution
+        if arg_present(temperature) && velocity then begin
+            nParticles     = n_elements(data[0,*])
+            temperature    = fltarr(2)
+            temperature[0] =       total(data[iu[0],*]^2) / nParticles
+            temperature[1] = 0.5 * total(data[iu[1],*]^2) / nParticles
+        endif
+    endif
+    
+;-------------------------------------------------------
+; Perp1 & Perp2 ////////////////////////////////////////
+;-------------------------------------------------------
+    if perp1_perp2 then begin
+        ;Indices at which momentum/velocity is stored
+        if dist3D then iu = [2,3,4] else iu = [3,4,5]
+        
+        ;B unit vector
+        p2_hat = self -> Unit_Perp2(B_HAT=B_hat, P1_HAT=p1_hat, TIME=time, XRANGE=xrange, ZRANGE=zrange)
+        
+        ;Get the parallel and perpendicular components
+        v_par     = data[iu[0],*] *  B_hat[0] + data[iu[1],*] *  B_hat[1] + data[iu[2],*] *  B_hat[3]
+        v_perp1   = data[iu[0],*] * p1_hat[0] + data[iu[1],*] * p1_hat[1] + data[iu[2],*] * p1_hat[3]
+        v_perp2   = data[iu[0],*] * p2_hat[0] + data[iu[1],*] * p2_hat[1] + data[iu[2],*] * p2_hat[3]
+    
+        ;Save the original data?
+        if arg_present(original) then original = data
+    
+        ;Fit into the data
+        data[iu[0],*] = temporary(v_par)
+        data[iu[1],*] = temporary(v_perp1)
+        data[iu[2],*] = temporary(v_perp2)
+        
+        ;Calculate the temperature of the distribution
+        if arg_present(temperature) && velocity then begin
+            nParticles     = n_elements(data[0,*])
+            temperature    = fltarr(3)
+            temperature[0] = total(data[iu[0],*]^2) / nParticles
+            temperature[1] = total(data[iu[1],*]^2) / nParticles
+            temperature[2] = total(data[iu[2],*]^2) / nParticles
+        endif
+    endif
     
     return, data
 end
@@ -1568,7 +1685,10 @@ _REF_EXTRA=extra
     self -> GetInfo, NX=nx, NY=ny, NZ=nz, LX_DE=lx_de, LY_DE=ly_de, LZ_DE=lz_de, MI_ME=mi_me
     message, string(FORMAT='(%"Simulation Size = %i x %i x %i")', nx, ny, nz), /INFORMATIONAL
     message, string(FORMAT='(%"Sim Size (de)   = %i x %i x %i")', lx_de, ly_de, lz_de), /INFORMATIONAL
-    message, string(FORMAT='(%"m_i / m_e       = %f")', mi_me), /INFORMATIONAL
+    
+    if n_elements(mi_me) gt 0 then begin
+        message, string(FORMAT='(%"m_i / m_e       = %f")', mi_me), /INFORMATIONAL
+    endif
     
     ;But use the reduced size found in the binary file.
     if binary eq 0 then begin

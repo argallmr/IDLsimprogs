@@ -101,7 +101,7 @@
 ;       AXIS_LABELS:    in, optional, type=strarr(3), default="['x', 'y', 'z']"
 ;                       Labels for the axes.
 ;       BINARY:         in, optional, type=boolean, default=0
-;                       If set, `INFO_FILE` points to the binary info file.
+;                       If set, use the binary info file instead of the ascii info file.
 ;       COORD_SYSTEM:   in, optional, type=string, default='SIMULATION'
 ;                       Coordinate system in which to display the data. Options are::
 ;                           'SIMULATION'
@@ -109,13 +109,12 @@
 ;                           'MAGNETOTAIL'
 ;       DIRECTORY:      in, optional, type=string, default=pwd
 ;                       Directory in which to find the ".gda" data.
-;       INFO_FILE:      in, optional, type=string, default=`DIRECTORY`/../info`
+;       INFO_ASCII:     in, optional, type=string, default=`DIRECTORY`/../info
 ;                       The ASCII info file containing information about the simulation
-;                           setup. If `BINARY` is set, the default file will be
-;                           `DIRECTORY`/info.
-;       INFO_VERSION:   in, optional, type=integer, default=1
-;                       Version of the info file to read. Ignored if `BINARY`=1.
-;                           See MrSim_Which.pro.
+;                           setup.
+;       INFO_BINARY:    in, optional, type=string, default=`DIRECTORY`/info
+;                       The binary info file containing information about the simulation
+;                           setup.
 ;       ION_SCALE:      in, optional, type=boolean, default=0
 ;                       Construct the simulation domain in units of "di" instead of "de"
 ;                           (the ion and electron skin depth, respectively).
@@ -148,8 +147,8 @@ AXIS_LABELS = axis_labels, $
 BINARY = binary, $
 COORD_SYSTEM = coord_system, $
 DIRECTORY = directory, $
-INFO_FILE = info_file, $
-INFO_VERSION = info_version, $
+INFO_ASCII = info_ascii, $
+INFO_BINARY = binary_info, $
 ION_SCALE = ion_scale, $
 MVA_FRAME = mva_frame, $
 NSMOOTH = nsmooth, $
@@ -180,41 +179,45 @@ ZRANGE = zrange
     endif      
 
     ;Get information about the simulation
-    MrSim_Which, theSim, NAME=simname, NUMBER=simnum, $
-                 DIRECTORY=_dir, ASCII_INFO=_ascii_info, BINARY_INFO=_bin_info, $
+    MrSim_Which, theSim, NAME=simname, NUMBER=simnum, DIRECTORY=_dir, $
+                 INFO_ASCII=_ascii_info, INFO_BINARY=_bin_info, $
                  ASCII_VERSION=vASCII
     
     ;Defaults
     binary = keyword_set(binary)
     if n_elements(directory)     eq 0 then directory     = _dir
     if n_elements(ascii_version) eq 0 then ascii_version = vASCII
-    if n_elements(info_file)     eq 0 $
-        then info_file = binary ? _bin_info : _ascii_info
-    
+    if n_elements(info_ascii)    eq 0 then info_ascii    = _ascii_info
+    if n_elements(info_binary)   eq 0 then info_binary   = _bin_info
+
     ;Properties
     self.simnum    = simnum
     self.simname   = simname
     self.directory = directory
+    
+    ;Use binary file?
+    if ~binary && ~file_test(info_ascii) then begin
+        message, 'ASCII info file not found. Switching to binary info file.', /INFORMATIONAL
+        binary = 1
+    endif
 ;-------------------------------------------------------
 ;Read the Info File ////////////////////////////////////
 ;-------------------------------------------------------
     
     ;Make sure the file exists
     self.info = ptr_new(/ALLOCATE_HEAP)
-    if file_test(info_file) eq 0 then $
-        message, 'Cannot find ASCII info file: "' + info_file + '"'
-    
+
     ;Binary info file
     if binary then begin
         if keyword_set(ion_scale) then $
             message, 'ION_SCALE is only possible with ASCII info file. ' + $
                      'Setting ION_SCALE=0', /INFORMATIONAL
         ion_scale = 0
-        self -> ReadInfo_Binary, info_file
+        self -> ReadInfo_Binary, info_binary
         
     ;Ascii info file
     endif else begin
-        self -> ReadInfo_Ascii, info_file, VERSION=ascii_version
+        self -> ReadInfo_Ascii, info_ascii, VERSION=ascii_version
     endelse
 
 ;-------------------------------------------------------
@@ -243,7 +246,7 @@ ZRANGE = zrange
     if n_elements(nsmooth) eq 0 then nsmooth = 3
     if n_elements(time)    eq 0 then time    = 0
     if n_elements(xrange)  eq 0 then xrange  = [0, xsize]
-    if n_elements(yrange)  eq 0 then yrange  = [0, ysize]
+    if n_elements(yrange)  eq 0 then yrange  = [-ysize/2.0, ysize/2.0]
     if n_elements(yslice)  eq 0 then yslice  = 0L
     if n_elements(zrange)  eq 0 then zrange  = [-zsize/2.0, zsize/2.0]
     
@@ -491,7 +494,7 @@ Z=z
     if magnitude + x + y + z gt 1 then message, 'MAGNITUDE, X, Y, and Z are mutually exclusive.'
     
     _field = n_elements(field) eq 0 ? 'B' : strupcase(field)
-    if IsMember(['B', 'E'], _field) eq 0 $
+    if MrIsMember(['B', 'E'], _field) eq 0 $
         then message, 'FIELD must be either "B" or "E".'
     
     ;Get Data
@@ -1043,8 +1046,8 @@ FILENAME=filename
     ;   - Using the GetProperty method will select the current subset of the simulation
     ;       coordinates.
     self -> GetProperty, XSIM=xSim, ZSIM=zSim
-    ix = getIndexRange(xSim, xrange, STRIDE=xStride)
-    iz = getIndexRange(zSim, zrange, STRIDE=zStride)
+    ix = MrIndexRange(xSim, xrange, STRIDE=xStride)
+    iz = MrIndexRange(zSim, zrange, STRIDE=zStride)
 
     ;Select the subset of data to be returned
     data = data[ix[0]:ix[1]:xStride, iz[0]:iz[1]:zStride]
@@ -1077,7 +1080,7 @@ end
 ;       DATA:               The requested data. If the data product does not exist,
 ;                               then !Null will be returned.
 ;-
-function MrSim::GetData, data_product, $
+function MrSim::GetData, name, $
 DX=dx, $
 DZ=dz
     compile_opt strictarr
@@ -1101,54 +1104,51 @@ DZ=dz
     dz = keyword_set(dz)
     if dx + dz gt 1 then message, 'DX and DZ are mutually exclusive.'
 
-    _data_product = strupcase(data_product)
+    _name = strupcase(name)
 ;-------------------------------------------------------
 ;Had Data been Read? ///////////////////////////////////
 ;-------------------------------------------------------
-    
+
     ;If the data has not been read, then try to read it from a file.
-    if self -> HasData(_data_product) eq 0 then begin
-        if _data_product eq 'E-' $
-            then self -> ReadElectrons $
-            else self -> ReadData, data_product
-    endif
-    
+    if _name eq 'E-' then $
+        if self -> HasData(_name) eq 0 then self -> ReadElectrons
+
     ;Check to see if the data has already been read first.
-    case strupcase(_data_product) of
-        'AY':     data = *self.Ay
-        'BX':     data = *self.Bx
-        'BY':     data = *self.By
-        'BZ':     data = *self.Bz
-        'E-':     data = *self.electrons
-        'EX':     data = *self.Ex
-        'EY':     data = *self.Ey
-        'EZ':     data = *self.Ez
-        'NE':     data = *self.n_e
-        'NI':     data = *self.n_i
-        'PE-XX':  data = *self.Pe_xx
-        'PE-XY':  data = *self.Pe_xy
-        'PE-XZ':  data = *self.Pe_xz
-        'PE-YX':  data = *self.Pe_yx
-        'PE-YY':  data = *self.Pe_yy
-        'PE-YZ':  data = *self.Pe_yz
-        'PE-ZX':  data = *self.Pe_zx
-        'PE-ZY':  data = *self.Pe_zy
-        'PE-ZZ':  data = *self.Pe_zz
-        'PI-XX':  data = *self.Pi_xx
-        'PI-XY':  data = *self.Pi_xy
-        'PI-XZ':  data = *self.Pi_xz
-        'PI-YX':  data = *self.Pi_yx
-        'PI-YY':  data = *self.Pi_yy
-        'PI-YZ':  data = *self.Pi_yz
-        'PI-ZX':  data = *self.Pi_zx
-        'PI-ZY':  data = *self.Pi_zy
-        'PI-ZZ':  data = *self.Pi_zz
-        'UEX':    data = *self.Uex
-        'UEY':    data = *self.Uey
-        'UEZ':    data = *self.Uez
-        'UIX':    data = *self.Uix
-        'UIY':    data = *self.Uiy
-        'UIZ':    data = *self.Uiz
+    case strupcase(_name) of
+        'AY':     data = self -> GetGDA('Ay')
+        'BX':     data = self -> GetGDA('Bx')
+        'BY':     data = self -> GetGDA('By')
+        'BZ':     data = self -> GetGDA('Bz')
+        'E-':     *self.electrons
+        'EX':     data = self -> GetGDA('Ex')
+        'EY':     data = self -> GetGDA('Ey')
+        'EZ':     data = self -> GetGDA('Ez')
+        'NE':     data = self -> GetGDA('ne')
+        'NI':     data = self -> GetGDA('ni')
+        'PE-XX':  data = self -> GetGDA('Pe-xx')
+        'PE-XY':  data = self -> GetGDA('Pe-xy')
+        'PE-XZ':  data = self -> GetGDA('Pe-xz')
+        'PE-YX':  data = self -> GetGDA('Pe-xy')
+        'PE-YY':  data = self -> GetGDA('Pe-yy')
+        'PE-YZ':  data = self -> GetGDA('Pe-yz')
+        'PE-ZX':  data = self -> GetGDA('Pe-xz')
+        'PE-ZY':  data = self -> GetGDA('Pe-yz')
+        'PE-ZZ':  data = self -> GetGDA('Pe-zz')
+        'PI-XX':  data = self -> GetGDA('Pi-xx')
+        'PI-XY':  data = self -> GetGDA('Pi-xy')
+        'PI-XZ':  data = self -> GetGDA('Pi-xz')
+        'PI-YX':  data = self -> GetGDA('Pi-xy')
+        'PI-YY':  data = self -> GetGDA('Pi-yy')
+        'PI-YZ':  data = self -> GetGDA('Pi-yz')
+        'PI-ZX':  data = self -> GetGDA('Pi-xz')
+        'PI-ZY':  data = self -> GetGDA('Pi-yz')
+        'PI-ZZ':  data = self -> GetGDA('Pi-zz')
+        'UEX':    data = self -> GetGDA('Uex')
+        'UEY':    data = self -> GetGDA('Uey')
+        'UEZ':    data = self -> GetGDA('Uez')
+        'UIX':    data = self -> GetGDA('Uix')
+        'UIY':    data = self -> GetGDA('Uiy')
+        'UIZ':    data = self -> GetGDA('Uiz')
         
         ;Custom Data Products
         'A0_E':       data = self -> A0_e()
@@ -1169,10 +1169,6 @@ DZ=dz
         'EMAG':       data = self -> Emag()
         'EPAR':       data = self -> Epar()
         'EPERP':      data = self -> Eperp()
-        'EXB_MAG':    data = self -> ExB_mag()
-        'EXB_X':      data = self -> ExB_x()
-        'EXB_Y':      data = self -> ExB_y()
-        'EXB_Z':      data = self -> ExB_z()
         'EXJX':       data = self -> ExJx()
         'EYBY':       data = self -> EyBy()
         'EYJY':       data = self -> EyJy()
@@ -1228,6 +1224,10 @@ DZ=dz
         'UIXB_X':     data = self -> UixB_x()
         'UIXB_Y':     data = self -> UixB_y()
         'UIXB_Z':     data = self -> UixB_z()
+        'VEXB_MAG':   data = self -> vExB_mag()
+        'VEXB_X':     data = self -> vExB_x()
+        'VEXB_Y':     data = self -> vExB_y()
+        'VEXB_Z':     data = self -> vExB_z()
         'VXB_X':      data = self -> VxB_x()
         'VXB_Y':      data = self -> VxB_y()
         'VXB_Z':      data = self -> VxB_z()
@@ -1248,6 +1248,85 @@ DZ=dz
     if dz then data = self -> D_DZ(data, /OVERWRITE)
     
     return, data
+end
+
+
+;+
+;   The purpose of this program is to read data from a ".gda" file produced by 
+;   one of Bill Daughton's simulation runs.
+;
+; :Params:
+;       DATA_PRODUCT:       in, required, type=string, default=
+;                           The name of the data product to be read. For a list of
+;                               available data product, call mr_readSIM without any
+;                               arguments.
+;
+; :Keywords:
+;       DX:                 in, optional, type=boolean, default=0
+;                           If set, the derivative of `DATA_PRODUCT` with respect to X
+;                               will be taken.
+;       DZ:                 in, optional, type=boolean, default=0
+;                           If set, the derivative of `DATA_PRODUCT` with respect to Z
+;                               will be taken.
+;
+; :Returns:
+;       DATA:               The requested data. If the data product does not exist,
+;                               then !Null will be returned.
+;-
+function MrSim::GetGDA, name
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        void = cgErrorMSG()
+        return, !Null
+    endif
+
+    ;Convert name from current coordinate system to simulation coordinates
+    simName = MrSim_GDA_Rename(name, self.coord_system)
+
+    ;Read the data
+    if self -> HasData(simName) eq 0 then self -> ReadData, simName
+    
+    ;Return the data
+    case strupcase(simName) of
+        'AY':    return, *self.Ay
+        'BX':    return, *self.Bx
+        'BY':    return, *self.By
+        'BZ':    return, *self.Bz
+        'EX':    return, *self.Ex
+        'EY':    return, *self.Ey
+        'EZ':    return, *self.Ez
+        'NE':    return, *self.n_e
+        'NI':    return, *self.n_i
+        'PE-XX': return, *self.Pe_xx
+        'PE-XY': return, *self.Pe_xy
+        'PE-XZ': return, *self.Pe_xz
+        'PE-YX': return, *self.Pe_xy
+        'PE-YY': return, *self.Pe_yy
+        'PE-YZ': return, *self.Pe_yz
+        'PE-ZX': return, *self.Pe_xz
+        'PE-ZY': return, *self.Pe_yz
+        'PE-ZZ': return, *self.Pe_zz
+        'PI-XX': return, *self.Pi_xx
+        'PI-XY': return, *self.Pi_xy
+        'PI-XZ': return, *self.Pi_xz
+        'PI-YX': return, *self.Pi_xy
+        'PI-YY': return, *self.Pi_yy
+        'PI-YZ': return, *self.Pi_yz
+        'PI-ZX': return, *self.Pi_xz
+        'PI-ZY': return, *self.Pi_yz
+        'PI-ZZ': return, *self.Pi_zz
+        'UEX':   return, *self.Uex
+        'UEY':   return, *self.Uey
+        'UEZ':   return, *self.Uez
+        'UIX':   return, *self.Uix
+        'UIY':   return, *self.Uiy
+        'UIZ':   return, *self.Uiz
+        else: message, 'Not a valid GDA product: "' + name + '".'
+    endcase
 end
 
 
@@ -1483,9 +1562,9 @@ ZSIM = ZSim
     if arg_present(coord_system) then coord_system = self.coord_system
     if arg_present(directory)    then directory    = self.directory
     if arg_present(ion_scale)    then ion_scale    = self.ion_scale
-    if arg_present(ixrange)      then ixrange      = getIndexRange(*self.XSim, self.xrange)
-    if arg_present(iyrange)      then iyrange      = getIndexRange(*self.YSim, self.yrange)
-    if arg_present(izrange)      then izrange      = getIndexRange(*self.ZSim, self.zrange)
+    if arg_present(ixrange)      then ixrange      = MrIndexRange(*self.XSim, self.xrange)
+    if arg_present(iyrange)      then iyrange      = MrIndexRange(*self.YSim, self.yrange)
+    if arg_present(izrange)      then izrange      = MrIndexRange(*self.ZSim, self.zrange)
     if arg_present(mva_frame)    then mva_frame    = self.mva_frame
     if arg_present(orientation)  then orientation  = self.orientation
     if arg_present(simname)      then simname      = self.simname
@@ -1498,14 +1577,14 @@ ZSIM = ZSim
 
     ;Simulation Domain
     if arg_present(XSim) && n_elements(*self.XSim) gt 0 then begin
-        ix = getIndexRange(*self.XSim, self.xrange)
+        ix = MrIndexRange(*self.XSim, self.xrange)
         XSim = (*self.XSim)[ix[0]:ix[1]]
     endif
     
     ;2D simulations have only 1 grid cell in Y
     if arg_present(YSim) then begin
         if n_elements(*self.YSim) gt 1 then begin
-            iy = getIndexRange(*self.YSim, self.yrange)
+            iy = MrIndexRange(*self.YSim, self.yrange)
             YSim = (*self.YSim)[iy[0]:iy[1]]
         endif else begin
             YSim = (*self.YSim)
@@ -1513,7 +1592,7 @@ ZSIM = ZSim
     endif
 
     if arg_present(ZSim) && n_elements(*self.ZSim) gt 0 then begin
-        iz = getIndexRange(*self.ZSim, self.zrange)
+        iz = MrIndexRange(*self.ZSim, self.zrange)
         ZSim = (*self.ZSim)[iz[0]:iz[1]]
     endif
 end
@@ -1606,11 +1685,65 @@ Z=z
     ;Get the location
     case 1 of
         x: cell = value_locate(*self.xSim, coord)
-        y: cell = value_locate(*self.ySim, coord)
+        y: cell = n_elements(*self.ySim) eq 1 ? 0 : value_locate(*self.ySim, coord)
         z: cell = value_locate(*self.zSim, coord)
     endcase
     
     return, cell
+end
+
+
+;+
+;   Convert time, normalized to the ion gyroperiod, to time indices into the .gda data
+;   files.
+;
+; :Params:
+;       TXWCI:          in, required, type=integer
+;                       Time, normalized by the ion cyclotron frequency.
+;
+; :Returns:
+;       TINDEX:         Time index into the .gda files.
+;-
+function MrSim::GetTIndex, txwci
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Get the interval between saves.
+    self -> GetInfo, DTXWCI=dtxwci
+    if n_elements(dtxwci) eq 0 then $
+        message, 'Cannot convert: dt*wci unknown. Read ASCII info file and see MrSim_Which.'
+
+    ;Create a long integer of the time index.
+    tIndex = fix(txwci / dtxwci, TYPE=3)
+    
+    return, tIndex
+end
+
+
+;+
+;   Convert time indices into the .gda data files to time, normalized to the ion
+;   gyroperiod.
+;
+; :Params:
+;       TINDEX:         in, required, type=integer
+;                       Time index into the .gda files.
+;
+; :Returns:
+;       TXWCI:          Time, normalized by the ion cyclotron frequency.
+;-
+function MrSim::GetTxWci, tIndex
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Get the interval between saves.
+    self -> GetInfo, DTXWCI=dtxwci
+    if n_elements(dtxwci) eq 0 then $
+        message, 'Cannot convert: dt*wci unknown. Read ASCII info file and see MrSim_Which.'
+
+    ;Create a long integer of the time index.
+    txwci = tIndex * dtxwci
+    
+    return, txwci
 end
 
 
@@ -1663,20 +1796,20 @@ function MrSim::HasData, data_product
         'PE-XX': if n_elements(*self.Pe_xx)     gt 0 then tf_has = 1B
         'PE-XY': if n_elements(*self.Pe_xy)     gt 0 then tf_has = 1B
         'PE-XZ': if n_elements(*self.Pe_xz)     gt 0 then tf_has = 1B
-        'PE-YX': if n_elements(*self.Pe_yx)     gt 0 then tf_has = 1B
+        'PE-YX': if n_elements(*self.Pe_xy)     gt 0 then tf_has = 1B
         'PE-YY': if n_elements(*self.Pe_yy)     gt 0 then tf_has = 1B
         'PE-YZ': if n_elements(*self.Pe_yz)     gt 0 then tf_has = 1B
-        'PE-ZX': if n_elements(*self.Pe_zx)     gt 0 then tf_has = 1B
-        'PE-ZY': if n_elements(*self.Pe_zy)     gt 0 then tf_has = 1B
+        'PE-ZX': if n_elements(*self.Pe_xz)     gt 0 then tf_has = 1B
+        'PE-ZY': if n_elements(*self.Pe_yz)     gt 0 then tf_has = 1B
         'PE-ZZ': if n_elements(*self.Pe_zz)     gt 0 then tf_has = 1B
         'PI-XX': if n_elements(*self.Pi_xx)     gt 0 then tf_has = 1B
         'PI-XY': if n_elements(*self.Pi_xy)     gt 0 then tf_has = 1B
         'PI-XZ': if n_elements(*self.Pi_xz)     gt 0 then tf_has = 1B
-        'PI-YX': if n_elements(*self.Pi_yx)     gt 0 then tf_has = 1B
+        'PI-YX': if n_elements(*self.Pi_xy)     gt 0 then tf_has = 1B
         'PI-YY': if n_elements(*self.Pi_yy)     gt 0 then tf_has = 1B
         'PI-YZ': if n_elements(*self.Pi_yz)     gt 0 then tf_has = 1B
-        'PI-ZX': if n_elements(*self.Pi_zx)     gt 0 then tf_has = 1B
-        'PI-ZY': if n_elements(*self.Pi_zy)     gt 0 then tf_has = 1B
+        'PI-ZX': if n_elements(*self.Pi_xz)     gt 0 then tf_has = 1B
+        'PI-ZY': if n_elements(*self.Pi_yz)     gt 0 then tf_has = 1B
         'PI-ZZ': if n_elements(*self.Pi_zz)     gt 0 then tf_has = 1B
         'UEX':   if n_elements(*self.Uex)       gt 0 then tf_has = 1B
         'UEY':   if n_elements(*self.Uey)       gt 0 then tf_has = 1B
@@ -1800,20 +1933,20 @@ pro MrSim::SetData, name, data
         'PE-XX': *self.Pe_xx = data
         'PE-XY': *self.Pe_xy = data
         'PE-XZ': *self.Pe_xz = data
-        'PE-YX': *self.Pe_yx = data
+        'PE-YX': *self.Pe_xy = data
         'PE-YY': *self.Pe_yy = data
         'PE-YZ': *self.Pe_yz = data
-        'PE-ZX': *self.Pe_zx = data
-        'PE-ZY': *self.Pe_zy = data
+        'PE-ZX': *self.Pe_xz = data
+        'PE-ZY': *self.Pe_yz = data
         'PE-ZZ': *self.Pe_zz = data
         'PI-XX': *self.Pi_xx = data
         'PI-XY': *self.Pi_xy = data
         'PI-XZ': *self.Pi_xz = data
-        'PI-YX': *self.Pi_yx = data
+        'PI-YX': *self.Pi_xy = data
         'PI-YY': *self.Pi_yy = data
         'PI-YZ': *self.Pi_yz = data
-        'PI-ZX': *self.Pi_zx = data
-        'PI-ZY': *self.Pi_zy = data
+        'PI-ZX': *self.Pi_xz = data
+        'PI-ZY': *self.Pi_yz = data
         'PI-ZZ': *self.Pi_zz = data
         'UEX':   *self.Uex = data
         'UEY':   *self.Uey = data
@@ -2296,13 +2429,13 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
     if horizontal eq 0 then begin
         ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(YSim, cut_yrange)
+        iRange = MrIndexRange(YSim, cut_yrange)
         pos = YSim[iRange[0]:iRange[1]]
 
         ;X-locations of the subset of vertical cuts to be displayed. If matches are
         ;not exact, round up instead of down.
         iCuts = value_locate(XSim, locations)
-        void = ismember(XSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
+        void = MrIsMember(XSim[iCuts], locations, COMPLEMENT=bumpThese)
         if n_elements(bumpThese) ne 0 then iCuts[bumpThese] += 1
     
         ;data as a function of z along the vertical line.
@@ -2314,13 +2447,13 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
     endif else begin
         ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(XSim, cut_xrange)
+        iRange = MrIndexRange(XSim, cut_xrange)
         pos = XSim[iRange[0]:iRange[1]]
 
         ;Z-locations of the subset of vertical cuts to be displayed. If matches are
         ;not exact, round up instead of down.
         iCuts = value_locate(YSim, locations)
-        void = ismember(YSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
+        void = MrIsMember(YSim[iCuts], locations, COMPLEMENT=bumpThese)
         if n_elements(bumpThese) ne 0 then icut_pts[bumpThese] += 1
 
         ;data as a function of x along the horizontal line.
@@ -2431,13 +2564,13 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
     if horizontal then begin
         ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(XSim, cut_xrange, STRIDE=stride)
+        iRange = MrIndexRange(XSim, cut_xrange, STRIDE=stride)
         pos = XSim[iRange[0]:iRange[1]:stride]
 
         ;Z-locations of the subset of vertical cuts to be displayed. If matches are
         ;not exact, round up instead of down.
         iCuts = value_locate(ZSim, locations)
-        void = ismember(ZSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
+        void = MrIsMember(ZSim[iCuts], locations, COMPLEMENT=bumpThese)
         if n_elements(bumpThese) ne 0 then icuts[bumpThese] += 1
 
         ;data as a function of x along the horizontal line.
@@ -2448,13 +2581,13 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
     endif else begin
         ;Get the index range over which the vertcal cuts span
-        iRange = getIndexRange(ZSim, cut_zrange, STRIDE=stride)
+        iRange = MrIndexRange(ZSim, cut_zrange, STRIDE=stride)
         pos = ZSim[iRange[0]:iRange[1]:stride]
 
         ;X-locations of the subset of vertical cuts to be displayed. If matches are
         ;not exact, round up instead of down.
         iCuts = value_locate(XSim, locations)
-        void = ismember(XSim[iCuts], locations, NONMEMBER_INDS=bumpThese)
+        void = MrIsMember(XSim[iCuts], locations, COMPLEMENT=bumpThese)
         if n_elements(bumpThese) ne 0 then icuts[bumpThese] += 1
     
         ;data as a function of z along the vertical line.
@@ -2631,8 +2764,7 @@ function MrSim::divPe_x
     Pe_xx = self -> getData('Pe-xx')
     Pe_xy = self -> getData('Pe-xy')
     Pe_xz = self -> getData('Pe-xz')
-    n_e = self -> getData('ne')
-    
+    n_e   = self -> getData('ne')
     dims = size(Pe_xx, /DIMENSIONS)
     
     ;Get the x-size of a grid cell in electron skin depth
@@ -3089,45 +3221,7 @@ end
 ;       ExB_z:                  The z-component of the cross product between the Electric
 ;                                   and Magnetic Fields.
 ;-
-function MrSim::eCounts
-	compile_opt strictarr, hidden
-	
-	;Get the Electric and Magnetic Field data
-    electrons = self -> GetElectrons(self.xrange, self.zrange)
-    Ey = self -> getData('Ey')
-    Ez = self -> getData('Ez')
-    Bx = self -> getData('Bx')
-    By = self -> getData('By')
-    Bz = self -> getData('Bz')
-    
-    ;Calculate the magnitude of ExB
-    B_mag_squared = Bx^2 + By^2 + Bz^2
-    ExB_x  = (Ey*Bz - Ez*By) / B_mag_squared
-    ExB_y  = (Ez*Bx - Ex*Bz) / B_mag_squared
-    ExB_z  = (Ex*By - Ey*Bx) / B_mag_squared
-    ExB_mag = sqrt(ExB_x^2 + ExB_y^2 + ExB_z^2)
-    
-    return, ExB_mag
-end
-
-
-;+
-;   The purpose of this program is to calculate the z-component of the cross product 
-;   between the Electric and Magnetic Fields::
-;       |B| = sqrt( Bx^2 + By^2 + Bz^2 )
-;       ExB_x = (Ey*Bz - Ez*By) / |B|^2
-;       ExB_y = (Ez*Bx - Ex*Bz) / |B|^2
-;       ExB_z = (Ex*By - Ey*Bx) / |B|^2
-;       ExB = ExB_x + ExB_y + ExB_z
-;       |ExB| = sqrt(ExB dot ExB) = sqrt( ExB_x^2 + ExB_y^2 + ExB_z^2 )
-;
-; :Private:
-;
-; :Returns:
-;       ExB_z:                  The z-component of the cross product between the Electric
-;                                   and Magnetic Fields.
-;-
-function MrSim::ExB_mag
+function MrSim::vExB_mag
 	compile_opt strictarr, hidden
 	
 	;Get the Electric and Magnetic Field data
@@ -3164,7 +3258,7 @@ end
 ;       ExB_x:                  The x-component of the cross product between the Electric
 ;                                   and Magnetic Fields.
 ;-
-function MrSim::ExB_x
+function MrSim::vExB_x
 	compile_opt strictarr, hidden
 	
 	;Get the Electric and Magnetic Field data
@@ -3197,13 +3291,12 @@ end
 ;       ExB_y:                  The y-component of the cross product between the Electric
 ;                                   and Magnetic Fields.
 ;-
-function MrSim::ExB_y
+function MrSim::vExB_y
 	compile_opt strictarr, hidden
 	on_error, 2
 	
 	;Get the Electric and Magnetic Field data
     Ex = self -> getData('Ex')
-    Ey = self -> getData('Ey')
     Ez = self -> getData('Ez')
     Bx = self -> getData('Bx')
     By = self -> getData('By')
@@ -3232,13 +3325,12 @@ end
 ;       ExB_z:                  The z-component of the cross product between the Electric
 ;                                   and Magnetic Fields.
 ;-
-function MrSim::ExB_z
+function MrSim::vExB_z
 	compile_opt strictarr, hidden
 	
 	;Get the Electric and Magnetic Field data
     Ex = self -> getData('Ex')
     Ey = self -> getData('Ey')
-    Ez = self -> getData('Ez')
     Bx = self -> getData('Bx')
     By = self -> getData('By')
     Bz = self -> getData('Bz')
