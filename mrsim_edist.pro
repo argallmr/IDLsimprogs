@@ -57,6 +57,9 @@
 ;                           faster than the previous method. - MRA
 ;       2014/10/30  -   Changed input parameters X and Z to BIN_CENTER and HALF_WIDTH.
 ;                           Added YRANGE parameter to helper functions. - MRA
+;       2014/11/21  -   Better documentation. Parameters removed from helper functions
+;                           when not needed. Dimensionality of simulation determined by
+;                           `BIN_CENTER` coordinates. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -64,19 +67,19 @@
 ;   field throughout the area defined by XRANGE and ZRANGE is used.
 ;
 ; :Params:
+;       SIM_OBJECT:     in, required, type=object
+;                       A MrSim subclassed object used to read simulation data.
 ;       XRANGE:         in, required, type=fltarr(2)
 ;                       x-range over which particle counts will be collected.
 ;       YRANGE:         in, required, type=fltarr(2)
 ;                       y-range over which particle counts will be collected.
 ;       ZRANGE:         in, required, type=fltarr(2)
 ;                       z-range over which particle counts will be collected.
-;       SIM_OBJECT:     in, required, type=object
-;                       A MrSim subclassed object used to read simulation data.
 ;
 ; :Returns:
 ;       B_HAT:          A unit vector pointing in the direction of the magnetic field.
 ;-
-function MrSim_eDist_B_hat, xrange, yrange, zrange, sim_object
+function MrSim_eDist_B_hat, sim_object, xrange, yrange, zrange
     compile_opt strictarr
     on_error, 2
     
@@ -98,14 +101,14 @@ end
 ;   electric fields throughout the area defined by XRANGE and ZRANGE is used.
 ;
 ; :Params:
+;       SIM_OBJECT:     in, required, type=object
+;                       A MrSim subclassed object used to read simulation data.
 ;       XRANGE:         in, required, type=fltarr(2)
 ;                       x-range over which particle counts will be collected.
 ;       YRANGE:         in, required, type=fltarr(2)
 ;                       y-range over which particle counts will be collected.
 ;       ZRANGE:         in, required, type=fltarr(2)
 ;                       z-range over which particle counts will be collected.
-;       SIM_OBJECT:     in, required, type=object
-;                       A MrSim subclassed object used to read simulation data.
 ;
 ; :Keywords:
 ;       B_HAT:          out, optional, type=float(3)
@@ -117,7 +120,7 @@ end
 ;       P1_HAT:         A unit vector pointing in the ExB-direction, perpendicular to the
 ;                           magnetic field.
 ;-
-function MrSim_eDist_Perp1_hat, xrange, yrange, zrange, sim_object, $
+function MrSim_eDist_Perp1_hat, sim_object, xrange, yrange, zrange, $
 B_HAT=b_hat, $
 E_HAT=e_hat
     compile_opt strictarr
@@ -155,14 +158,14 @@ end
 ;   and electric fields throughout the area defined by XRANGE and ZRANGE is used.
 ;
 ; :Params:
+;       SIM_OBJECT:     in, required, type=object
+;                       A MrSim subclassed object used to read simulation data.
 ;       XRANGE:         in, required, type=fltarr(2)
 ;                       x-range over which particle counts will be collected.
 ;       YRANGE:         in, required, type=fltarr(2)
 ;                       y-range over which particle counts will be collected.
 ;       ZRANGE:         in, required, type=fltarr(2)
 ;                       z-range over which particle counts will be collected.
-;       SIM_OBJECT:     in, required, type=object
-;                       A MrSim subclassed object used to read simulation data.
 ;
 ; :Keywords:
 ;       B_HAT:          out, optional, type=float(3)
@@ -176,7 +179,7 @@ end
 ;       P2_HAT:         A unit vector pointing in the Bx(ExB)-direction, perpendicular to
 ;                           the magnetic field and the ExB-drift direction.
 ;-
-function MrSim_eDist_Perp2_hat, xrange, yrange, zrange, sim_object, $
+function MrSim_eDist_Perp2_hat, sim_object, xrange, yrange, zrange, $
 B_HAT=b_hat, $
 E_HAT=E_hat, $
 P1_HAT=p1_hat
@@ -222,10 +225,6 @@ end
 ; :Params:
 ;       E_DATA:         in, required, type=5xN float
 ;                       Electron distribution data.
-;       XRANGE:         in, required, type=fltarr(2)
-;                       x-range over which particle counts will be collected.
-;       ZRANGE:         in, required, type=fltarr(2)
-;                       z-range over which particle counts will be collected.
 ;
 ; :Keywords:
 ;       NBINS:          in, optional, type=integer/intarr(2), default=256
@@ -236,7 +235,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_x_z, e_data, xrange, yrange, zrange, $
+function MrSim_eDist_x_z, e_data, $
 NBINS=nBins
     compile_opt strictarr
     
@@ -252,9 +251,13 @@ NBINS=nBins
     ;Histogram in velocity space
     ;   - [x, z, ux, uy, uz]
     ;   - [x, y, z, ux, uy, uz]
-    if dims[0] eq 5 $
-        then e_dist = hist_nd(e_data[[0,1], *], NBINS=nBins) $
-        else e_dist = hist_nd(e_data[[0,2], *], NBINS=nBins)
+    if dims[0] eq 5 then begin
+        e_dist = hist_nd(e_data[[0,1], *], NBINS=nBins)
+        zrange = [min(e_data[1,*], MAX=zMax), zMax]
+    endif else begin
+        e_dist = hist_nd(e_data[[0,2], *], NBINS=nBins)
+        zrange = [min(e_data[2,*], MAX=zMax), zMax]
+    endelse
     
     ;Create the axis locations
     dims = size(e_dist, /DIMENSIONS)
@@ -264,6 +267,8 @@ NBINS=nBins
     ;Plotting parameters
     xtitle = 'x (de)'
     ytitle = 'z (de)'
+    xrange = [min(e_data[0,*], MAX=xMax), xMax]
+    yrange = zrange
 
     ;Create the distribution function
     img = MrImage(e_dist, xloc, zloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
@@ -280,10 +285,6 @@ end
 ; :Params:
 ;       E_DATA:         in, required, type=5xN float
 ;                       Electron distribution data.
-;       XRANGE:         in, required, type=fltarr(2)
-;                       x-range over which particle counts will be collected.
-;       ZRANGE:         in, required, type=fltarr(2)
-;                       z-range over which particle counts will be collected.
 ;
 ; :Keywords:
 ;       NBINS:          in, optional, type=integer/intarr(2), default=256
@@ -297,7 +298,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_x_Vx, e_data, xrange, yrange, zrange, $
+function MrSim_eDist_x_Vx, e_data, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -336,6 +337,7 @@ V_VA=v_va
     ytitle  = 'V$\downx$' + (v_va ? '/V$\downA$' : '/c')
     vmax    = max(abs(vxRange))
     yrange  = [-vmax, vmax]
+    xrange  = [min(e_data[0,*], MAX=xMax), xMax]
     
     ;Create the distribution function
     img    = MrImage(e_dist, xloc, yloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
@@ -352,10 +354,6 @@ end
 ; :Params:
 ;       E_DATA:         in, required, type=5xN float
 ;                       Electron distribution data.
-;       XRANGE:         in, required, type=fltarr(2)
-;                       x-range over which particle counts will be collected.
-;       ZRANGE:         in, required, type=fltarr(2)
-;                       z-range over which particle counts will be collected.
 ;
 ; :Keywords:
 ;       NBINS:          in, optional, type=integer/intarr(2), default=256
@@ -369,7 +367,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_z_Vz, e_data, xrange, yrange, zrange, $
+function MrSim_eDist_z_Vz, e_data, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -391,23 +389,26 @@ V_VA=v_va
     ;   - [x, z, ux, uy, uz]
     ;   - [x, y, z, ux, uy, uz]
     if dims[0] eq 5 then begin
-        e_dist = hist_nd(e_data[[1,4], *], NBINS=nBins)
+        e_dist  = hist_nd(e_data[[1,4], *], NBINS=nBins)
         vzRange = [min(e_data[4,*], MAX=vzMax), vzMax]
+        zrange  = [min(e_data[1,*], MAX=zMax),   zMax]
     endif else begin
-        e_dist = hist_nd(e_data[[1,5], *], NBINS=nBins)
+        e_dist  = hist_nd(e_data[[1,5], *], NBINS=nBins)
         vzRange = [min(e_data[5,*], MAX=vzMax), vzMax]
+        zrange  = [min(e_data[2,*], MAX=zMax),   zMax]
     endelse
     
     ;Create the spacial grid
-    dims    = size(e_dist, /DIMENSIONS)
-    xloc    = linspace(zrange[0], zrange[1], dims[0])
-    yloc    = linspace(vzRange[0], vzRange[1], dims[1])
+    dims   = size(e_dist, /DIMENSIONS)
+    xloc   = linspace(zrange[0], zrange[1], dims[0])
+    yloc   = linspace(vzRange[0], vzRange[1], dims[1])
     
     ;Plotting parameters
-    xtitle  = 'z (de)'
-    ytitle  = 'V$\downz$' + (v_va ? '/V$\downA$' : '/c')
-    vmax    = max(abs(vzRange))
-    yrange  = [-vmax, vmax]
+    xtitle = 'z (de)'
+    ytitle = 'V$\downz$' + (v_va ? '/V$\downA$' : '/c')
+    vmax   = max(abs(vzRange))
+    yrange = [-vmax, vmax]
+    xrange = zrange
     
     ;Create the distribution function
     img    = MrImage(e_dist, xloc, yloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
@@ -424,10 +425,6 @@ end
 ; :Params:
 ;       E_DATA:         in, required, type=5xN float
 ;                       Electron distribution data.
-;       XRANGE:         in, required, type=fltarr(2)
-;                       x-range over which particle counts will be collected.
-;       ZRANGE:         in, required, type=fltarr(2)
-;                       z-range over which particle counts will be collected.
 ;
 ; :Keywords:
 ;       NBINS:          in, optional, type=integer/intarr(2), default=256
@@ -441,7 +438,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vx_Vz, e_data, xrange, yrange, zrange, $
+function MrSim_eDist_Vx_Vz, e_data, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -499,10 +496,6 @@ end
 ; :Params:
 ;       E_DATA:         in, required, type=5xN float
 ;                       Electron distribution data.
-;       XRANGE:         in, required, type=fltarr(2)
-;                       x-range over which particle counts will be collected.
-;       ZRANGE:         in, required, type=fltarr(2)
-;                       z-range over which particle counts will be collected.
 ;
 ; :Keywords:
 ;       NBINS:          in, optional, type=integer/intarr(2), default=256
@@ -516,7 +509,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vx_Vy, e_data, xrange, yrange, zrange, $
+function MrSim_eDist_Vx_Vy, e_data, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -574,10 +567,6 @@ end
 ; :Params:
 ;       E_DATA:         in, required, type=5xN float
 ;                       Electron distribution data.
-;       XRANGE:         in, required, type=fltarr(2)
-;                       x-range over which particle counts will be collected.
-;       ZRANGE:         in, required, type=fltarr(2)
-;                       z-range over which particle counts will be collected.
 ;
 ; :Keywords:
 ;       NBINS:          in, optional, type=integer/intarr(2), default=256
@@ -591,7 +580,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vy_Vz, e_data, xrange, yrange, zrange, $
+function MrSim_eDist_Vy_Vz, e_data, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -649,8 +638,12 @@ end
 ; :Params:
 ;       E_DATA:         in, required, type=5xN float
 ;                       Electron distribution data.
+;       SIM_OBJECT:     in, required, type=object
+;                       A MrSim subclassed object used to read simulation data.
 ;       XRANGE:         in, required, type=fltarr(2)
 ;                       x-range over which particle counts will be collected.
+;       YRANGE:         in, required, type=fltarr(2)
+;                       y-range over which particle counts will be collected.
 ;       ZRANGE:         in, required, type=fltarr(2)
 ;                       z-range over which particle counts will be collected.
 ;
@@ -666,7 +659,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vpar_Vperp, e_data, xrange, yrange, zrange, sim_object, $
+function MrSim_eDist_Vpar_Vperp, e_data, sim_object, xrange, yrange, zrange, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -686,7 +679,7 @@ V_VA=v_va
     v_va = keyword_set(v_va)
     
     ;Get the average magnetic field in the bin
-    B_hat = MrSim_eDist_B_hat(xrange, yrange, zrange, sim_object)
+    B_hat = MrSim_eDist_B_hat(sim_object, xrange, yrange, zrange)
     
     ;Magnitude, parallel, and perpendicular components
     ;   - [x, z, ux, uy, uz]
@@ -738,8 +731,12 @@ end
 ; :Params:
 ;       E_DATA:         in, required, type=5xN float
 ;                       Electron distribution data.
+;       SIM_OBJECT:     in, required, type=object
+;                       A MrSim subclassed object used to read simulation data.
 ;       XRANGE:         in, required, type=fltarr(2)
 ;                       x-range over which particle counts will be collected.
+;       YRANGE:         in, required, type=fltarr(2)
+;                       y-range over which particle counts will be collected.
 ;       ZRANGE:         in, required, type=fltarr(2)
 ;                       z-range over which particle counts will be collected.
 ;
@@ -755,7 +752,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vpar_Vperp1, e_data, xrange, yrange, zrange, sim_object, $
+function MrSim_eDist_Vpar_Vperp1, e_data, sim_object, xrange, yrange, zrange, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -775,7 +772,7 @@ V_VA=v_va
     v_va = keyword_set(v_va)
     
     ;Get the parallel and perp1-directions
-    p1_hat = MrSim_eDist_Perp1_hat(xrange, yrange, zrange, sim_object, B_HAT=B_hat)
+    p1_hat = MrSim_eDist_Perp1_hat(sim_object, xrange, yrange, zrange, B_HAT=B_hat)
     
     ;Perpendicular directions
     ;   - [x, z, ux, uy, uz]
@@ -830,8 +827,12 @@ end
 ; :Params:
 ;       E_DATA:         in, required, type=5xN float
 ;                       Electron distribution data.
+;       SIM_OBJECT:     in, required, type=object
+;                       A MrSim subclassed object used to read simulation data.
 ;       XRANGE:         in, required, type=fltarr(2)
 ;                       x-range over which particle counts will be collected.
+;       YRANGE:         in, required, type=fltarr(2)
+;                       y-range over which particle counts will be collected.
 ;       ZRANGE:         in, required, type=fltarr(2)
 ;                       z-range over which particle counts will be collected.
 ;
@@ -847,7 +848,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vpar_Vperp2, e_data, xrange, yrange, zrange, sim_object, $
+function MrSim_eDist_Vpar_Vperp2, e_data, sim_object, xrange, yrange, zrange, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -867,7 +868,7 @@ V_VA=v_va
     v_va = keyword_set(v_va)
     
     ;Get the parallel and perp1-directions
-    p2_hat = MrSim_eDist_Perp2_hat(xrange, yrange, zrange, sim_object, B_HAT=B_hat)
+    p2_hat = MrSim_eDist_Perp2_hat(sim_object, xrange, yrange, zrange, B_HAT=B_hat)
     
     ;Perpendicular directions
     ;   - [x, z, ux, uy, uz]
@@ -922,8 +923,12 @@ end
 ; :Params:
 ;       E_DATA:         in, required, type=5xN float
 ;                       Electron distribution data.
+;       SIM_OBJECT:     in, required, type=object
+;                       A MrSim subclassed object used to read simulation data.
 ;       XRANGE:         in, required, type=fltarr(2)
 ;                       x-range over which particle counts will be collected.
+;       YRANGE:         in, required, type=fltarr(2)
+;                       y-range over which particle counts will be collected.
 ;       ZRANGE:         in, required, type=fltarr(2)
 ;                       z-range over which particle counts will be collected.
 ;
@@ -939,7 +944,7 @@ end
 ; :Returns:
 ;       IMG:            A MrImage object refernce to the plot of the distribution function.
 ;-
-function MrSim_eDist_Vperp1_Vperp2, e_data, xrange, yrange, zrange, sim_object, $
+function MrSim_eDist_Vperp1_Vperp2, e_data, sim_object, xrange, yrange, zrange, $
 NBINS=nBins, $
 V_VA=v_va
     compile_opt strictarr
@@ -959,7 +964,7 @@ V_VA=v_va
     v_va = keyword_set(v_va)
     
     ;Get the perp1 and perp2-directions
-    p2_hat = MrSim_eDist_Perp2_hat(xrange, yrange, zrange, sim_object, P1_HAT=p1_hat)
+    p2_hat = MrSim_eDist_Perp2_hat(sim_object, xrange, yrange, zrange, P1_HAT=p1_hat)
     
     ;Perpendicular directions
     ;   - [x, z, ux, uy, uz]
@@ -1110,7 +1115,7 @@ _REF_EXTRA=ref_extra
         
     ;Object?
     endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM') eq 0 $
+        if obj_isa(theSim, 'MRSIM2') eq 0 $
             then message, 'THESIM must be a subclass of the MrSim class.' $
             else oSim = theSim
             
@@ -1139,22 +1144,22 @@ _REF_EXTRA=ref_extra
     ;Dependencies
     if energy + momentum gt 1 then $
         message, 'Keywords ENERGY and MOMENTUM are mutually exclusive.'
-    
-    ;Location and size of the distribution function
-    center = n_elements(bin_center) eq 2 ? [bin_center[0], 0, bin_center[1]] : bin_center
-    width  = n_elements(half_width) eq 0 ? [half_width[0], 0, half_width[1]] : half_width
-    
+
+    ;Number of spacial dimensions in the simulation.
+    dims  = size(bin_center, /DIMENSIONS)
+    nDims = dims[0]
+
     ;Volume of distribution function.
-    xrange = center[0] + [-width[0], width[0]]
-    yrange = center[1] + [-width[1], width[1]]
-    zrange = center[2] + [-width[2], width[2]]
+    x1_range = bin_center[0] + [-half_width[0], half_width[0]]
+    x2_range = bin_center[1] + [-half_width[1], half_width[1]]
+    if nDims eq 3 then x3_range = bin_center[2] + [-half_width[2], half_width[2]]
     
 ;-------------------------------------------------------
 ;Select Data ///////////////////////////////////////////
 ;-------------------------------------------------------
     ;Pick out the data
-    e_data = oSim -> ReadElectrons(filename, FMAP_DIR=fmap_dir, /VELOCITY, $
-                                             XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange)
+    e_data = oSim -> ReadElectrons(filename, FMAP_DIR=fmap_dir, $
+                                   X1_RANGE=x1_range, X2_RANGE=x2_range, X3_RANGE=x3_range)
     if n_elements(e_data) eq 0 then return, !Null
     
     ;Convert to units of v/vA from v/c?
@@ -1192,16 +1197,16 @@ _REF_EXTRA=ref_extra
 
     ;Make the distribution
     case _type of
-        'X-Z':           img = MrSim_eDist_x_z(e_data,   xrange, yrange, zrange, NBINS=nBins)
-        'X-VX':          img = MrSim_eDist_x_Vx(e_data,  xrange, yrange, zrange, NBINS=nBins, V_VA=v_va)
-        'Z-VZ':          img = MrSim_eDist_z_Vz(e_data,  xrange, yrange, zrange, NBINS=nBins, V_VA=v_va)
-        'VX-VZ':         img = MrSim_eDist_Vx_Vz(e_data, xrange, yrange, zrange, NBINS=nBins, V_VA=v_va)
-        'VX-VY':         img = MrSim_eDist_Vx_Vy(e_data, xrange, yrange, zrange, NBINS=nBins, V_VA=v_va)
-        'VY-VZ':         img = MrSim_eDist_Vy_Vz(e_data, xrange, yrange, zrange, NBINS=nBins, V_VA=v_va)
-        'VPAR-VPERP':    img = MrSim_eDist_Vpar_Vperp(e_data,    xrange, yrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
-        'VPAR-VPERP1':   img = MrSim_eDist_Vpar_Vperp1(e_data,   xrange, yrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
-        'VPAR-VPERP2':   img = MrSim_eDist_Vpar_Vperp2(e_data,   xrange, yrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
-        'VPERP1-VPERP2': img = MrSim_eDist_Vperp1_Vperp2(e_data, xrange, yrange, zrange, oSim, NBINS=nBins, V_VA=v_va)
+        'X-Z':           img = MrSim_eDist_x_z(e_data,   NBINS=nBins)
+        'X-VX':          img = MrSim_eDist_x_Vx(e_data,  NBINS=nBins, V_VA=v_va)
+        'Z-VZ':          img = MrSim_eDist_z_Vz(e_data,  NBINS=nBins, V_VA=v_va)
+        'VX-VZ':         img = MrSim_eDist_Vx_Vz(e_data, NBINS=nBins, V_VA=v_va)
+        'VX-VY':         img = MrSim_eDist_Vx_Vy(e_data, NBINS=nBins, V_VA=v_va)
+        'VY-VZ':         img = MrSim_eDist_Vy_Vz(e_data, NBINS=nBins, V_VA=v_va)
+        'VPAR-VPERP':    img = MrSim_eDist_Vpar_Vperp(e_data,    oSim, x1_range, x2_range, x3_range, NBINS=nBins, V_VA=v_va)
+        'VPAR-VPERP1':   img = MrSim_eDist_Vpar_Vperp1(e_data,   oSim, x1_range, x2_range, x3_range, NBINS=nBins, V_VA=v_va)
+        'VPAR-VPERP2':   img = MrSim_eDist_Vpar_Vperp2(e_data,   oSim, x1_range, x2_range, x3_range, NBINS=nBins, V_VA=v_va)
+        'VPERP1-VPERP2': img = MrSim_eDist_Vperp1_Vperp2(e_data, oSim, x1_range, x2_range, x3_range, NBINS=nBins, V_VA=v_va)
         else:            message, 'Distribution type "' + type + '" not recognized.'
     endcase
     e_data = !Null
@@ -1226,8 +1231,8 @@ _REF_EXTRA=ref_extra
     endif
     
     ;Add text annotations
-    xText = string(FORMAT='(%"X=%0.1f$\\+-$%0.1f")', center[0], width[0])
-    zText = string(FORMAT='(%"Z=%0.1f$\\+-$%0.1f")', center[2], width[2])
+    xText = string(FORMAT='(%"X=%0.1f$\\+-$%0.1f")', bin_center[0], half_width[0])
+    zText = string(FORMAT='(%"Z=%0.1f$\\+-$%0.1f")', bin_center[nDims-1], half_width[nDims-1])
     !Null = MrText(0.04, 0.87, xText, /RELATIVE, TARGET=img, NAME='BinX')
     !Null = MrText(0.04, 0.05, zText, /RELATIVE, TARGET=img, NAME='BinZ')
     

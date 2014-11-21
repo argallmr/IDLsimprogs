@@ -813,15 +813,15 @@ end
 ;                           Directory in which fMaps are saved.
 ;-
 pro MrSim_Which_AsymmScan_By0, tIndex, $
-INFO_ASCII=info_ascii, $
 ASCII_VERSION=ascii_version, $
-INFO_BINARY=info_binary, $
+DIST3D=dist3D, $
 DTXWCI=dtxwci, $
 ECOUNTFACTOR=eCountFactor, $
 EFILE=eFile, $
 EREGIONS=eRegions, $
 FMAP_DIR=fMap_dir, $
-DIST3D=dist3D
+INFO_ASCII=info_ascii, $
+INFO_BINARY=info_binary
     compile_opt strictarr
     on_error, 2
 

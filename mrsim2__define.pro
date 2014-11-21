@@ -153,15 +153,15 @@ ZRANGE = zrange
 
     ;Get information about the simulation
     MrSim_Which, theSim, NAME=simname, NUMBER=simnum, $
-                 DIRECTORY=_dir, ASCII_INFO=_ascii_info, BINARY_INFO=_bin_info, $
+                 DIRECTORY=_dir, INFO_ASCII=_ascii_info, INFO_BINARY=_bin_info, $
                  ASCII_VERSION=vASCII, DIMENSION=dimension, ASYMMETRIC=asymmetric
     
     ;Defaults
     binary = keyword_set(binary)
     if n_elements(directory)     eq 0 then directory     = _dir
     if n_elements(ascii_version) eq 0 then ascii_version = vASCII
-    if n_elements(info_file)     eq 0 $
-        then info_file = binary ? _bin_info : _ascii_info
+    if n_elements(info_ascii)    eq 0 then info_ascii    = _ascii_info
+    if n_elements(info_file)     eq 0 then info_binary   = _bin_info
     
     ;Properties
     self.symmetric = ~asymmetric
@@ -175,8 +175,8 @@ ZRANGE = zrange
     
     ;Make sure the file exists
     self.info = ptr_new(/ALLOCATE_HEAP)
-    if file_test(info_file) eq 0 then $
-        message, 'Cannot find ASCII info file: "' + info_file + '"'
+    if file_test(info_ascii) eq 0 then $
+        message, 'Cannot find ASCII info file: "' + info_ascii + '"'
     
     ;Binary info file
     if binary then begin
@@ -184,11 +184,11 @@ ZRANGE = zrange
             message, 'ION_SCALE is only possible with ASCII info file. ' + $
                      'Setting ION_SCALE=0', /INFORMATIONAL
         ion_scale = 0
-        self -> ReadInfo_Binary, info_file
+        self -> ReadInfo_Binary, info_binary
         
     ;Ascii info file
     endif else begin
-        self -> ReadInfo_Ascii, info_file, VERSION=ascii_version
+        self -> ReadInfo_Ascii, info_ascii, VERSION=ascii_version
     endelse
     
     ;
@@ -363,7 +363,7 @@ end
 ;       COORD:          Location in de (di if the ION_SCALE property is set) of the
 ;                           given grid cell along the chosen dimension.
 ;-
-function MrSim2::GetCoord, cell, $
+function MrSim2::Cell2Coord, cell, $
 X=x, $
 Y=y, $
 Z=z
@@ -411,7 +411,7 @@ end
 ;       CELL:           Grid cell/index corresponding to the given location along the
 ;                           desired dimension.
 ;-
-function MrSim2::GetCell, coord, $
+function MrSim2::Coord2Cell, coord, $
 X=x, $
 Y=y, $
 Z=z
@@ -447,17 +447,29 @@ end
 ;                           de unless ION_SCALE is specified.
 ;
 ; :Keywords:
-;       X:              in, optional, type=boolean, default=0
-;                       If set, `COORD` is an x-coordinate.
-;                           This is the default if no keywords are set.
-;       Y:              in, optional, type=boolean, default=0
-;                       If set, `COORD` is an y-coordinate
-;       Z:              in, optional, type=boolean, default=0
-;                       If set, `COORD` is an z-coordinate
+;       NAME:           in, required, type=string
+;                       Name of a data quantity from which a 1D cut is extracted.
+;       R0:             in, required, type=float(2)/float(3)
+;                       End point of the line that defines the 1D cut. If 2 elements are
+;                           given, it is assumed that the data has coordinates [x,y,z],
+;                           but that the y-dimension does not vary.
+;       R1:             in, required, type=float(2)/float(3)
+;                       End point of the line that defines the 1D cut. If 2 elements are
+;                           given, it is assumed that the data has coordinates [x,y,z],
+;                           but that the y-dimension does not vary.
+;
+; :Keywords:
+;       COORDS:         out, optional, type=2xN or 3xN float
+;                       Coordinates of each point connection `R0` to `R1`. If the
+;                           Orientation property is 2D, COORDS will be reduced to the two
+;                           relevant dimensions.
+;       COUNT:          out, optional, type=long
+;                       Number of data points returned.
+;       _REF_EXTRA:     in, optional, type=any
+;                       Any keyword accepted by the ::GetData method.
 ;
 ; :Returns:
-;       CELL:           Grid cell/index corresponding to the given location along the
-;                           desired dimension.
+;       DATA:           The requested data.
 ;-
 function MrSim2::Get1DCut, name, r0, r1, $
 COORDS=coords, $
@@ -834,9 +846,9 @@ COORDS=coords
     
     ;Find the cells
     cells = coords
-    cells[0,*] = self -> GetCell(coords[0,*], /X)
-    cells[1,*] = self -> GetCell(coords[1,*], /Y)
-    cells[2,*] = self -> GetCell(coords[2,*], /Z)
+    cells[0,*] = self -> Coord2Cell(coords[0,*], /X)
+    cells[1,*] = self -> Coord2Cell(coords[1,*], /Y)
+    cells[2,*] = self -> Coord2Cell(coords[2,*], /Z)
 
     return, cells
 end
@@ -941,6 +953,167 @@ pro MrSim2::MakeSimDomain
         else: message, 'Coordinate system unknown: "' + self.coord_system + '".'
     endcase
 end
+
+
+;+
+;   The purpose of this method is to read the ASCII "info" file relating to Bill
+;   Daughton's simulations.
+;
+; :Private:
+;
+; :Params:
+;       FILENAME:           in, optional, type=string, default='electrons-y' [y-slice] + '.gda'
+;                           Name of the "info" file to be read.
+;-
+function MrSim2::ReadElectrons, filename, $
+DIST3D=dist3D, $
+ENERGY=energy, $
+FMAP_DIR=fmap_dir, $
+MOMENTUM=momentum, $
+VERBOSE=verbose, $
+VX1_RANGE=vx1_range, $
+VX2_RANGE=vx2_range, $
+VX3_RANGE=vx3_range, $
+X1_RANGE=x1_range, $
+X2_RANGE=x2_range, $
+X3_RANGE=x3_range
+    compile_opt strictarr
+    
+    ;catch errors
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+    if self.coord_system ne 'SIMULATION' then $
+        message, 'Can only read particles in simulation coordinates. ' + $
+                 'Current system: "' + self.coord_system + '".'
+
+    ;Create defaults
+    if n_elements(fMap_dir) eq 0 then MrSim_Which, self.simname, FMAP_DIR=fMap_dir
+    if n_elements(filename) eq 0 || filename eq '' then begin
+        ;Get the y-grid-cell
+        yslice = self -> Coord2Cell(self.yrange[0], /Y)
+        
+        ;Get the file name
+        MrSim_Which, self.simname, EFILE=filename, DIST3D=dist3D, $
+                     TINDEX=self.time, YSLICE=yslice
+    endif
+
+    ;Set defaults
+    dist3D      =  keyword_set(dist3D)
+    par_perp    =  keyword_set(par_perp)
+    perp1_perp2 =  keyword_set(perp1_perp2)
+    velocity    = ~keyword_set(momentum)
+
+    ;Ranges
+    ;   - For 2D distributions, assume the spatial dimensions are XZ
+    ;   - For 3D distributions, XYZ
+    if n_elements(x1_range) eq 0 then x1_range = self.xrange
+    if dist3D then begin
+        if n_elements(x2_range) eq 0 then x2_range = self.yrange
+        if n_elements(x3_range) eq 0 then x3_range = self.zrange
+    endif else begin
+        if n_elements(x2_range) eq 0 then x2_range = self.zrange
+    endelse
+    
+    ;Cannot be used together.
+    if par_perp + perp1_perp2 gt 1 then $
+        message, 'PAR_PERP and PERP1_PERP2 are mutually exclusive.'
+
+
+
+;-------------------------------------------------------
+; Read in Particle Data ////////////////////////////////
+;-------------------------------------------------------
+    if dist3D then begin
+        data = MrSim_ReadParticles(filename, x1_range, x2_range, x3_range, $
+                                   FMAP_DIR  = fMap_dir, $
+                                   UX1_RANGE = vx1_range, $
+                                   UX2_RANGE = vx2_range, $
+                                   UX3_RANGE = vx3_range, $
+                                   VELOCITY  = velocity, $
+                                   VERBOSE   = verbose)
+    endif else begin
+        data = MrSim_ReadParticles(filename, x1_range, x2_range, $
+                                   FMAP_DIR  = fMap_dir, $
+                                   UX1_RANGE = vx1_range, $
+                                   UX2_RANGE = vx2_range, $
+                                   UX3_RANGE = vx3_range, $
+                                   VELOCITY  = velocity, $
+                                   VERBOSE   = verbose)
+    endelse
+
+;-------------------------------------------------------
+; Parallel & Perpendicular /////////////////////////////
+;-------------------------------------------------------
+    if par_perp then begin
+        ;Indices at which momentum/velocity is stored
+        if dist3D then iu = [2,3,4] else iu = [3,4,5]
+    
+        ;B unit vector
+        B_hat = self -> Unit_Vector('B', TIME=time, XRANGE=xrange, ZRANGE=zrange)
+        
+        ;Get the parallel and perpendicular components
+        v_mag_sqr = total(data[iu,*]^2, 1)
+        v_par     = data[iu[0],*] * B_hat[0] + data[iu[1],*] * B_hat[1] + data[iu[2],*] * B_hat[3]
+        v_perp    = sqrt(temporary(v_mag_sqr) - v_par^2)
+    
+        ;Save the original data?
+        if arg_present(original) then original = data
+    
+        ;Fit into the data
+        data = data[0:iu[1],*]
+        data[iu[0],*] = temporary(v_par)
+        data[iu[1],*] = temporary(v_perp)
+        
+        ;Calculate the temperature of the distribution
+        if arg_present(temperature) && velocity then begin
+            nParticles     = n_elements(data[0,*])
+            temperature    = fltarr(2)
+            temperature[0] =       total(data[iu[0],*]^2) / nParticles
+            temperature[1] = 0.5 * total(data[iu[1],*]^2) / nParticles
+        endif
+    endif
+    
+;-------------------------------------------------------
+; Perp1 & Perp2 ////////////////////////////////////////
+;-------------------------------------------------------
+    if perp1_perp2 then begin
+        ;Indices at which momentum/velocity is stored
+        if dist3D then iu = [2,3,4] else iu = [3,4,5]
+        
+        ;B unit vector
+        p2_hat = self -> Unit_Perp2(B_HAT=B_hat, P1_HAT=p1_hat, TIME=time, XRANGE=xrange, ZRANGE=zrange)
+        
+        ;Get the parallel and perpendicular components
+        v_par     = data[iu[0],*] *  B_hat[0] + data[iu[1],*] *  B_hat[1] + data[iu[2],*] *  B_hat[3]
+        v_perp1   = data[iu[0],*] * p1_hat[0] + data[iu[1],*] * p1_hat[1] + data[iu[2],*] * p1_hat[3]
+        v_perp2   = data[iu[0],*] * p2_hat[0] + data[iu[1],*] * p2_hat[1] + data[iu[2],*] * p2_hat[3]
+    
+        ;Save the original data?
+        if arg_present(original) then original = data
+    
+        ;Fit into the data
+        data[iu[0],*] = temporary(v_par)
+        data[iu[1],*] = temporary(v_perp1)
+        data[iu[2],*] = temporary(v_perp2)
+        
+        ;Calculate the temperature of the distribution
+        if arg_present(temperature) && velocity then begin
+            nParticles     = n_elements(data[0,*])
+            temperature    = fltarr(3)
+            temperature[0] = total(data[iu[0],*]^2) / nParticles
+            temperature[1] = total(data[iu[1],*]^2) / nParticles
+            temperature[2] = total(data[iu[2],*]^2) / nParticles
+        endif
+    endif
+    
+    return, data
+end
+
 
 
 ;+
@@ -1710,78 +1883,6 @@ end
 ;
 ; :Params:
 ;       FILENAME:           in, required, type=string
-;                           Name of the file containing particle data.
-;
-; :Keywords:
-;       ENERGY:             in, optional, type=boolean, default=0
-;                           If set, momentum will be converted to energy.
-;       FMAP_DIR:           in, optional, type=string, default=pwd
-;                           Directory in which to find an fMap. See MrSim_Create_fMap.pro.
-;       VELOCITY:           in, optional, type=boolean, default=0
-;                           If set, momentum will be converted to velocity.
-;       VERBOSE:            in, optional, type=boolean, default=0
-;                           If set, information about particle will be printed data to
-;                               the command window.
-;       XRANGE:             in, required, type=fltarr(2)
-;                           X-range (in de) over which particle data is to be kept.
-;       YRANGE:             in, required, type=fltarr(2)
-;                           Y-range (in de) over which particle data is to be kept.
-;       ZRANGE:             in, required, type=fltarr(2)
-;                           Z-range (in de) over which particle data is to be kept.
-;
-; :Returns:
-;       DATA:               Electron particle data.
-;-
-function MrSim2::ReadElectrons, filename, $
-ENERGY=energy, $
-FMAP_DIR=fmap_dir, $
-VELOCITY=velocity, $
-VERBOSE=verbose, $
-XRANGE=xrange, $
-YRANGE=yrange, $
-ZRANGE=zrange
-    compile_opt strictarr
-    
-    ;catch errors
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /CANCEL
-        void = cgErrorMsg()
-        return, !Null
-    endif
-
-    ;Create defaults
-    yslice = self -> GetCell(self.yrange[0], /Y)
-    MrSim_Which, self.simname, DIST3D=dist3D, EFILE=filename, FMAP_DIR=fMap_dir, $
-                 TINDEX=self.time, YSLICE=yslice
-    
-    ;Set defaults
-    if n_elements(filename) eq 0 then filename = eFile
-    if n_elements(fmap_dir) eq 0 then fmap_dir = fmap
-    if n_elements(xrange)   eq 0 then xrange   = self.xrange
-    if n_elements(yrange)   eq 0 then yrange   = self.yrange
-    if n_elements(zrange)   eq 0 then zrange   = self.zrange
-    
-    ;Read the simulation info file
-    data = MrSim_ReadParticles(filename, xrange, yrange, zrange, $
-                               DIST3D   = dist3D, $
-                               ENERGY   = energy, $
-                               FMAP_DIR = fMap_dir, $
-                               VELOCITY = velocity, $
-                               VERBOSE  = verbose)
-    
-    return, data
-end
-
-
-;+
-;   The purpose of this method is to read the ASCII "info" file relating to Bill
-;   Daughton's simulations.
-;
-; :Private:
-;
-; :Params:
-;       FILENAME:           in, required, type=string
 ;                           Name of the "info" file to be read.
 ;
 ; :Keywords:
@@ -2201,6 +2302,60 @@ ZRANGE = zrange
     ;   - Data needs to be cleared if any of this changes (so that it is read with the
     ;       new parameters).
     self -> Clear_Data
+end
+
+
+;+
+;   Convert time, normalized to the ion gyroperiod, to time indices into the .gda data
+;   files.
+;
+; :Params:
+;       TXWCI:          in, required, type=integer
+;                       Time, normalized by the ion cyclotron frequency.
+;
+; :Returns:
+;       TINDEX:         Time index into the .gda files.
+;-
+function MrSim2::TxWci2tIndex, txwci
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Get the interval between saves.
+    self -> GetInfo, DTXWCI=dtxwci
+    if n_elements(dtxwci) eq 0 then $
+        message, 'Cannot convert: dt*wci unknown. Read ASCII info file and see MrSim_Which.'
+
+    ;Create a long integer of the time index.
+    tIndex = fix(txwci / dtxwci, TYPE=3)
+    
+    return, tIndex
+end
+
+
+;+
+;   Convert time indices into the .gda data files to time, normalized to the ion
+;   gyroperiod.
+;
+; :Params:
+;       TINDEX:         in, required, type=integer
+;                       Time index into the .gda files.
+;
+; :Returns:
+;       TXWCI:          Time, normalized by the ion cyclotron frequency.
+;-
+function MrSim2::tIndex2TxWci, tIndex
+    compile_opt strictarr
+    on_error, 2
+    
+    ;Get the interval between saves.
+    self -> GetInfo, DTXWCI=dtxwci
+    if n_elements(dtxwci) eq 0 then $
+        message, 'Cannot convert: dt*wci unknown. Read ASCII info file and see MrSim_Which.'
+
+    ;Create a long integer of the time index.
+    txwci = tIndex * dtxwci
+    
+    return, txwci
 end
 
 

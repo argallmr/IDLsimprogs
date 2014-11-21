@@ -44,15 +44,52 @@
 ;                           The name or number of the simulation to be used, or a
 ;                               valid simulation object. See MrSim_Create.pro.
 ;       NAME:               in, required, type=string
-;                           The name of the vector quantity to be plotted in color.
+;                           The name of the vector quantity that the satellite will be.
+;                               flown through. A 1D cut between `R0` and `R1` is made.
+;       R0:                 in, required, type=fltarr(2)
+;                           End point of the path taken by a model spacecraft through the
+;                               simultion.
+;       R1:                 in, required, type=fltarr(2)
+;                           End point of the path taken by a model spacecraft through the
+;                               simultion.
 ;       TIME:               in, required, type=int
 ;                           The simulation time at which cuts are to be taken.
 ;
 ; :Keywords:
+;       ADD_LEGEND:         in, optional, type=boolean, default=0
+;                           If set, `R0` and `R1` will be put in a legend.
+;       C_NAME:             in, optional, type=string, default=''
+;                           Name of a data quantity to be used for contour overlays.
 ;       CURRENT:            in, optional, type=boolean, default=0
 ;                           If set, the graphics will be added to the current MrWindow
 ;                               graphics window. The default is to create a new window.
-;       OFILENAME:          out, optional, type=string, default=''
+;       COLOR:              in, optional, type=string, default='Black'
+;                           Color of the 1D cut by spacecraft through data indicated by `NAME`.
+;       DIST_LAYOUT:        in, optional, type=intarr, default=[ceil(sqrt(nDist))\, ceil(float(nDist)/nCols)]
+;                           Number of columns and rows [nCols, nRows] used to display
+;                               particle distributions.
+;       DIST_SIZE:          in, optional, type=boolean, default="[1,1,1]"
+;                           Half width of the distributions.
+;       DIST_TYPE:          in, optional, type=string, default''
+;                           Type of distribution to be made. Choices are::
+;                               'x-Vx'
+;                               'z-Vz'
+;                               'Vx-Vy'
+;                               'Vx-Vz'
+;                               'Vy-Vz'
+;                               'Vpar-Vperp'
+;                               'Vpar-Vperp1'
+;                               'Vpar-Vperp2'
+;                               'Vperp1-Vperp2'
+;       IM_NAME:            in, optional, type=string, default=''
+;                           Name of a data quantity to be displayed in a 2D color plot.
+;       MOMENTUM:           in, optional, type=boolean, default=0
+;                           If set, distrubtions will be made in momentum space. The
+;                               default is to use velocity space.
+;       NDIST:              in, optional, type=integer, default=0
+;                           Number of distributions to make. Distributions are spaced
+;                               evenly between `R0` and `R1`.
+;       OFILENAME:          ing, optional, type=string, default=''
 ;                           If provided, graphics will be output to a file by this
 ;                               name. The file extension is used to determine which
 ;                               type of image to create. "PNG" is the default.
@@ -106,11 +143,11 @@ DIST_SIZE = dist_size, $
 DIST_TYPE = dist_type, $
 DIST_WIN = distWin, $
 IM_NAME = im_name, $
+MOMENTUM = momentum, $
 NDIST = nDist, $
 OFILENAME = ofilename, $
 OVERPLOT = overplot, $
 SIM_OBJECT = oSim, $
-VELOCITY   = velocity, $
 _REF_EXTRA = extra
     compile_opt strictarr
     
@@ -160,6 +197,11 @@ _REF_EXTRA = extra
     if n_elements(nDist)     eq 0 then nDist     = 0
     if n_elements(ofilename) eq 0 then ofilename = ''
     
+    ;Number of dimensions in the particle data file
+    ;   - 2 (3) elements => 2D (3D).
+    nDims = n_elements(r0)
+    if nDims ne 2 && nDims ne 3 then message, 'Incorrect number of elements: R0.'
+    
 ;-------------------------------------------------------
 ; Data, Metadata, Window ///////////////////////////////
 ;-------------------------------------------------------
@@ -199,19 +241,17 @@ _REF_EXTRA = extra
 ; FlyBy ///////////////////////////////////////////////
 ;-------------------------------------------------------
     ;Get data.
-    cells = oSim -> GridLine(r0, r1, COORDS=coords)
-    data  = oSim -> ReadGDA_Cells(cells, name)
+    data = oSim -> Get1DCut(name, r0, r1, COORDS=coords, COUNT=nPts)
     
     ;Clean up
     if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
     if data eq !Null then message, 'NAME must be the name of a GDA file.'
 
     ;Distance along the line
-    nPts           = n_elements(coords[0,*])
-    dl             = fltarr(3, nPts)
+    dl             = fltarr(2, nPts)
     dl[0,1:nPts-1] = coords[0,1:nPts-1] - coords[0,0]
     dl[1,1:nPts-1] = coords[1,1:nPts-1] - coords[1,0]
-    dl[2,1:nPts-1] = coords[2,1:nPts-1] - coords[2,0]
+;    dl[2,1:nPts-1] = coords[2,1:nPts-1] - coords[2,0]
     dl             = sqrt(total(dl^2, 1))
 
     ;Convert distance to time?
@@ -236,7 +276,7 @@ _REF_EXTRA = extra
     
     ;Draw a line where the cut was taken
     if obj_valid(colorIm) then begin
-        path = MrPlotS([r0[0], r1[0]], [r0[2], r1[2]], $
+        path = MrPlotS([r0[0], r1[0]], [r0[nDims-1], r1[nDims-1]], $
                        /DATA, $
                        COLOR  = 'White', $
                        NAME   = 'Trajectory', $
@@ -253,23 +293,21 @@ _REF_EXTRA = extra
             nRows = ceil(float(nDist) / nCols)
             layout = [nCols, nRows]
         endif
-        if n_elements(dist_size) eq 0 then dist_size = [1,1,1]
+        if n_elements(dist_size) eq 0 then dist_size = replicate(0.5, nDims)
         if n_elements(dist_type) eq 0 then dist_type = 'Vpar_Vperp'
         
-        ;Make everything 3D
-        p0 = n_elements(r0)        eq 3 ? r0        : [r0[0],        0, r0[1]]
-        p1 = n_elements(r1)        eq 3 ? r1        : [r1[0],        0, r1[1]]
-        sz = n_elements(dist_size) eq 3 ? dist_size : [dist_size[0], 0, dist_size[1]]
-        
         ;Locations of distributions
-        bin_centers      = fltarr(3, nDist)
-        half_width       = fltarr(3, nDist)
-        bin_centers[0,*] = linspace(p0[0], p1[0], nDist)
-        bin_centers[1,*] = make_array(nDist, TYPE=6, VALUE=p0[1])
-        bin_centers[2,*] = linspace(p0[2], p1[2], nDist)
-        half_width[0,*]  = sz[0]
-        half_width[1,*]  = sz[1]
-        half_width[2,*]  = sz[2]
+        nDims            = n_elements(r0)
+        bin_centers      = fltarr(nDims, nDist)
+        half_width       = fltarr(nDims, nDist)
+        bin_centers[0,*] = linspace(r0[0], r1[0], nDist)
+        bin_centers[1,*] = linspace(r0[1], r1[1], nDist)
+        half_width[0,*]  = dist_size[0]
+        half_width[1,*]  = dist_size[1]
+        if nDims eq 3 then begin
+            bin_centers[2,*] = linspace(r0[2], r1[2], nDist)
+            half_width[2,*]  = dist_size[2]
+        end
 
         ;Create the distributions
         distWin = MrSim_eMap(oSim, dist_type, bin_centers, half_width, $
@@ -278,18 +316,13 @@ _REF_EXTRA = extra
 
         ;Draw the location of the distributions on the overview plot
         if obj_valid(colorIm) then begin
-            ;Draw boxes where the distribution functions are being taken.
-            for i = 0, nDist - 1 do begin
-                theBin = positions[*,i]
-                xpoly  = theBin[[0,3,3,0,0]]
-                ypoly  = theBin[[2,2,5,5,2]]
-                !Null  = MrPlotS(xpoly, ypoly, $
-                                 /DATA, $
-                                 COLOR  = 'White', $
-                                 NAME   = 'Bin ' + strtrim(i, 2), $
-                                 TARGET = colorIm, $
-                                 THICK  = 2.0)
-            endfor
+            ;Draw points where the distribution functions are being taken.
+            !Null  = MrPlotS(bin_centers[0,*], bin_centers[nDims-1,*], $
+                             /DATA, $
+                             COLOR  = 'White', $
+                             NAME   = 'Bin Centers', $
+                             TARGET = colorIm, $
+                             PSYM   = -1)
         endif
     endif
         

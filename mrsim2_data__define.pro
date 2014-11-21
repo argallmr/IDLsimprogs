@@ -1534,6 +1534,175 @@ end
 
 
 ;+
+;   The purpose of this method is to read the ASCII "info" file relating to Bill
+;   Daughton's simulations.
+;
+; :Private:
+;
+; :Params:
+;       NAME:               in, required, type=string
+;                           Name of the vector quantity for which a unit vector
+;                               is to be found.
+;
+; :Keywords:
+;       TIME:               in, optional, type=integer
+;                           Time index at which to create the unit vector.
+;       XRANGE:             in, optional, type=fltarr(2)
+;                           X-range (in de) over which particle data is to be kept.
+;       ZRANGE:             in, optional, type=fltarr(2)
+;                           Z-range (in de) over which particle data is to be kept.
+;
+; :Returns:
+;       DATA:               Electron particle data.
+;-
+function MrSim2_Data::Unit_Vector, name, $
+TIME=time, $
+XRANGE=xrange, $
+ZRANGE=zrange
+    compile_opt strictarr
+    
+    ;catch errors
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+    ;Set defaults
+    if n_elements(time)   eq 0 then time   = self.time
+    if n_elements(xrange) eq 0 then xrange = self.xrange
+    if n_elements(zrange) eq 0 then zrange = self.zrange
+    
+    ;Read vector component data
+    Vx = self -> ReadMoment(name + 'x', time, XRANGE=xrange, ZRANGE=zrange)
+    Vy = self -> ReadMoment(name + 'y', time, XRANGE=xrange, ZRANGE=zrange)
+    Vz = self -> ReadMoment(name + 'z', time, XRANGE=xrange, ZRANGE=zrange)
+    
+    ;Take the average over the given range
+    Vx = mean(Bx)
+    Vy = mean(By)
+    Vz = mean(Bz)
+    
+    ;Magnitude
+    Vmag = sqrt(Vx^2 + Vy^2 + Vz^2)
+    
+    ;Unit vector
+    V_hat = [Vx, Vy, Vz] / Vmag
+    
+    return, V_hat
+end
+
+
+;+
+;   The purpose of this method is to read the ASCII "info" file relating to Bill
+;   Daughton's simulations.
+;
+; :Private:
+;
+; :Params:
+;       NAME:               in, required, type=string
+;                           Name of the vector quantity for which a unit vector
+;                               is to be found.
+;
+; :Keywords:
+;       TIME:               in, optional, type=integer
+;                           Time index at which to create the unit vector.
+;       XRANGE:             in, optional, type=fltarr(2)
+;                           X-range (in de) over which particle data is to be kept.
+;       ZRANGE:             in, optional, type=fltarr(2)
+;                           Z-range (in de) over which particle data is to be kept.
+;
+; :Returns:
+;       DATA:               Electron particle data.
+;-
+function MrSim2_Data::Unit_Perp1, $
+B_HAT=B_hat, $
+E_HAT=E_hat, $
+TIME=time, $
+XRANGE=xrange, $
+ZRANGE=zrange
+    compile_opt strictarr
+    
+    ;catch errors
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+    ;E and B unit vectors.
+    B_hat = self -> Unit_Vector('B', TIME=time, XRANGE=xrange, ZRANGE=zrange)
+    E_hat = self -> Unit_Vector('E', TIME=time, XRANGE=xrange, ZRANGE=zrange)
+    
+    ;ExB direction
+    perp1  = [ E_hat[1]*B_hat[2] - E_hat[2]*B_hat[1], $
+               E_hat[2]*B_hat[0] - E_hat[0]*B_hat[2], $
+               E_hat[0]*B_hat[1] - E_hat[1]*B_hat[0] ]
+
+    ;Unit vector
+    p1_hat = perp1 / sqrt(total(perp1^2))
+    
+    return, p1_hat
+end
+
+
+;+
+;   The purpose of this method is to read the ASCII "info" file relating to Bill
+;   Daughton's simulations.
+;
+; :Private:
+;
+; :Params:
+;       NAME:               in, required, type=string
+;                           Name of the vector quantity for which a unit vector
+;                               is to be found.
+;
+; :Keywords:
+;       TIME:               in, optional, type=integer
+;                           Time index at which to create the unit vector.
+;       XRANGE:             in, optional, type=fltarr(2)
+;                           X-range (in de) over which particle data is to be kept.
+;       ZRANGE:             in, optional, type=fltarr(2)
+;                           Z-range (in de) over which particle data is to be kept.
+;
+; :Returns:
+;       DATA:               Electron particle data.
+;-
+function MrSim2_Data::Unit_Perp2, $
+B_HAT=B_hat, $
+E_HAT=E_hat, $
+P1_HAT=p1_hat, $
+TIME=time, $
+XRANGE=xrange, $
+ZRANGE=zrange
+    compile_opt strictarr
+    
+    ;catch errors
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        void = cgErrorMsg()
+        return, !Null
+    endif
+
+    ;Perp1 and B unit vectors.
+    p1_hat = self -> Unit_Perp1(B_HAT=B_hat, TIME=time, XRANGE=xrange, ZRANGE=zrange)
+    
+    ;Bx(ExB) direction
+    perp2  = [ B_hat[1]*p1_hat[2] - B_hat[2]*p1_hat[1], $
+               B_hat[2]*p1_hat[0] - B_hat[0]*p1_hat[2], $
+               B_hat[0]*p1_hat[1] - B_hat[1]*p1_hat[0] ]
+
+    ;Unit vector
+    p2_hat = perp2 / sqrt(total(perp2^2))
+    
+    return, p2_hat
+end
+
+
+;+
 ;   Take the cross product of two quantities.
 ;
 ; :Params:

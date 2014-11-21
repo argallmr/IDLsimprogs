@@ -27,18 +27,18 @@
 ;                           'Vpar-Vperp1'
 ;                           'Vpar-Vperp2'
 ;                           'Vperp1-Vperp2'
-;       X:              in, required, type=float/fltarr(N)
-;                       X-location(s) of the center of the spacial bin from which electron
-;                           distribution information is collected. If both `X` and `Z` are
-;                           vectors, they must be the same length.
-;       Z:              in, required, type=float/fltarr(N)
-;                       Z-location(s) of the center of the spacial bin from which electron
-;                           distribution information is collected. If both `X` and `Z` are
-;                           vectors, they must be the same length.
-;       DX:             in, optional, type=float/fltarr(N), default=1
-;                       Half-width of the bin(s).
-;       DZ:             in, optional, type=float/fltarr(N), default=1
-;                       Half-height of the bin(s).
+;       BIN_CENTER:     in, required, type=float(2)/float(3)
+;                       Coordinate of the distribution that defines the `LOCATION` of
+;                           the eMap. If the particle distribution data file has two
+;                           (three) spacial dimensions, then BIN_CENTER has 2 (3) elements.
+;                           If an array of bin center locations are given, they define
+;                           the center of each distribution in the eMap.
+;       HALF_WIDTH:     in, required, type=float(2)/float(3)
+;                       Half-width of each dimension of the distribution that defines the
+;                           `LOCATION` of the eMap. If the particle distribution data file
+;                           has two (three) spacial dimensions, then HALF_WIDTH has 2 (3)
+;                           elements. All distributions in the eMap will have the same
+;                           half-width.
 ;
 ; :Keywords:
 ;       C_NAME:         in, optional, type=string, default=''
@@ -47,8 +47,9 @@
 ;       CIRCLES:        in, optional, type=boolean, default=0
 ;                       If set, concentric cirlces will be drawn at v=0.25 and v=0.5.
 ;       HGAP:           in, optional, type=float, default=0.0
-;                       Horizontal space between adjacent distributions. Ignored of either
-;                           `X` or `Z` are vectors.
+;                       Horizontal space between adjacent distributions. Ignored more than
+;                           one `BIN_CENTER` is given. "Horizontal" is taken to mean the
+;                           first spacial dimension.
 ;       IM_NAME:        in, optional, type=string, default=''
 ;                       Name of a data product for which a 2D overview plot is to be
 ;                           made. White square boxes will be drawn on the image to
@@ -93,8 +94,9 @@
 ;                               c / vA = sqrt(mi_me) * f_pe / f_ce.
 ;                           so multiplying v/c by the above equation does the trick.
 ;       VGAP:           in, optional, type=float, default=0.0
-;                       Vertical space between adjacent distributions. Ignored of either
-;                           `X` or `Z` are vectors.
+;                       Vertical space between adjacent distributions. Ignored if more
+;                           than one `BIN_CENTER` is given. "Vertical" is taken to mean
+;                           the last spacial dimension.
 ;       _REF_EXTRA:     in, optional, type=structure
 ;                       Any keyword accepted MrSim_Create.pro. Ignored if `THESIM`
 ;                           is an object.
@@ -127,6 +129,7 @@
 ;       2014/10/18  -   Added the POSITIONS keyword. - MRA
 ;       2014/10/30  -   Changed input parameters X, Z, DX, and, DZ to BIN_CENTER and
 ;                           HALF_WIDTH. - MRA
+;       2014/11/21  -   Program is more general to simulation dimensions.
 ;-
 function MrSim_eMap, theSim, type, bin_center, half_width, $
 C_NAME=c_name, $
@@ -171,7 +174,7 @@ _REF_EXTRA=extra
         
     ;Object?
     endif else if MrIsA(theSim, 'OBJREF') then begin
-        if obj_isa(theSim, 'MRSIM') eq 0 $
+        if obj_isa(theSim, 'MRSIM2') eq 0 $
             then message, 'THESIM must be a subclass of the MrSim class.' $
             else oSim = theSim
             
@@ -185,9 +188,12 @@ _REF_EXTRA=extra
 ;-------------------------------------------------------
 ; Defaults /////////////////////////////////////////////
 ;-------------------------------------------------------
+    ;Number of distributions to make & number of spacial dimensions (2 or 3) in
+    ;the particle distribution file.
     nDims = size(bin_center, /N_DIMENSIONS)
     dims  = size(bin_center, /DIMENSIONS)
-    nDist = nDims eq 1 ? dims[0] : dims[1]
+    is2D  = dims[0] eq 2
+    nDist = nDims eq 1 ? 1 : dims[1]
 
     if n_elements(nBins)    eq 0 then nBins    = 75
     if n_elements(layout)   eq 0 then layout   = [1,nDist]
@@ -204,32 +210,53 @@ _REF_EXTRA=extra
         if nDist gt layout[0]*layout[1] then $
             message, string(FORMAT='(%"LAYOUT is not large enough to hold %i distributions.")', nDist)
     endif
+    
+;-------------------------------------------------------
+; Position of Distribution Functions ///////////////////
+;-------------------------------------------------------
+    ;
+    ;Position of the distribution indicated by LOCATION
+    ;
+    
+    ;Particle data has 2 spacial dimensions
+    ;   - [x0, z0, x1, z1]
+    if is2D then begin
+        position = [bin_center[0,*] - half_width[0,*], $
+                    bin_center[1,*] - half_width[1,*], $
+                    bin_center[0,*] + half_width[0,*], $
+                    bin_center[1,*] + half_width[1,*]]
+        
+        ;Indexing is different for 2D and 3D
+        ;   - Number of spacial dimensions
+        ;   - Indices of the horizontal coordinates
+        ;   - Indices of the vertical coordinates
+        nD = 2
+        ih = [0,2]
+        iv = [1,3]
+        
+    ;Particle data has 3 spacial dimensions
+    ;   - [x0, y0, z0, x1, y1, z1]
+    endif else begin
+        position = [bin_center[0,*] - half_width[0,*], $
+                    bin_center[1,*] - half_width[1,*], $
+                    bin_center[2,*] - half_width[2,*], $
+                    bin_center[0,*] + half_width[0,*], $
+                    bin_center[1,*] + half_width[1,*], $
+                    bin_center[2,*] + half_width[2,*]]
+        
+        ;Indexing is different for 2D and 3D
+        ;   - Number of spacial dimensions
+        ;   - Indices of the horizontal coordinates
+        ;   - Indices of the vertical coordinates
+        nD = 3
+        ih = [0,3]
+        iv = [2,5]
+    endelse
 
 ;-------------------------------------------------------
 ; Determine Location of Dist Fns ///////////////////////
 ;-------------------------------------------------------
     if nDims eq 1 then begin
-    ;-------------------------------------------------------
-    ; Create Array of Distribution Functions ///////////////
-    ;-------------------------------------------------------
-        ;Center of eMap and half-widths of distributions.
-        if dims[0] eq 2 then begin
-            center = [bin_center[0], 0, bin_center[1]]
-            width  = [half_width[0], 0, half_width[1]]
-        endif else begin
-            center = bin_center
-            width  = half_width
-        endelse
-        
-        ;Position of eMap bin indicated by LOCATION
-        ;   - [x0, y0, z0, x1, y1, z1]
-        positions = [center[0] - width[0], $
-                     center[1] - width[1], $
-                     center[2] - width[2], $
-                     center[0] + width[0], $
-                     center[1] + width[1], $
-                     center[2] + width[2]]
-        
         ;Bin-center offsets from the center of the bin defined by LOCATION
         ;   - Dimensions are [position, col, row]
         ;   - Value is +/-N
@@ -238,7 +265,7 @@ _REF_EXTRA=extra
         hoffset = indgen(1, layout[0])
         voffset = indgen(1, 1, layout[1])
 
-        ;XOFFSET
+        ;Horizontal Offset
         if layout[0] gt 1 then begin
             case location of
                 1: ;Do nothing                      ;LEFT
@@ -254,7 +281,8 @@ _REF_EXTRA=extra
             endcase
         endif
     
-        ;If layout[2] = 2
+        ;Vertical Offset
+        ;   - If layout[2] = 2
         ;   - VOFFSET will have only one dimension.
         ;   - The call to Reverse below will fail.
         if layout[1] gt 1 then begin
@@ -273,52 +301,38 @@ _REF_EXTRA=extra
         endif
 
         ;Include bin widths and gaps between bins
-        hoffset = (2*width[0] + hGap) * rebin(hoffset, 2, layout[0], layout[1])
-        voffset = (2*width[2] + vGap) * rebin(voffset, 2, layout[0], layout[1])
-        
+        hoffset = (2*half_width[0] + hGap) * rebin(hoffset, 2, layout[0], layout[1])
+        voffset = (2*half_width[1] + vGap) * rebin(voffset, 2, layout[0], layout[1])
+
         ;Data locations of distribution functions
         ;   - Saved as [position, index]
         ;   - Position is the IDL definition of the word
         ;   - Index starts with 0 in the upper-right corner, then moves right then down
-        nDist                 = product(layout)
-        positions             = rebin(positions, 6, layout[0], layout[1])
-        positions[[0,3],*,*] += hoffset
-        positions[[2,5],*,*] += voffset
-        positions             = reform(positions, 6, nDist)
-        hoffset               = reform(hoffset,   2, nDist)
-        voffset               = reform(voffset,   2, nDist)
+        nDist              = product(layout)
+        positions          = rebin(position,   2*nD, layout[0], layout[1])
+        positions[ih,*,*] += hoffset
+        positions[iv,*,*] += voffset
+        positions          = reform(positions, 2*nD, nDist)
+        hoffset            = reform(hoffset,   2,    nDist)
+        voffset            = reform(voffset,   2,    nDist)
 
         ;Bin centers
-        centers = fltarr(3, nDist)
-        centers[0,*] = center[0] + (temporary(hoffset))[0,*]
-        centers[1,*] = center[1]
-        centers[2,*] = center[2] + (temporary(voffset))[0,*]
-        center = !Null
-        
-        ;Half widths
-        widths = rebin(temporary(width), 3, nDist)
-        
-    endif else begin
-    ;-------------------------------------------------------
-    ; Individual Locations Given ///////////////////////////
-    ;-------------------------------------------------------
-        ;Determine bin centers and half-widths.
-        ;   - Make 3D if 2D.
-        if dims[0] eq 2 then begin
-            centers = [bin_center[0,*], fltarr(1, dims[1]), bin_center[1,*]]
-            widths  = [half_width[0,*], fltarr(1, dims[1]), half_width[1,*]]
+        ;   - Each distribution is offset from the one indicated by LOCATION
+        centers = fltarr(nD, nDist)
+        centers[0,*] = bin_center[0] + (temporary(hoffset))[0,*]
+        if is2D then begin
+            centers[1,*] = bin_center[2] + (temporary(voffset))[0,*]
         endif else begin
-            centers = [bin_center[0,*], bin_center[1,*], bin_center[2,*]]
-            widths  = [half_width[0,*], half_width[1,*], half_width[2,*]]
+            centers[1,*] = bin_center[1]
+            centers[2,*] = bin_center[2] + (temporary(voffset))[0,*]
         endelse
-        
-        ;Get positions: [x0, y0, z0, x1, y1, z0]
-        positions = [centers[0,*] - widths[0,*], $
-                     centers[1,*] - widths[1,*], $
-                     centers[2,*] - widths[2,*], $
-                     centers[0,*] + widths[0,*], $
-                     centers[1,*] + widths[1,*], $
-                     centers[2,*] + widths[2,*]]
+
+        ;Half widths are the same for all distributions.
+        widths = rebin(half_width, nD, nDist)
+    endif else begin
+        centers   = bin_center
+        widths    = rebin(half_width, nD, nDist)
+        positions = temporary(position)
     endelse
 
 ;-------------------------------------------------------
@@ -333,8 +347,8 @@ _REF_EXTRA=extra
         theIm = im_win['Color ' + im_name]
         for i = 0, nDist - 1 do begin
             theBin = positions[*,i]
-            xpoly  = theBin[[0,3,3,0,0]]
-            ypoly  = theBin[[2,2,5,5,2]]
+            xpoly  = theBin[ih[0,1,1,0,0]]
+            ypoly  = theBin[iv[0,0,1,1,0]]
             !Null  = MrPlotS(xpoly, ypoly, TARGET=theIm, NAME='Bin ' + strtrim(i, 2), $
                              /DATA, COLOR='White', THICK=2.0)
         endfor
@@ -364,7 +378,7 @@ _REF_EXTRA=extra
     xrange = [!values.f_infinity, -!values.f_infinity]
     yrange = [!values.f_infinity, -!values.f_infinity]
     cmax = 0D
-    
+
     ;Step through each distribution.
     for i = 0, nDist - 1 do begin
         ;Create the distribution function

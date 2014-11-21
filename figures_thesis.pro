@@ -24,6 +24,114 @@
 ;-
 ;*****************************************************************************************
 ;+
+;   Create Figure 2: 2D simulation.
+;-
+function FigThesis_AsymmScanBy0_FlyBy, $
+FNAMES=fnames
+    compile_opt idl2
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(win)  then obj_destroy, win
+        if obj_valid(cwin) then obj_destroy, cwin
+        void = cgErrorMSG()
+        return, obj_new()
+    endif
+    
+    ;Layout
+    charsize  = 1.5
+    layout    = [2,5]
+    oymargin  = [4,4]
+    xsize     = 700
+    ysize     = 550
+
+;---------------------------------------------------------------------
+; 2D Sim, t=32 ///////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    theSim    = 'Asymm-Scan/By0'
+    time      = 28
+    xrange    = 367.7 + [-50, 50]
+    zrange    = [-20, 20]
+    ion_scale = 0
+    mva_frame = 0
+    coord_sys = 'Simulation'
+    im_name   = 'Dng_e'
+    oSim      = MrSim_Create(theSim, time, XRANGE=xrange, ZRANGE=zrange, $
+                             ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
+                             COORD_SYSTEM=coord_sys)
+    
+    ;Get the yrange
+    ycoord = oSim -> Cell2Coord(0)
+    yrange = [ycoord, ycoord]
+;---------------------------------------------------------------------
+; Cuts within the Exhaust ////////////////////////////////////////////
+;---------------------------------------------------------------------
+    cuts        = [367.7, 349, 330]
+    name        = 'ne'
+    c_name      = 'Ay'
+    im_name     = 'Dng_e'
+    nDist       = 25
+    dist_layout = [5,5]
+    dist_size   = [0.5,0.5,0.5]
+    dist_type   = ['Vx-Vy', 'Vx-Vz', 'Vy-Vz', 'Vpar-Vperp', 'Vpar-Vperp1', 'Vpar-Vperp2', 'Vperp1-Vperp2']
+    
+    nCuts  = n_elements(cuts)
+    nTypes = n_elements(dist_type)
+    
+    imarr    = objarr(nCuts)
+    distarr  = objarr(nCuts*nTypes)
+    fnames   = strarr(nCuts*nTypes)
+    imfnames = strarr(nCuts)
+    
+    ;Perform the Fly-By
+    for i = 0, nCuts - 1 do begin
+        for j = 0, nTypes - 1 do begin
+            print, FORMAT='(%"Cut %i, Type %s")', cuts[i], dist_type[j]
+        
+            index = i*nTypes + j
+                
+            ;Points on satellite path
+            r0 = [cuts[i], zrange[0]]
+            r1 = [cuts[i], zrange[1]]
+        
+            ;Create the distributions
+            win = MrSim_MMS_FlyBy(oSim, im_name, r0, r1, $
+                                  C_NAME      = c_name, $
+                                  IM_NAME     = im_name, $
+                                  NDIST       = nDist, $
+                                  DIST_LAYOUT = dist_layout, $
+                                  DIST_SIZE   = dist_size, $
+                                  DIST_WIN    = dist_win, $, $
+                                  DIST_TYPE   = dist_type[j])
+            
+            ;Save the windows
+            distarr[index] = dist_win
+            fnames[index] = string(FORMAT='(%"Asymm-Scan-By0_MMS-FlyBy_%s_x%i.png")', dist_type[j], cuts[i])
+            
+            ;Images
+            if j eq 0 then begin
+                imarr[i] = win
+                imfnames[i] = string(FORMAT='(%"Asymm-Scan-By0_MMS-FlyBy_%s_x%i.png")', 'Dng', cuts[i])
+            endif else begin
+                obj_destroy, win
+            endelse
+            
+            ;Make file names
+        endfor
+    endfor
+    
+    ;Combine images and distributions
+    distarr = [distarr, imarr]
+    fnames  = [fnames, imfnames]
+    
+    ;Return
+    return, distarr
+end
+
+
+
+;+
 ;   eMap for the Asymm-3D simulation.
 ;-
 function FigThesis_AsymmScanBy0_OhmsLaw, $
@@ -529,6 +637,7 @@ SAVE=tf_save
     tf_save = keyword_set(tf_save)
 
     case _figure of
+        'ASYMM-SCAN-BY0 FLYBY':    win = FigThesis_AsymmScanBy0_FlyBy(FNAMES=fnames)
         'ASYMM-SCAN-BY0 OHMS LAW': win = FigThesis_AsymmScanBy0_OhmsLaw()
         'ASYMM-SCAN-BY0 PROX':     win = FigThesis_AsymmScanBy0_Prox()
         'ASYMM-LARGE-2D OHMS LAW': win = FigThesis_AsymmLarge2D_OhmsLaw()
@@ -540,20 +649,29 @@ SAVE=tf_save
 ; Save to File? //////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
     if keyword_set(tf_save) then begin
-        ;Create the file name
+        nWins = n_elements(win)
         froot = '/home/argall/figures/'
-        fname = 'MrThesis_' + idl_validname(figure, /CONVERT_ALL)
-        fbase = filepath(fname, ROOT_DIR=froot)
+    
+        ;Single window
+        if nWins eq 1 then begin
+            ;Create the file name
+            fname = 'MrThesis_' + idl_validname(figure, /CONVERT_ALL)
+            fbase = filepath(fname, ROOT_DIR=froot)
         
-        ;Save a variety of file types.
-        win -> Refresh
-        win -> Save, fbase + '_im.png'
-        win -> Save, fbase + '.eps'
-        win -> Save, fbase + '.ps'
+            ;Save a variety of file types.
+            win -> Refresh
+            win -> Save, fbase + '_im.png'
+            win -> Save, fbase + '.eps'
+            win -> Save, fbase + '.ps'
         
-        ;Take a snapshot
-        win.SAVEAS -> SetProperty, IM_RASTER=0
-        win -> Save, fbase + '-ss.png'
+            ;Take a snapshot
+            win.SAVEAS -> SetProperty, IM_RASTER=0
+            win -> Save, fbase + '-ss.png'
+            
+        ;Multiple windows
+        endif else begin
+            for i = 0, nWins - 1 do win[i] -> Save, FilePath(fnames[i], ROOT_DIR=froot)
+        endelse
     endif
     
     return, win
