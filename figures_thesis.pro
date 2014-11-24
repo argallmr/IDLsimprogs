@@ -276,7 +276,6 @@ FNAME=fname
 end
 
 
-
 ;+
 ;   Create Figure 2: 2D simulation.
 ;-
@@ -509,7 +508,7 @@ end
 ;+
 ;   Create Figure 2: 2D simulation.
 ;-
-function FigThesis_AsymmLarge2D_Prox
+function FigThesis_AsymmLarge2D_t32_Prox
     compile_opt idl2
     
     catch, the_error
@@ -524,9 +523,10 @@ function FigThesis_AsymmLarge2D_Prox
     ;Layout
     charsize  = 1.5
     layout    = [2,5]
-    oymargin  = [4,4]
+    xgap      = 6
     xsize     = 700
     ysize     = 550
+    col_width = [0.4, 0.6]
 
 ;---------------------------------------------------------------------
 ; 2D Sim, t=32 ///////////////////////////////////////////////////////
@@ -538,7 +538,7 @@ function FigThesis_AsymmLarge2D_Prox
     coord_system = 'Magnetopause'
     mva_frame    = 1
     ion_scale    = 1
-    im_name      = 'ni'
+    im_name      = 'Jey'
     oSim         = MrSim_Create(theSim, tIndex, XRANGE=xrange, ZRANGE=zrange, $
                                 ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
                                 COORD_SYSTEM=coord_system)
@@ -553,7 +553,8 @@ function FigThesis_AsymmLarge2D_Prox
     win -> Refresh, /DISABLE
     
     ;Create a second column
-    win -> SetProperty, LAYOUT=layout, CHARSIZE=charsize, OYMARGIN=oymargin, XSIZE=xsize, YSIZE=ysize
+    win -> SetProperty, CHARSIZE=charsize, COL_WIDTH=col_widht, LAYOUT=layout, $
+                        OYMARGIN=oymargin, XGAP=xgap, XSIZE=xsize, YSIZE=ysize
 
     ;Move all graphics into it
     graphics = win -> Get(/ALL, ISA='MrPlot')
@@ -575,16 +576,121 @@ function FigThesis_AsymmLarge2D_Prox
     obj_destroy, cwin
     
     ;Calculate the positions
-    pos = MrLayout(layout, CHARSIZE=charsize, OYMARGIN=oymargin)
-    im_pos     = [pos[0,8], pos[1,8], pos[2,0], pos[3,0]]
-    im_pos[3] -= 0.05
+    win -> SetCurrent
+    pos = MrLayout(layout, COL_WIDTH=col_width, CHARSIZE=charsize, OYMARGIN=oymargin, XGAP=xgap)
+    im_pos     = [pos[0,8], pos[1,8], pos[2,0], pos[1,0]]
+    im_pos[3] -= 0.06
     
     ;Adjust properties
+    win['Cut Uiz']              -> SetProperty, YTITLE='U$\downiZ$', YTICKINTERVAL=0.01
+    win['Cut Ex']               -> SetProperty, YTITLE='E$\downiX$'
     win['Color '     + im_name] -> SetProperty, POSITION=im_pos, TITLE=''
     win['CB: Color ' + im_name] -> SetProperty, CBLOCATION='Top', OFFSET=0.5, WIDTH=1.5, TICKINTERVAL=0.05
+    win['HLines '    + im_name] -> SetProperty, COLOR=['Cyan', 'Forest Green', 'Red']
 
+    ;Change character size and refresh
     win -> SetGlobal, CHARSIZE=charsize
     win -> Refresh
+
+    ;Move the legend position down half a character size
+    location = win['Legend: Cuts'].location
+    win['Legend: Cuts'].location = location - [0, float(!d.y_ch_size)/float(!d.y_size)]
+    
+    return, win
+end
+
+
+
+;+
+;   Create Figure 2: 2D simulation.
+;-
+function FigThesis_AsymmLarge2D_t90_Prox
+    compile_opt idl2
+    
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /CANCEL
+        if obj_valid(win)  then obj_destroy, win
+        if obj_valid(cwin) then obj_destroy, cwin
+        void = cgErrorMSG()
+        return, obj_new()
+    endif
+    
+    ;Layout
+    charsize  = 1.5
+    layout    = [2,5]
+    xgap      = 6
+    xsize     = 700
+    ysize     = 550
+    col_width = [0.4, 0.6]
+
+;---------------------------------------------------------------------
+; 2D Sim, t=32 ///////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    theSim       = 'Asymm-Large-2D'
+    tIndex       = 90
+    xrange       = [3.0, -3.0]
+    zrange       = 153.3 + [-7.0, 7.0]
+    coord_system = 'Magnetopause'
+    mva_frame    = 1
+    ion_scale    = 1
+    im_name      = 'Jey'
+    oSim         = MrSim_Create(theSim, tIndex, XRANGE=xrange, ZRANGE=zrange, $
+                                ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
+                                COORD_SYSTEM=coord_system)
+    
+;---------------------------------------------------------------------
+; Cuts within the Exhaust ////////////////////////////////////////////
+;---------------------------------------------------------------------
+    cuts         = [153.3, 150.8, 148.0]
+    
+    ;Create cuts of Bx, By, ni, Uix, Ez
+    win = MrSim_XProximity(oSim, cuts)
+    win -> Refresh, /DISABLE
+    
+    ;Create a second column
+    win -> SetProperty, CHARSIZE=charsize, COL_WIDTH=col_widht, LAYOUT=layout, $
+                        OYMARGIN=oymargin, XGAP=xgap, XSIZE=xsize, YSIZE=ysize
+
+    ;Move all graphics into it
+    graphics = win -> Get(/ALL, ISA='MrPlot')
+    foreach gfx, graphics do begin
+        thisLay = gfx.LAYOUT
+        colrow  = win -> ConvertLocation(thisLay[2], thisLay[0:1], /PINDEX, /TO_COLROW)
+        gfx -> SetLayout, [2, colrow[1]]
+    endforeach
+
+;---------------------------------------------------------------------
+; Jey Color Plot /////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    ;Create a 2D color plot
+    cwin = MrSim_ColorSlab(oSim, im_name, C_NAME='Ay', HORIZ_LINE=cuts)
+    
+    ;Move into the other window
+    graphics = cwin -> Get(/ALL)
+    foreach gfx, graphics do gfx -> SwitchWindows, win
+    obj_destroy, cwin
+    
+    ;Calculate the positions
+    win -> SetCurrent
+    pos = MrLayout(layout, COL_WIDTH=col_width, CHARSIZE=charsize, OYMARGIN=oymargin, XGAP=xgap)
+    im_pos     = [pos[0,8], pos[1,8], pos[2,0], pos[1,1]]
+    im_pos[3] -= 0.06
+
+    ;Adjust properties
+    win['Cut Uiz']              -> SetProperty, YTITLE='U$\downiZ$', YTICKINTERVAL=0.02
+    win['Cut Ex']               -> SetProperty, YTITLE='E$\downiX$', YTICKINTERVAL=0.02
+    win['Color '     + im_name] -> SetProperty, POSITION=im_pos, TITLE=''
+    win['CB: Color ' + im_name] -> SetProperty, CBLOCATION='Top', OFFSET=0.5, WIDTH=1.5, TICKINTERVAL=0.05
+    win['HLines '    + im_name] -> SetProperty, COLOR=['Cyan', 'Forest Green', 'Red']
+    
+    ;Change character size and refresh
+    win -> SetGlobal, CHARSIZE=charsize
+    win -> Refresh
+
+    ;Move the legend position down half a character size
+    location = win['Legend: Cuts'].location
+    win['Legend: Cuts'].location = location - [0, float(!d.y_ch_size)/float(!d.y_size)]
     return, win
 end
 
@@ -641,7 +747,8 @@ SAVE=tf_save
         'ASYMM-SCAN-BY0 OHMS LAW': win = FigThesis_AsymmScanBy0_OhmsLaw()
         'ASYMM-SCAN-BY0 PROX':     win = FigThesis_AsymmScanBy0_Prox()
         'ASYMM-LARGE-2D OHMS LAW': win = FigThesis_AsymmLarge2D_OhmsLaw()
-        'ASYMM-LARGE-2D PROX':     win = FigThesis_AsymmLarge2D_Prox()
+        'ASYMM-LARGE-2D T32 PROX': win = FigThesis_AsymmLarge2D_t32_Prox()
+        'ASYMM-LARGE-2D T90 PROX': win = FigThesis_AsymmLarge2D_t90_Prox()
         else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
     endcase
     
