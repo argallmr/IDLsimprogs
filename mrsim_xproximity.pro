@@ -86,6 +86,7 @@
 function MrSim_XProximity, theSim, cuts, time, $
 CUT_RANGE = cut_range, $
 C_NAME = c_name, $
+IM_NAME = im_name, $
 OFILENAME = ofilename, $
 NLEVELS = nlevels, $
 SIM_OBJECT = oSim, $
@@ -134,7 +135,7 @@ _REF_EXTRA = extra
     ;Set defaults
     nCuts = n_elements(cuts)
     Sim3D = keyword_set(Sim3D)
-    if n_elements(c_name)    eq 0 then c_name    = ''
+    if n_elements(im_name)   eq 0 then im_name   = ''
     if n_elements(ofilename) eq 0 then ofilename = ''
     if n_elements(nlevels)   eq 0 then nlevels   = 15
 
@@ -145,9 +146,10 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
 ; Create Plot Annotations //////////////////////////////
 ;-------------------------------------------------------
-    oSim -> GetProperty, TIME=time, COORD_SYSTEM=coord_system, AXIS_LABELS=axLabls
+    oSim -> GetProperty, TIME=time, COORD_SYSTEM=coord_system, AXIS_LABELS=axLabls, $
+                         MVA_FRAME=mva_frame, YRANGE=yrange
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
-    units = MrSim_Rename(units, /SUBSCRIPT)
+    units = MrSim_Rename(units, /SUBSCRIPT, MVA_FRAME=mva_frame)
     
     ;HORIZONTAL CUTS
     if coord_system eq 'MAGNETOPAUSE' then begin
@@ -158,10 +160,11 @@ _REF_EXTRA = extra
         if n_elements(cut_range) gt 0 then hRange = cut_range
         
         ;Location of the horizontal cuts
-        if obj_isa(oSim, 'MRSIM3D') then begin
+        if oSim.dimension eq '3D' then begin
+            oSim -> GetProperty, YRANGE=yrange
             if nCuts gt 1 $
-                then cutLoc = string(FORMAT='(%"' + axLabls[1] + '=%0.1f%s")', yslice, units) $
-                else cutLoc = string(FORMAT='(%"[' + strjoin(axLabls[1:2], ',') + ']=[%0.1f, %0.1f]%s")', cuts, yslice, units)
+                then cutLoc = string(FORMAT='(%"' + axLabls[1] + '=%0.1f%s")', yrange[0], units) $
+                else cutLoc = string(FORMAT='(%"[' + strjoin(axLabls[1:2], ',') + ']=[%0.1f, %0.1f]%s")', cuts, yrange[0], units)
         endif else begin
             if nCuts gt 1 $
                 then cutLoc = '' $
@@ -173,33 +176,20 @@ _REF_EXTRA = extra
         names       = ['Bx', 'By', 'ni', 'Uix', 'Ez']
         horizontal = 0
         vert_lines = cuts
-        legendLabl = axisLabls[0]
+        legendLabl = axLabls[0]
         if n_elements(cut_range) gt 0 then vRange = cut_range
         
         ;Location of the vertical cuts
-        if obj_isa(oSim, 'MRSIM3D') then begin
+        if oSim.dimension eq '3D' then begin
             if nCuts gt 1 $
-                then cutLoc = string(FORMAT='(%"' + axLabls[1] + '=%0.1f%s")', yslice, units) $
-                else cutLoc = string(FORMAT='(%"[' + strjoin(axLabls[0:1], ',') + ']=[%0.1f, %0.1f]%s")', cuts, yslice, units)
+                then cutLoc = string(FORMAT='(%"' + axLabls[1] + '=%0.1f%s")', yrange[0], units) $
+                else cutLoc = string(FORMAT='(%"[' + strjoin(axLabls[0:1], ',') + ']=[%0.1f, %0.1f]%s")', cuts, yrange[0], units)
         endif else begin
             if nCuts gt 1 $
                 then cutLoc = '' $
                 else cutLoc = axLabls[0] + '=' + string(cuts, FORMAT='(i0.1)') + units
         endelse
     endelse
-
-;-------------------------------------------------------
-; Create a 2D Color Plot? //////////////////////////////
-;-------------------------------------------------------
-    if c_name ne '' then begin
-        drWin = MrSim_ColorSlab(oSim, c_name, time, /CURRENT, $
-                                NLEVELS = nlevels, $
-                                VERT_LINES = vert_lines, $
-                                HORIZ_LINES = horiz_lines)
-
-        ;Change some properties
-        drWin['Color ' + c_name] -> SetProperty, XTICKFORMAT='(a1)', XTITLE=''
-    endif
 
 ;-------------------------------------------------------
 ;Make a Plot For Each X-Line ///////////////////////////
@@ -226,6 +216,56 @@ _REF_EXTRA = extra
                          TCOLORS  = ['Blue', 'Forest Green', 'Red'])
     endif
 
+;-------------------------------------------------------
+; Create a 2D Color Plot? //////////////////////////////
+;-------------------------------------------------------
+    if im_name ne '' then begin
+        oSim -> GetProperty, COORD_SYSTEM=coord_sys
+        
+        ;Vertical orientation
+        if coord_sys eq 'MAGNETOPAUSE' then begin
+            ;Create a second column
+            drWin -> SetProperty, LAYOUT=[2,5], COL_WIDTH=[0.4, 0.6], XGAP=10, XSIZE=650, YSIZE=550
+            
+            ;Move plots into the second column
+            allP = drWin -> Get(/ALL, ISA='MRPLOT')
+            foreach gfx, allP do begin
+                thisLay = gfx.layout
+                colrow  = drWin -> ConvertLocation(thisLay[2], thisLay[0:1], /PINDEX, /TO_COLROW)
+                gfx    -> SetLayout, [2, colrow[1]]
+            endforeach
+            
+            ;Create the 2D color image
+            !Null = MrSim_ColorSlab(oSim, im_name, /CURRENT, $
+                                    C_NAME = c_name, $
+                                    NLEVELS = nlevels, $
+                                    VERT_LINES = vert_lines, $
+                                    HORIZ_LINES = horiz_lines)
+            
+            ;Relocate it to fill the first column
+            pos          = MrLayout([2,5], COL_WIDTH=[0.4, 0.6], XGAP=10)
+            position     = [pos[0,8], pos[1,8], pos[2,0], pos[1,0]]
+            position[3] -= 0.04
+            drWin['Color '     + im_name] -> SetProperty, POSITION=position
+            drWin['CB: Color ' + im_name] -> SetProperty, CBLOCATION='TOP', OFFSET=0.5, WIDTH=1.0
+        
+        ;Horizontal orientation
+        endif else begin
+            
+            ;Create the 2D color image
+            !Null = MrSim_ColorSlab(oSim, im_name, /CURRENT, $
+                                    C_NAME = c_name, $
+                                    NLEVELS = nlevels, $
+                                    VERT_LINES = vert_lines, $
+                                    HORIZ_LINES = horiz_lines)
+            
+            ;Move it to location [1,1]
+            drWin['Color ' + im_name] -> SetLayout, [1,1]
+            drWin -> SetProperty, XGAP=[5, 0.5, 0.5, 0.5, 0.5]
+            
+        endelse
+    endif
+
     ;Destroy the object.
     if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
 
@@ -242,9 +282,9 @@ _REF_EXTRA = extra
     drWin -> SetGlobal, CHARSIZE=1.8
     
     ;Set title and margin
-    if c_name ne '' then begin
-        drWin['Color ' + c_name].TITLE=title
-        drWin['CB: Color ' + c_name].WIDTH=1.5
+    if im_name ne '' then begin
+        drWin['Color '     + im_name].TITLE=title
+        drWin['CB: Color ' + im_name].WIDTH=1.5
         drWin.OXMARGIN=[10,11]
     endif
     

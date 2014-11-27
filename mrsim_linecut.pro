@@ -186,12 +186,13 @@ _REF_EXTRA = extra
     
     ;Define endpoints of cut
     oSim -> GetProperty, ORIENTATION=orientation, AXIS_LABELS=axLabels, $
-                         XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange
+                         XRANGE=xrange, YRANGE=yrange, ZRANGE=zrange, $
+                         COORD_SYSTEM=coord_system, TIME=time, MVA_FRAME=mva_frame
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
     
     ;Rename the data products
     _name = MrSim_Rename(name, coord_system, MVA_FRAME=mva_frame, /SUBSCRIPT)
-    units = MrSim_Rename(units, /SUBSCRIPT)
+    units = MrSim_Rename(units, /SUBSCRIPT, MVA_FRAME=mva_frame)
     
     ;Create two points to define the line
     r0 = fltarr(3,nCuts)
@@ -285,9 +286,6 @@ _REF_EXTRA = extra
     endelse
     pos  = horizontal ? reform(coords[0,*]) : reform(coords[1,*])
 
-    ;Get the simulation size and time
-    oSim -> GetProperty, TIME=time, COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame
-        
     ;Destroy the object
     if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
     
@@ -316,12 +314,12 @@ _REF_EXTRA = extra
     
     ;Add the location to the title
     if n_elements(cuts) eq 1 then begin
-        if sim_class eq 'MRSIM2D' $
+        if oSim.dimension eq '2D' $
             then title += '  '  + caxis +   '='  + string(cuts, FORMAT='(f0.1)')  + units $
-            else title += '  (' + caxis + 'y)=(' + strjoin(string(cuts, yslice, FORMAT='(f0.1)'), ',') + ')' + units
+            else title += '  (' + caxis + 'y)=(' + strjoin(string(cuts, yrange[0], FORMAT='(f0.1)'), ',') + ')' + units
     endif else begin
-        if sim_class eq 'MRSIM3D' $
-            then title += '  ' + caxis + 'y=' + string(yslice, FORMAT='(f0.1)') + units
+        if oSim.dimension eq '3D' $
+            then title += '  ' + caxis + 'y=' + string(yrange[0], FORMAT='(f0.1)') + units
     endelse
 
 ;-------------------------------------------------------

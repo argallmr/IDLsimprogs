@@ -34,9 +34,9 @@
 ; PURPOSE:
 ;+
 ;   The purpose of this program is to rename a data product to reflect the coordinate
-;   system in which it is displayed. Names are given in simulation coordinates (x,y,z)
-;   and are renamed appropriately for the transformation they have to undergo to reach
-;   the destination system.
+;   system in which it is displayed. Names are given in the coordinate system defined by
+;   COORD_SYSTEM. Coordinate labels (xyz) are converted to appropriate minimum variance
+;   labels and are returned as subscripts, if requested.
 ;
 ; :Categories:
 ;    Bill Daughton, Simulation
@@ -74,6 +74,7 @@
 ;       2014/06/03  -   Written by Matthew Argall
 ;       2014/10/02  -   Remove underscores and hyphens from name. - MRA
 ;       2014/11/20  -   Vector of names can now be passed in. Added example. - MRA
+;       2014/11/24  -   NAMEs are given in COORD_SYSTEM. - MRA
 ;-
 function MrSim_Rename, name, coord_system, $
 MVA_FRAME=mva_frame, $
@@ -109,9 +110,9 @@ SUBSCRIPT=subscript
             iX = where(nameParts[2,*] eq 'x', nX)
             iY = where(nameParts[2,*] eq 'y', nY)
             iZ = where(nameParts[2,*] eq 'z', nZ)
-            if nX gt 0 then new_name[iX] += coords[2]
+            if nX gt 0 then new_name[iX] += coords[0]
             if nY gt 0 then new_name[iY] += coords[1]
-            if nZ gt 0 then new_name[iZ] += coords[0]
+            if nZ gt 0 then new_name[iZ] += coords[2]
         
             ;Was the second coordinate found? Replace it.
             iX = where(nameParts[3,*] eq 'x', nX)

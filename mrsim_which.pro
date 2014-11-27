@@ -740,7 +740,7 @@ DIST3D=dist3D
         twci = strtrim(long(tIndex * dtxwci), 2)
 
         ;Filenames
-        eFile = '/data2/Asymm-Large-2D-NEW/electrons-t' + twci + '.bin'
+        eFile = '/data2/Asymm-2D-Large/electrons-t' + twci + '.bin'
     endif
     
     ;Electron count factor

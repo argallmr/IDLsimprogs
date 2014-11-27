@@ -263,7 +263,7 @@ function XLP_Figure2
     col_width = [0.2, 0.3, 0.2, 0.3]
     layout    = [4,5]
     oymargin  = [4,4]
-    xgap      = [10, 7, 11]
+    xgap      = [11, 9, 11]
     xsize     = 1200
     ygap      = 0.5
     ysize     = 550
@@ -271,24 +271,33 @@ function XLP_Figure2
 ;---------------------------------------------------------------------
 ; 2D Sim, t=32 ///////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    dir  = '/home/argall/Work/AssymectricSim/asymm-2D-large/'
-    time = 32
-    oSim = obj_new('MrSim2D', time, ION_SCALE=1, XRANGE=[2,-2], ZRANGE=150.9+[-3.0,3.0], $
-                              DIRECTORY=dir+'data', INFO_FILE=dir+'info', $
-                              COORD_SYSTEM='MAGNETOPAUSE', /MVA_FRAME)
+    theSim       = 'Asymm-Large-2D'
+    time         = 32
+    xrange       = [2, -2]
+    zrange       = 150.8 + [-3.0, 3.0]
+    coord_system = 'Magnetopause'
+    ion_scale    = 1
+    mva_frame    = 1
+    oSim = MrSim_Create(theSim, time, $
+                        ION_SCALE    = ion_scale, $
+                        XRANGE       = xrange, $
+                        ZRANGE       = zrange, $
+                        COORD_SYSTEM = coord_system, $
+                        MVA_FRAME    = mva_frame)
     
 ;---------------------------------------------------------------------
 ; Cuts within the Exhaust ////////////////////////////////////////////
 ;---------------------------------------------------------------------
     ;Create cuts of Bx, By, ni, Uix, Ez
-    Fig2 = MrSim_XProximity([150.9, 150.3, 148.4], SIM_OBJECT=oSim)
+    cuts = [150.9, 150.3, 148.4]
+    Fig2 = MrSim_XProximity(oSim, cuts)
     Fig2 -> Refresh, /DISABLE
 
     ;Format the y-axes
-    Fig2['Cut Bx']  -> SetProperty, YTICKINTERVAL=0.25
+    Fig2['Cut Bz']  -> SetProperty, YTICKINTERVAL=0.25
     Fig2['Cut ni']  -> SetProperty, YTICKINTERVAL=0.5,  YTITLE='n$\downi$', YRANGE=[0,1.2]
-    Fig2['Cut Uix'] -> SetProperty, YTICKINTERVAL=0.01, YTITLE='U$\downiL$'
-    Fig2['Cut Ez']  -> SetProperty, YTICKINTERVAL=0.01
+    Fig2['Cut Uiz'] -> SetProperty, YTICKINTERVAL=0.01, YTITLE='U$\downiL$'
+    Fig2['Cut Ex']  -> SetProperty, YTICKINTERVAL=0.01
 
     ;Set the layout
     ;   Move plots to the second column.
@@ -300,8 +309,7 @@ function XLP_Figure2
 ;---------------------------------------------------------------------
     ;Add a 2D color plot
     ;   - Will automatically be added to location [1,1]
-    !Null = MrSim_ColorSlab('Jey', C_NAME='Ay', /CURRENT, $
-                            HORIZ_LINE=[150.9, 150.3, 148.4], SIM_OBJECT=oSim)
+    !Null = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay', /CURRENT, HORIZ_LINE=cuts)
 
     ;Format the X-axis
     Fig2['Color Jey']  -> SetProperty, TITLE='', XTICKS=2, XTICKFORMAT='(f4.1)'
@@ -323,19 +331,23 @@ function XLP_Figure2
 ;---------------------------------------------------------------------
     ;Change to t=90
     ;   - Re-center around the X-line
-    oSim -> SetProperty, TIME=90, XRANGE=[3,-3], ZRANGE=153.3+[-7.0,7.0]
+    tIndex = 90
+    xrange = [3, -3]
+    zrange = 153.3 + [-7, 7]
+    oSim -> SetProperty, TIME=tIndex, XRANGE=xrange, ZRANGE=zrange
 
 ;---------------------------------------------------------------------
 ; Cuts within the Exhaust ////////////////////////////////////////////
 ;---------------------------------------------------------------------
     ;Line plots of cuts surrounding the X-line
-    difwin = MrSim_XProximity([153.3, 150.8, 148.0], SIM_OBJECT=oSim)
+    cuts = [153.3, 150.8, 148.0]
+    difwin = MrSim_XProximity(oSim, cuts)
     difwin -> Refresh, /DISABLE
 
-    difwin['Cut Bx']  -> SetProperty, YTICKINTERVAL=0.25
+    difwin['Cut Bz']  -> SetProperty, YTICKINTERVAL=0.25
     difwin['Cut ni']  -> SetProperty, YTICKINTERVAL=0.4, YTITLE='n$\downi$', YRANGE=[0,0.85]
-    difwin['Cut Uix'] -> SetProperty, YTICKINTERVAL=0.02
-    difwin['Cut Ez']  -> SetProperty, YTICKINTERVAL=0.02
+    difwin['Cut Uiz'] -> SetProperty, YTICKINTERVAL=0.02
+    difwin['Cut Ex']  -> SetProperty, YTICKINTERVAL=0.02
     
     ;We want to move the plots to window Fig2
     ;   - Resize to be similar to Fig2
@@ -372,8 +384,7 @@ function XLP_Figure2
 ; 2D Color Plot  /////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
     ;Plot Jey
-    cwin = MrSim_ColorSlab('Jey', C_NAME='Ay', $
-                           HORIZ_LINE=[153.3, 150.8, 148.0], SIM_OBJECT=oSim)
+    cwin = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay', HORIZ_LINE=cuts)
     obj_destroy, oSim
     
     ;Turn refresh off
@@ -428,19 +439,15 @@ function XLP_Figure2
     ;Adjust the legend
     ;t=32
     oTemp = Fig2['t=32 Legend: Cuts']
-    oTemp.LOCATION=4
-    oTemp -> GetProperty, TITLES=titles, LOCATION=location
+    oTemp -> GetProperty, TITLES=titles
     titles = strsplit(titles, 'L=', /EXTRACT)
-    location -= [0, 0.015]
-    oTemp -> SetProperty, TITLES=titles, LOCATION=location
+    oTemp -> SetProperty, TITLES=titles
     
     ;t=90
     oTemp = Fig2['t=90 Legend: Cuts']
-    oTemp.LOCATION=4
-    oTemp -> GetProperty, TITLES=titles, LOCATION=location
+    oTemp -> GetProperty, TITLES=titles
     titles = strsplit(titles, 'L=', /EXTRACT)
-    location -= [0, 0.015]
-    oTemp -> SetProperty, TITLES=titles, LOCATION=location
+    oTemp -> SetProperty, TITLES=titles
     
     ;Put "(a)" and "(b)" on the figure
     aText = MrText(0.03, 0.9, '(a)', CHARSIZE=2, /CURRENT, /NORMAL)
@@ -473,7 +480,7 @@ function XLP_Figure3
     col_width = [0.2, 0.3, 0.2, 0.3]
     layout    = [4,5]
     oymargin  = [4,4]
-    xgap      = [10, 7, 11]
+    xgap      = [11, 8, 11]
     xsize     = 1200
     ygap      = 0.5
     ysize     = 550
@@ -481,23 +488,34 @@ function XLP_Figure3
 ;---------------------------------------------------------------------
 ; 3D Sim, t=120816, y=1400 ///////////////////////////////////////////
 ;---------------------------------------------------------------------
-    dir    = '/home/argall/Work/AssymectricSim/asymm-3D/'
+    theSim = 'Asymm-3D'
     time   = 120816
-    yslice = 860
-    oSim   = obj_new('MrSim3D', time, yslice, /ION_SCALE, XRANGE=[5,-4], ZRANGE=45.3+[-15,15], $
-                                              DIRECTORY=dir+'data', INFO_FILE=dir+'info', $
-                                              COORD_SYSTEM='MAGNETOPAUSE', /MVA_FRAME)
+    ycell = 860
+    xrange = [5, -4]
+    zrange = 45.3 + [-15, 15]
+    coord_system = 'Magnetopause'
+    mva_frame = 1
+    ion_scale = 1
+    oSim   = MrSim_Create(theSim, time, $
+                          ION_SCALE = ion_scale, $
+                          XRANGE = xrange, $
+                          ZRANGE = zrange, $
+                          COORD_SYSTEM = coord_system, $
+                          MVA_FRAME = mva_frame)
+    ycoord = oSim -> Cell2Coord(ycell, /Y)
+    oSim.yrange = [ycoord, ycoord]
 
 ;---------------------------------------------------------------------
 ; Cuts within the Exhaust ////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    Fig3 = MrSim_XProximity([45.2, 43.7, 35.2], SIM_OBJECT=oSim)
+    cuts = [45.2, 43.7, 35.2]
+    Fig3 = MrSim_XProximity(oSim, cuts)
     Fig3 -> Refresh, /DISABLE
     
     ;Change properties
-    Fig3['Cut Bx'] -> SetProperty, YTICKINTERVAL=0.3
-    Fig3['Cut Uix'].YTICKINTERVAL=0.02
-    Fig3['Cut Ez'].YTICKINTERVAL=0.02
+    Fig3['Cut Bz'] -> SetProperty, YTICKINTERVAL=0.3
+    Fig3['Cut Uiz'].YTICKINTERVAL=0.02
+    Fig3['Cut Ex'].YTICKINTERVAL=0.02
 
     ;Set the layout
     ;   Move plots to the second column.
@@ -509,7 +527,7 @@ function XLP_Figure3
 ;---------------------------------------------------------------------
     ;Aadd a 2D color plot
     ;   - Automatically added to location [1,1]
-    cwin = MrSim_ColorSlab('Jey', /CURRENT, HORIZ_LINE=[45.2, 43.7, 35.2], SIM_OBJECT=oSim)
+    cwin = MrSim_ColorSlab(oSim, 'Jey', /CURRENT, HORIZ_LINE=cuts)
     
     ;Split the title into two lines. Change the tick interval.
     cwin['Color Jey'] -> SetProperty, TITLE='', XTICKINTERVAL=3, XTICKS=2
@@ -531,16 +549,23 @@ function XLP_Figure3
 ;---------------------------------------------------------------------
     ;Change to y=860
     ;   - Re-center around the x-line
-    oSim -> SetProperty, YSLICE=1400, XRANGE=[8,-6], ZRANGE=44+[-15,15]
+    ycell = 1400
+    ycoord = oSim -> Cell2Coord(ycell, /Y)
+    xrange = [8, -6]
+    yrange = [ycoord, ycoord]
+    zrange = 44 + [-15, 15]
+    
+    oSim -> SetProperty, YRANGE=yrange, XRANGE=xrange, ZRANGE=zrange
     
 ;---------------------------------------------------------------------
 ; Cuts within the Exhaust ////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    difwin = MrSim_XProximity([44.7, 39.0, 32.0], SIM_OBJECT=oSim)
+    cuts = [44.7, 39.0, 32.0]
+    difwin = MrSim_XProximity(oSim, cuts)
     difwin -> Refresh, /DISABLE
 
     ;Change properties
-    difwin['Cut Bx'] -> SetProperty, YTICKINTERVAL=0.3
+    difwin['Cut Bz'] -> SetProperty, YTICKINTERVAL=0.3
     difwin['Cut By'].YTICKINTERVAL=0.1
     
     ;We want to move the plots to window Fig3
@@ -578,7 +603,7 @@ function XLP_Figure3
 ; 2D Color Plot  /////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
     ;Plot Jey
-    cwin = MrSim_ColorSlab('Jey', HORIZ_LINE=[44.7, 39.0, 32.0], SIM_OBJECT=oSim)
+    cwin = MrSim_ColorSlab(oSim, 'Jey', HORIZ_LINE=cuts)
     cwin -> Refresh, /DISABLE
     obj_destroy, oSim
     
@@ -621,13 +646,13 @@ function XLP_Figure3
                    COL_WIDTH=col_width, CHARSIZE=charsize)
 
     ;Change the position of the color image
-    top      = Fig3['y=860 Cut Bx'].position
+    top      = Fig3['y=860 Cut Bz'].position
     top      = top[1] + (top[3] - top[1]) * 0.25
     position = [pos[0,16], pos[1,16], pos[2,0], top]
     Fig3['y=860 Color Jey'] -> SetProperty, POSITION=position
     
     ;Reposition to fill the middle three rows.
-    top      = Fig3['y=1400 Cut Bx'].position
+    top      = Fig3['y=1400 Cut BZ'].position
     top      = top[1] + (top[3] - top[1]) * 0.25
     position = [pos[0,18], pos[1,18], pos[2,2], top]
     Fig3['y=1400 Color Jey'].POSITION=position
@@ -635,19 +660,15 @@ function XLP_Figure3
     ;Adjust the legend
     ;y=1400
     oTemp = Fig3['y=860 Legend: Cuts']
-    oTemp.LOCATION=4
-    oTemp -> GetProperty, TITLES=titles, LOCATION=location
+    oTemp -> GetProperty, TITLES=titles
     titles = strsplit(titles, 'L=', /EXTRACT)
-    location -= [0,0.015]
-    oTemp -> SetProperty, TITLES=titles, LOCATION=location
+    oTemp -> SetProperty, TITLES=titles
     
     ;y=860
     oTemp = Fig3['y=1400 Legend: Cuts']
-    oTemp.LOCATION=4
-    oTemp -> GetProperty, TITLES=titles, LOCATION=location
+    oTemp -> GetProperty, TITLES=titles
     titles = strsplit(titles, 'L=', /EXTRACT)
-    location -= [0, 0.015]
-    oTemp -> SetProperty, TITLES=titles, LOCATION=location
+    oTemp -> SetProperty, TITLES=titles
     
     ;Put "(a)" and "(b)" on the figure
     aText = MrText(0.05, 0.92, '(a)', CHARSIZE=2, /CURRENT, /NORMAL)
@@ -750,8 +771,6 @@ function XLP_Figure1_GEM
 end
 
 
-
-
 ;+
 ;   Create the desired figure.
 ;
@@ -759,16 +778,62 @@ end
 ;       FIGURE:         in, optional, type=string
 ;                       Figure number of the figure to be created.
 ;-
-function XLine_Proximity_Figures, figure
+function XLine_Proximity_Figures, figure, $
+SAVE=tf_save
     compile_opt strictarr
     on_error, 2
 
     ;Create the figure    
-    case figure of
-        '2': win = XLP_Figure2()
-        '3': win = XLP_Figure3()
+    case strupcase(figure) of
+        'SIM2D PROX': win = XLP_Figure2()
+        'SIM3D PROX': win = XLP_Figure3()
         else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
     endcase
+    
+;---------------------------------------------------------------------
+; Save to File? //////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+    if keyword_set(tf_save) then begin
+        ;Save as what?
+        eps    = keyword_set(eps)
+        ps     = keyword_set(ps)
+        png    = keyword_set(png)
+        im_png = keyword_set(im_png)
+        if eps + png + ps + im_png eq 0 then begin
+            eps    = 1
+            ps     = 1
+            png    = 1
+            im_png = 1
+        endif
+    
+        ;Number of files and where to save them.
+        nWins = n_elements(win)
+        froot = '/home/argall/figures/'
+    
+        ;Single window
+        if nWins eq 1 then begin
+            ;Create the file name
+            fname = 'Proximity_' + idl_validname(figure, /CONVERT_ALL)
+            fbase = filepath(fname, ROOT_DIR=froot)
+        
+            ;Save a variety of file types.
+            win -> Refresh
+            if im_png then win -> Save, fbase + '_im.png'
+            if eps    then win -> Save, fbase + '.eps'
+            if ps     then win -> Save, fbase + '.ps'
+        
+            ;Take a snapshot
+            if png then begin
+                win.SAVEAS -> SetProperty, IM_RASTER=0
+                win -> Save, fbase + '-ss.png'
+                win.SAVEAS -> SetProperty, IM_RASTER=1
+            endif
+            
+        ;Multiple windows
+        endif else begin
+            for i = 0, nWins - 1 do win[i] -> Save, FilePath(fnames[i], ROOT_DIR=froot)
+        endelse
+    endif
     
     return, win
 end
