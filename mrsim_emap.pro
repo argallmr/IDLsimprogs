@@ -221,11 +221,6 @@ _REF_EXTRA=extra
     ;Particle data has 2 spacial dimensions
     ;   - [x0, z0, x1, z1]
     if is2D then begin
-        position = [bin_center[0,*] - half_width[0,*], $
-                    bin_center[1,*] - half_width[1,*], $
-                    bin_center[0,*] + half_width[0,*], $
-                    bin_center[1,*] + half_width[1,*]]
-        
         ;Indexing is different for 2D and 3D
         ;   - Number of spacial dimensions
         ;   - Indices of the horizontal coordinates
@@ -233,17 +228,19 @@ _REF_EXTRA=extra
         nD = 2
         ih = [0,2]
         iv = [1,3]
+    
+        ;Half widths are the same for all distributions.
+        widths = rebin(half_width, nD, nDist)
+        
+        ;Position of bin(s)
+        position = [bin_center[0,*] - widths[0,*], $
+                    bin_center[1,*] - widths[1,*], $
+                    bin_center[0,*] + widths[0,*], $
+                    bin_center[1,*] + widths[1,*]]
         
     ;Particle data has 3 spacial dimensions
     ;   - [x0, y0, z0, x1, y1, z1]
     endif else begin
-        position = [bin_center[0,*] - half_width[0,*], $
-                    bin_center[1,*] - half_width[1,*], $
-                    bin_center[2,*] - half_width[2,*], $
-                    bin_center[0,*] + half_width[0,*], $
-                    bin_center[1,*] + half_width[1,*], $
-                    bin_center[2,*] + half_width[2,*]]
-        
         ;Indexing is different for 2D and 3D
         ;   - Number of spacial dimensions
         ;   - Indices of the horizontal coordinates
@@ -251,6 +248,17 @@ _REF_EXTRA=extra
         nD = 3
         ih = [0,3]
         iv = [2,5]
+    
+        ;Half widths are the same for all distributions.
+        widths = rebin(half_width, nD, nDist)
+        
+        ;Position of bin(s)
+        position = [bin_center[0,*] - widths[0,*], $
+                    bin_center[1,*] - widths[1,*], $
+                    bin_center[2,*] - widths[2,*], $
+                    bin_center[0,*] + widths[0,*], $
+                    bin_center[1,*] + widths[1,*], $
+                    bin_center[2,*] + widths[2,*]]
     endelse
 
 ;-------------------------------------------------------
@@ -326,12 +334,8 @@ _REF_EXTRA=extra
             centers[1,*] = bin_center[1]
             centers[2,*] = bin_center[2] + (temporary(voffset))[0,*]
         endelse
-
-        ;Half widths are the same for all distributions.
-        widths = rebin(half_width, nD, nDist)
     endif else begin
         centers   = bin_center
-        widths    = rebin(half_width, nD, nDist)
         positions = temporary(position)
     endelse
 
@@ -347,8 +351,8 @@ _REF_EXTRA=extra
         theIm = im_win['Color ' + im_name]
         for i = 0, nDist - 1 do begin
             theBin = positions[*,i]
-            xpoly  = theBin[ih[0,1,1,0,0]]
-            ypoly  = theBin[iv[0,0,1,1,0]]
+            xpoly  = theBin[ih[[0,1,1,0,0]]]
+            ypoly  = theBin[iv[[0,0,1,1,0]]]
             !Null  = MrPlotS(xpoly, ypoly, TARGET=theIm, NAME='Bin ' + strtrim(i, 2), $
                              /DATA, COLOR='White', THICK=2.0)
         endfor

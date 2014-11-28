@@ -320,6 +320,108 @@ end
 
 
 ;+
+;   Create Figure 2: 2D simulation.
+;-
+function FigThesis_AsymmScanBy0_FlyBy_Prox, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win)  then obj_destroy, win
+		if obj_valid(cwin) then obj_destroy, cwin
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+	;Layout
+	charsize  = 2.0
+	col_width = [0.4, 0.6]
+	layout    = [2,5]
+	oymargin  = [4,2]
+	xgap      = 10
+	xsize     = 700
+	ysize     = 500
+
+;---------------------------------------------------------------------
+; 2D Sim, t=32 ///////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+	theSim    = 'Asymm-Scan/By0'
+	time      = 28
+	xrange    = 367.7 + [-50, 50]
+	zrange    = [-20, 20]
+	ion_scale = 0
+	mva_frame = 0
+	coord_sys = 'Simulation'
+	im_name   = 'Dng_e'
+	oSim      = MrSim_Create(theSim, time, XRANGE=xrange, ZRANGE=zrange, $
+	                         ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
+	                         COORD_SYSTEM=coord_sys)
+
+;---------------------------------------------------------------------
+; eMap Along Three Cuts //////////////////////////////////////////////
+;---------------------------------------------------------------------
+	;Cut locations
+	cuts = [367.7, 349.0, 330.0]
+	
+	;Distribution information
+	dist_type   = 'Vx-Vy'
+	dist_width  = [0.5, 0.5]
+	dist_layout = [5, 3]
+	dist_loc    = [[cuts[0],   8.3], $     ;1st Cut (X-line)
+	               [cuts[0],   1.7], $
+	               [cuts[0],  -0.3], $
+	               [cuts[0],  -1.8], $
+	               [cuts[0],  -8.3], $
+	               [cuts[1],   8.3], $     ;2nd Cut
+	               [cuts[1],   3.3], $
+	               [cuts[1],  -2.3], $
+	               [cuts[1],  -6.0], $
+	               [cuts[1], -10.0], $
+	               [cuts[2],  10.0], $     ;3rd Cut
+	               [cuts[2],   6.7], $
+	               [cuts[2],   0.0], $
+	               [cuts[2], -10.0], $
+	               [cuts[2], -16.7]]
+	
+	;Create the distribution functions
+	win = MrSim_eMap(oSim, dist_type, dist_loc, dist_width, $
+	                 LAYOUT  = dist_layout, $
+	                 IM_NAME = im_name, $
+	                 IM_WIN  = im_win, $
+	                 C_NAME  = 'Ay', $
+	                 YSIZE   = ysize)
+
+;---------------------------------------------------------------------
+; Draw Lines at Cuts /////////////////////////////////////////////////
+;---------------------------------------------------------------------
+	im_win -> Refresh, /DISABLE
+	target = im_win['Color ' + im_name]
+	!Null  = MrPlotS([cuts[0], cuts[0]], zrange, TARGET=target, COLOR='White', THICK=1)
+	!Null  = MrPlotS([cuts[1], cuts[1]], zrange, TARGET=target, COLOR='White', THICK=1)
+	!Null  = MrPlotS([cuts[2], cuts[2]], zrange, TARGET=target, COLOR='White', THICK=1)
+	im_win -> Refresh
+
+;---------------------------------------------------------------------
+; Adjust /////////////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+	win -> Refresh, /DISABLE
+	win['eMap Title'].yloc     = 0.94
+	win['CB: Counts'].position = [0.93, 0.25, 0.945, 0.75]
+	win -> Refresh
+	
+	;Create figure names
+	fnames = ['Asymm-Scan-By0_FlyBy-Prox_Vx-Vy.png', $
+	          'Asymm-Scan-By0_FlyBy-Prox_Dng.png']
+	win    = [win, im_win]
+	
+	;Return the distribution window.
+	return, win
+end
+
+
+;+
 ;   eMap for the Asymm-3D simulation.
 ;-
 function FigThesis_AsymmScanBy0_OhmsLaw, $
@@ -728,103 +830,206 @@ function FigThesis_AsymmScanBy1_FlyBy, $
 FNAMES=fnames
     compile_opt idl2
     
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /CANCEL
-        if obj_valid(win)  then obj_destroy, win
-        if obj_valid(cwin) then obj_destroy, cwin
-        void = cgErrorMSG()
-        return, obj_new()
-    endif
-    
-    ;Layout
-    charsize  = 1.5
-    layout    = [2,5]
-    oymargin  = [4,4]
-    xsize     = 700
-    ysize     = 550
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win)  then obj_destroy, win
+		if obj_valid(cwin) then obj_destroy, cwin
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+	;Layout
+	charsize  = 1.5
+	layout    = [2,5]
+	oymargin  = [4,4]
+	xsize     = 700
+	ysize     = 550
 
 ;---------------------------------------------------------------------
 ; 2D Sim, t=32 ///////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    theSim    = 'Asymm-Scan/By1'
-    time      = 30
-    xrange    = [420, 450]
-    zrange    = [-10, 10]
-    ion_scale = 0
-    mva_frame = 0
-    coord_sys = 'Simulation'
-    im_name   = 'Dng_e'
-    oSim      = MrSim_Create(theSim, time, XRANGE=xrange, ZRANGE=zrange, $
-                             ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
-                             COORD_SYSTEM=coord_sys)
-    
-    ;Get the yrange
-    ycoord = oSim -> Cell2Coord(0)
-    yrange = [ycoord, ycoord]
+	theSim    = 'Asymm-Scan/By1'
+	time      = 30
+	xrange    = [420, 450]
+	zrange    = [-10, 10]
+	ion_scale = 0
+	mva_frame = 0
+	coord_sys = 'Simulation'
+	im_name   = 'Dng_e'
+	oSim      = MrSim_Create(theSim, time, XRANGE=xrange, ZRANGE=zrange, $
+	                         ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
+	                         COORD_SYSTEM=coord_sys)
+
+	;Get the yrange
+	ycoord = oSim -> Cell2Coord(0)
+	yrange = [ycoord, ycoord]
 ;---------------------------------------------------------------------
 ; Cuts within the Exhaust ////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    cuts        = [435, 438, 445]
-    name        = 'ne'
-    c_name      = 'Ay'
-    im_name     = 'Dng_e'
-    nDist       = 25
-    dist_layout = [5,5]
-    dist_size   = [0.5,0.5,0.5]
-    dist_type   = ['Vx-Vy', 'Vx-Vz', 'Vy-Vz', 'Vpar-Vperp', 'Vpar-Vperp1', 'Vpar-Vperp2', 'Vperp1-Vperp2']
-    
-    nCuts  = n_elements(cuts)
-    nTypes = n_elements(dist_type)
-    
-    imarr    = objarr(nCuts)
-    distarr  = objarr(nCuts*nTypes)
-    fnames   = strarr(nCuts*nTypes)
-    imfnames = strarr(nCuts)
-    
-    ;Perform the Fly-By
-    for i = 0, nCuts - 1 do begin
-        for j = 0, nTypes - 1 do begin
-            print, FORMAT='(%"Cut %i, Type %s")', cuts[i], dist_type[j]
-        
-            index = i*nTypes + j
-                
-            ;Points on satellite path
-            r0 = [cuts[i], zrange[0]]
-            r1 = [cuts[i], zrange[1]]
-        
-            ;Create the distributions
-            win = MrSim_MMS_FlyBy(oSim, im_name, r0, r1, $
-                                  C_NAME      = c_name, $
-                                  IM_NAME     = im_name, $
-                                  NDIST       = nDist, $
-                                  DIST_LAYOUT = dist_layout, $
-                                  DIST_SIZE   = dist_size, $
-                                  DIST_WIN    = dist_win, $, $
-                                  DIST_TYPE   = dist_type[j])
-            
-            ;Save the windows
-            distarr[index] = dist_win
-            fnames[index] = string(FORMAT='(%"Asymm-Scan-By1_MMS-FlyBy_%s_x%i.png")', dist_type[j], cuts[i])
-            
-            ;Images
-            if j eq 0 then begin
-                imarr[i] = win
-                imfnames[i] = string(FORMAT='(%"Asymm-Scan-By1_MMS-FlyBy_%s_x%i.png")', 'Dng', cuts[i])
-            endif else begin
-                obj_destroy, win
-            endelse
-            
-            ;Make file names
-        endfor
-    endfor
-    
-    ;Combine images and distributions
-    distarr = [distarr, imarr]
-    fnames  = [fnames, imfnames]
-    
-    ;Return
-    return, distarr
+	cuts        = [434.5, 438, 445]
+	name        = 'ne'
+	c_name      = 'Ay'
+	im_name     = 'Dng_e'
+	nDist       = 25
+	dist_layout = [5,5]
+	dist_size   = [0.5,0.5,0.5]
+	dist_type   = ['Vx-Vy', 'Vx-Vz', 'Vy-Vz', 'Vpar-Vperp', 'Vpar-Vperp1', 'Vpar-Vperp2', 'Vperp1-Vperp2']
+
+	nCuts  = n_elements(cuts)
+	nTypes = n_elements(dist_type)
+
+	imarr    = objarr(nCuts)
+	distarr  = objarr(nCuts*nTypes)
+	fnames   = strarr(nCuts*nTypes)
+	imfnames = strarr(nCuts)
+
+	;Perform the Fly-By
+	for i = 0, nCuts - 1 do begin
+		for j = 0, nTypes - 1 do begin
+			print, FORMAT='(%"Cut %i, Type %s")', cuts[i], dist_type[j]
+	
+			index = i*nTypes + j
+			
+			;Points on satellite path
+			r0 = [cuts[i], zrange[0]]
+			r1 = [cuts[i], zrange[1]]
+	
+			;Create the distributions
+			win = MrSim_MMS_FlyBy(oSim, im_name, r0, r1, $
+			                      C_NAME      = c_name, $
+			                      IM_NAME     = im_name, $
+			                      NDIST       = nDist, $
+			                      DIST_LAYOUT = dist_layout, $
+			                      DIST_SIZE   = dist_size, $
+			                      DIST_WIN    = dist_win, $, $
+			                      DIST_TYPE   = dist_type[j])
+		
+			;Save the windows
+			distarr[index] = dist_win
+			fnames[index] = string(FORMAT='(%"Asymm-Scan-By1_MMS-FlyBy_%s_x%i.png")', dist_type[j], cuts[i])
+		
+			;Images
+			if j eq 0 then begin
+				imarr[i] = win
+				imfnames[i] = string(FORMAT='(%"Asymm-Scan-By1_MMS-FlyBy_%s_x%i.png")', 'Dng', cuts[i])
+			endif else begin
+				obj_destroy, win
+			endelse
+		
+			;Make file names
+		endfor
+	endfor
+
+	;Combine images and distributions
+	distarr = [distarr, imarr]
+	fnames  = [fnames, imfnames]
+
+	;Return
+	return, distarr
+end
+
+
+;+
+;   Create Figure 2: 2D simulation.
+;-
+function FigThesis_AsymmScanBy1_FlyBy_Prox, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win)  then obj_destroy, win
+		if obj_valid(cwin) then obj_destroy, cwin
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+	;Layout
+	charsize  = 2.0
+	col_width = [0.4, 0.6]
+	layout    = [2,5]
+	oymargin  = [4,2]
+	xgap      = 10
+	xsize     = 700
+	ysize     = 500
+
+;---------------------------------------------------------------------
+; 2D Sim, t=32 ///////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+	theSim    = 'Asymm-Scan/By1'
+	time      = 30
+	xrange    = [420, 450]
+	zrange    = [-10, 10]
+	ion_scale = 0
+	mva_frame = 0
+	coord_sys = 'Simulation'
+	im_name   = 'Dng_e'
+	oSim      = MrSim_Create(theSim, time, XRANGE=xrange, ZRANGE=zrange, $
+	                         ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
+	                         COORD_SYSTEM=coord_sys)
+
+;---------------------------------------------------------------------
+; eMap Along Three Cuts //////////////////////////////////////////////
+;---------------------------------------------------------------------
+	;Cut locations
+	cuts = [434.5, 438.0, 445.0]
+	
+	;Distribution information
+	dist_type   = 'Vx-Vy'
+	dist_width  = [0.5, 0.5]
+	dist_layout = [5, 3]
+	dist_loc    = [[cuts[0],   4.2], $     ;1st Cut (X-line)
+	               [cuts[0],   2.0], $
+	               [cuts[0],   1.0], $
+	               [cuts[0],   0.5], $
+	               [cuts[0],  -1.7], $
+	               [cuts[1],   5.0], $     ;2nd Cut
+	               [cuts[1],   2.2], $
+	               [cuts[1],   0.0], $
+	               [cuts[1],  -1.4], $
+	               [cuts[1],  -4.2], $
+	               [cuts[2],   5.8], $     ;3rd Cut
+	               [cuts[2],   2.9], $
+	               [cuts[2],   0.0], $
+	               [cuts[2],  -4.2], $
+	               [cuts[2],  -5.8]]
+	
+	;Create the distribution functions
+	win = MrSim_eMap(oSim, dist_type, dist_loc, dist_width, $
+	                 LAYOUT  = dist_layout, $
+	                 IM_NAME = im_name, $
+	                 IM_WIN  = im_win, $
+	                 C_NAME  = 'Ay', $
+	                 YSIZE   = ysize)
+
+;---------------------------------------------------------------------
+; Draw Lines at Cuts /////////////////////////////////////////////////
+;---------------------------------------------------------------------
+	im_win -> Refresh, /DISABLE
+	target = im_win['Color ' + im_name]
+	!Null  = MrPlotS([cuts[0], cuts[0]], zrange, TARGET=target, COLOR='White', THICK=1)
+	!Null  = MrPlotS([cuts[1], cuts[1]], zrange, TARGET=target, COLOR='White', THICK=1)
+	!Null  = MrPlotS([cuts[2], cuts[2]], zrange, TARGET=target, COLOR='White', THICK=1)
+	im_win -> Refresh
+
+;---------------------------------------------------------------------
+; Adjust /////////////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+	win -> Refresh, /DISABLE
+	win['eMap Title'].yloc     = 0.94
+	win['CB: Counts'].position = [0.93, 0.25, 0.945, 0.75]
+	win -> Refresh
+	
+	;Create figure names
+	fnames = ['Asymm-Scan-By1_FlyBy-Prox_Vx-Vy.png', $
+	          'Asymm-Scan-By1_FlyBy-Prox_Dng.png']
+	win    = [win, im_win]
+	
+	
+	;Return the distribution window.
+	return, win
 end
 
 
@@ -1292,9 +1497,11 @@ SAVE=tf_save
                        ['    y1440 Prox', ''], $
                        ['Asymm-Scan-By1', ''], $
                        ['    FlyBy',      ''], $
+                       ['    FlyBy Prox', ''], $
                        ['    Prox',       ''], $
                        ['Asymm-Scan-By0', ''], $
                        ['    FlyBy',      ''], $
+                       ['    FlyBy Prox', ''], $
                        ['    Prox',       ''], $
                        ['    Ohms Law',   ''], $
                        ['Asymm-Large-2D', ''], $
@@ -1319,18 +1526,20 @@ SAVE=tf_save
     tf_save = keyword_set(tf_save)
 
     case _figure of
-        'ASYMM-3D Y860 PROX':      win = FigThesis_Asymm3D_Y860_Prox()
-        'ASYMM-3D Y1440 PROX':     win = FigThesis_Asymm3D_Y1440_Prox()
-        'ASYMM-SCAN-BY0 FLYBY':    win = FigThesis_AsymmScanBy0_FlyBy(FNAMES=fnames)
-        'ASYMM-SCAN-BY0 OHMS LAW': win = FigThesis_AsymmScanBy0_OhmsLaw()
-        'ASYMM-SCAN-BY0 PROX':     win = FigThesis_AsymmScanBy0_Prox()
-        'ASYMM-SCAN-BY0 PROX 3IM': win = FigThesis_AsymmScanBy0_Prox_3IM()
-        'ASYMM-SCAN-BY1 FLYBY':    win = FigThesis_AsymmScanBy1_FlyBy(FNAMES=fnames)
-        'ASYMM-SCAN-BY1 PROX':     win = FigThesis_AsymmScanBy1_Prox()
-        'ASYMM-LARGE-2D FLYBY':    win = FigThesis_AsymmLarge2D_FlyBy(FNAMES=fnames)
-        'ASYMM-LARGE-2D OHMS LAW': win = FigThesis_AsymmLarge2D_OhmsLaw()
-        'ASYMM-LARGE-2D T32 PROX': win = FigThesis_AsymmLarge2D_t32_Prox()
-        'ASYMM-LARGE-2D T90 PROX': win = FigThesis_AsymmLarge2D_t90_Prox()
+        'ASYMM-3D Y860 PROX':        win = FigThesis_Asymm3D_Y860_Prox()
+        'ASYMM-3D Y1440 PROX':       win = FigThesis_Asymm3D_Y1440_Prox()
+        'ASYMM-SCAN-BY0 FLYBY':      win = FigThesis_AsymmScanBy0_FlyBy(FNAMES=fnames)
+        'ASYMM-SCAN-BY0 FLYBY PROX': win = FigThesis_AsymmScanBy0_FlyBy_Prox(FNAMES=fnames)
+        'ASYMM-SCAN-BY0 OHMS LAW':   win = FigThesis_AsymmScanBy0_OhmsLaw()
+        'ASYMM-SCAN-BY0 PROX':       win = FigThesis_AsymmScanBy0_Prox()
+        'ASYMM-SCAN-BY0 PROX 3IM':   win = FigThesis_AsymmScanBy0_Prox_3IM()
+        'ASYMM-SCAN-BY1 FLYBY':      win = FigThesis_AsymmScanBy1_FlyBy(FNAMES=fnames)
+        'ASYMM-SCAN-BY1 FLYBY PROX': win = FigThesis_AsymmScanBy1_FlyBy_Prox(FNAMES=fnames)
+        'ASYMM-SCAN-BY1 PROX':       win = FigThesis_AsymmScanBy1_Prox()
+        'ASYMM-LARGE-2D FLYBY':      win = FigThesis_AsymmLarge2D_FlyBy(FNAMES=fnames)
+        'ASYMM-LARGE-2D OHMS LAW':   win = FigThesis_AsymmLarge2D_OhmsLaw()
+        'ASYMM-LARGE-2D T32 PROX':   win = FigThesis_AsymmLarge2D_t32_Prox()
+        'ASYMM-LARGE-2D T90 PROX':   win = FigThesis_AsymmLarge2D_t90_Prox()
         else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
     endcase
     
