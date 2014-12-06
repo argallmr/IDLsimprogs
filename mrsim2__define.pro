@@ -819,38 +819,38 @@ end
 function MrSim2::GridLine, r0, r1, $
 COUNT=count, $
 COORDS=coords
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        void = cgErrorMSG()
-        return, !Null
-    endif
+	compile_opt strictarr
 
-    ;Determine the size of a grid cell in DE
-    self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de, MI_ME=mi_me
-    if self.ion_scale then begin
-        dx_de /= mi_me
-        dy_de /= mi_me
-        dz_de /= mi_me
-    endif
-    
-    ;Number of grid cells between r0 and r1
-    dr    = sqrt( total( (r1 - r0)^2 ) )
-    count = fix(dr / dx_de, TYPE=3)
+	;Error handling
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /cancel
+		void = cgErrorMSG()
+		return, !Null
+	endif
 
-    ;Coordinates of each point on the line.
-    coords = MrLine3D(r0, r1, NPOINTS=count)
-    
-    ;Find the cells
-    cells = coords
-    cells[0,*] = self -> Coord2Cell(coords[0,*], /X)
-    cells[1,*] = self -> Coord2Cell(coords[1,*], /Y)
-    cells[2,*] = self -> Coord2Cell(coords[2,*], /Z)
+	;Determine the size of a grid cell in DE
+	self -> GetInfo, DX_DE=dx_de, DY_DE=dy_de, DZ_DE=dz_de, MI_ME=mi_me
+	if self.ion_scale then begin
+		dx_de /= mi_me
+		dy_de /= mi_me
+		dz_de /= mi_me
+	endif
 
-    return, cells
+	;Number of grid cells between r0 and r1
+	dr    = sqrt( total( (r1 - r0)^2 ) )
+	count = fix(dr / dx_de, TYPE=3)
+
+	;Coordinates of each point on the line.
+	coords = MrLine3D(r0, r1, NPOINTS=count)
+
+	;Find the cells
+	cells = coords
+	cells[0,*] = self -> Coord2Cell(coords[0,*], /X)
+	cells[1,*] = self -> Coord2Cell(coords[1,*], /Y)
+	cells[2,*] = self -> Coord2Cell(coords[2,*], /Z)
+
+	return, cells
 end
 
 

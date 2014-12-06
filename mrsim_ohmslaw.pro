@@ -220,7 +220,7 @@ IONS = ions
     E.YRANGE = yrange
     
     legend_titles = ['E$\down'+_comp+'$', ['-(VxB)', '(JxB)', '-(divPe)'] + '$\down' + _comp +'$', $
-                     'E$\downTot$=E$\downC$+E$\downH$+E$\downP$']
+                     "E'$\down"+_comp+"$=E$\downC$+E$\downH$+E$\downP$"]
     legend_titles[2:3] += '/en'
     
     ;Create a legend
@@ -248,7 +248,7 @@ end
 ;                           If set, the ion current will be plotted instead of the
 ;                               total current.
 ;-
-pro MrSim_OhmsLaw_GradPe, oSim, component, cut, $
+pro MrSim_OhmsLaw_DivPe, oSim, component, cut, $
 ELECTRONS = electrons, $
 HORIZONTAL = horizontal, $
 IONS = ions
@@ -318,9 +318,9 @@ IONS = ions
             divPe = MrSim_LineCut(oSim, 'div' + P_name + '_x', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
                                 
             ;Get Data
-            n_e     = oSim -> Get1DCut(n_name,         points[*,0], points[*,1], COORDS=pos)
-            divPe_1 = oSim -> Get1DCut(P_name + '_xx', points[*,0], points[*,1], /DX)
-            divPe_2 = oSim -> Get1DCut(P_name + '_xz', points[*,0], points[*,1], /DZ)
+            n_e     = oSim -> Get1DCut(n_name,         points[0,*], points[1,*], COORDS=pos)
+            divPe_1 = oSim -> Get1DCut(P_name + '_xx', points[0,*], points[1,*], /DX)
+            divPe_2 = oSim -> Get1DCut(P_name + '_xz', points[0,*], points[1,*], /DZ)
             
             ;Titles for the legend
             titles = ['E'+subX, '-(div ' + P_name + ')' + [subX, subX+subX, subX+subZ] + '/ne']
@@ -331,9 +331,9 @@ IONS = ions
             divPe   = MrSim_LineCut(oSim, 'div' + P_name + '_y', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
             
             ;Get data
-            n_e     = oSim -> Get1DCut(n_name,         points[*,0], points[*,1], COORDS=pos)
-            divPe_1 = oSim -> Get1DCut(P_name + '_xy', points[*,0], points[*,1], /DX)
-            divPe_2 = oSim -> Get1DCut(P_name + '_yz', points[*,0], points[*,1], /DZ)
+            n_e     = oSim -> Get1DCut(n_name,         points[0,*], points[1,*], COORDS=pos)
+            divPe_1 = oSim -> Get1DCut(P_name + '_xy', points[0,*], points[1,*], /DX)
+            divPe_2 = oSim -> Get1DCut(P_name + '_yz', points[0,*], points[1,*], /DZ)
             
             ;Title for legend
             titles = ['E'+subY, '-(div' + Pe_name + ')' + [subY, subY+subX, subY+subZ] + '/ne']
@@ -344,9 +344,9 @@ IONS = ions
             divPe   = MrSim_LineCut(oSim, 'div' + P_name + '_z', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
             
             ;Get data
-            n_e     = oSim -> Get1DCut(n_name,         points[*,0], points[*,1], COORDS=pos)
-            divPe_1 = oSim -> Get1DCut(P_name + '_xz', points[*,0], points[*,1], /DX)
-            divPe_2 = oSim -> Get1DCut(P_name + '_zz', points[*,0], points[*,1], /DZ)
+            n_e     = oSim -> Get1DCut(n_name,         points[0,*], points[1,*], COORDS=pos)
+            divPe_1 = oSim -> Get1DCut(P_name + '_xz', points[0,*], points[1,*], /DX)
+            divPe_2 = oSim -> Get1DCut(P_name + '_zz', points[0,*], points[1,*], /DZ)
             
             ;Title for legend
             titles = ['E'+subZ, '-(div ' + P_name + ')' + [subZ, subX+subZ, subZ+subZ] + '/ne']
@@ -369,6 +369,8 @@ IONS = ions
     ;Note: E = -divPe / ne
     ;   - Nagate (-1) and divide by charge constant (1)
     divPe -> SetData, -divPe_data / n_e
+    divPe_1 /= -n_e
+    divPe_2 /= -n_e
     
     ;Find the data range
     maxRange = max([max(temporary(E_data), MIN=Emin), max(temporary(divPe_data), MIN=Pmin), $
@@ -377,9 +379,9 @@ IONS = ions
     E.YRANGE=range
 
     ;Overplot the individual terms
-    pos = horizontal ? reform(pos[0,*]) : reform(pos[1,*])
-    !Null = MrPlot(pos, -divPe_1/n_e, OVERPLOT=E, NAME='Inertial div(Pe)' + component + 'X', COLOR='Forest Green')
-    !NULL = MrPlot(pos, -divPe_2/n_e, OVERPLOT=E, NAME='Inertial div(Pe)' + component + 'Z', COLOR='Red')
+    pos   = horizontal ? reform(pos[0,*]) : reform(pos[1,*])
+    !Null = MrPlot(pos, divPe_1, OVERPLOT=E, NAME='Inertial div(Pe)' + component + 'X', COLOR='Forest Green')
+    !NULL = MrPlot(pos, divPe_2, OVERPLOT=E, NAME='Inertial div(Pe)' + component + 'Z', COLOR='Red')
     
     ;Create a legend
     ohmLegend = MrLegend(TARGET=E, TITLE=titles, $
@@ -738,7 +740,7 @@ end
 function MrSim_OhmsLaw, theSim, component, cut, time, $
 CURRENT = current, $
 ELECTRONS = electrons, $
-GRADPE = gradPe, $
+DIVPE = divPe, $
 HORIZONTAL = horizontal, $
 IONS = ions, $
 JXB = JxB, $
@@ -788,7 +790,7 @@ _REF_EXTRA = extra
     current   = keyword_set(current)
     electrons = keyword_set(electrons)
     ETotal    = keyword_set(ETotal)
-    gradPe    = keyword_set(gradPe)
+    divPe     = keyword_set(divPe)
     ions      = keyword_set(ions)
     JxB       = keyword_set(JxB)
     Sim3D     = keyword_set(Sim3D)
@@ -799,9 +801,9 @@ _REF_EXTRA = extra
     if electrons + ions eq 0 then fluid = 1 else fluid = 0
     if electrons + ions gt 1 then message, 'Keywords ELECTRONS and IONS are mutually exclusive.'
     
-    if (ETotal + gradPe + JxB + VxB) eq 0 then begin
+    if (ETotal + divPe + JxB + VxB) eq 0 then begin
         ETotal = 1
-        gradPe = 1
+        divPe  = 1
         JxB    = 1
         VxB    = 1
     endif
@@ -821,15 +823,15 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
 ; Plot Ohm's Law ///////////////////////////////////////
 ;-------------------------------------------------------
-    if ETotal then MrSim_OhmsLaw_Total,  oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
-    if VxB    then MrSim_OhmsLaw_VxB,    oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
-    if JxB    then MrSim_OhmsLaw_JxB,    oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
-    if gradPe then MrSim_OhmsLaw_gradPe, oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if ETotal then MrSim_OhmsLaw_Total, oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if VxB    then MrSim_OhmsLaw_VxB,   oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if JxB    then MrSim_OhmsLaw_JxB,   oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if divPe  then MrSim_OhmsLaw_DivPe, oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
     
 ;-------------------------------------------------------
 ;Output ////////////////////////////////////////////////
 ;-------------------------------------------------------
-    nPlots = ETotal + VxB + JxB + gradPe
+    nPlots = ETotal + VxB + JxB + divPe
     switch nPlots of
         4: begin
             middle = ohmWin -> FindByPIndex(3)

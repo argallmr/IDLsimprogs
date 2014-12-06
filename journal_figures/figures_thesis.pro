@@ -1027,7 +1027,6 @@ FNAMES=fnames
 	          'Asymm-Scan-By1_FlyBy-Prox_Dng.png']
 	win    = [win, im_win]
 	
-	
 	;Return the distribution window.
 	return, win
 end
@@ -1144,142 +1143,142 @@ end
 ;-
 function FigThesis_AsymmLarge2D_OhmsLaw, $
 FNAME=fname
-    compile_opt idl2
-    
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /CANCEL
-        if obj_valid(oSim) then obj_destroy, oSim
-        if obj_valid(win) then obj_destroy, win
-        if obj_valid(win2) then obj_destroy, win2
-        if obj_valid(win3) then obj_destroy, win3
-        void = cgErrorMSG()
-        return, obj_new()
-    endif
-    
-    ;Simulation
-    theSim       = 'Asymm-Large-2D'
-    tIndex       = 32
-    xrange       = [2.0, -2.0]
-    zrange       = 150.9 + [-3.0, 3.0]
-    coord_system = 'Magnetopause'
-    mva_frame    = 1
-    ion_scale    = 1
-    horizontal   = 1
-    component    = 'X'
-    im_name      = 'JxB_x' 
-    oSim   = MrSim_Create(theSim, tIndex, COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame, $
-                          ION_SCALE=ion_scale, XRANGE=xrange, ZRANGE=zrange)
+	compile_opt idl2
 
-    ;Ohm's Law
-    cut       = [150.9, 150.3, 148.4] 
-    win       = MrSim_OhmsLaw(oSim, component, cut[0], HORIZONTAL=horizontal)
-    win2      = MrSim_OhmsLaw(oSim, component, cut[1], HORIZONTAL=horizontal)
-    win3      = MrSim_OhmsLaw(oSim, component, cut[2], HORIZONTAL=horizontal)
-    
-    nWins = 2
-    nCols = 3
-    nRows = 4
-    win  -> Refresh, /DISABLE
-    win  -> SetProperty, LAYOUT=[nCols, nRows], XGAP=3, XSIZE=900, OXMARGIN=[10,15]
-    win2 -> Refresh, /DISABLE
-    win3 -> Refresh, /DISABLE
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(oSim) then obj_destroy, oSim
+		if obj_valid(win) then obj_destroy, win
+		if obj_valid(win2) then obj_destroy, win2
+		if obj_valid(win3) then obj_destroy, win3
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+	;Simulation
+	theSim       = 'Asymm-Large-2D'
+	tIndex       = 32
+	xrange       = [2.0, -2.0]
+	zrange       = 150.9 + [-3.0, 3.0]
+	coord_system = 'Magnetopause'
+	mva_frame    = 1
+	ion_scale    = 1
+	horizontal   = 1
+	component    = 'X'
+	im_name      = 'Jey' 
+	oSim   = MrSim_Create(theSim, tIndex, COORD_SYSTEM=coord_system, MVA_FRAME=mva_frame, $
+	                      ION_SCALE=ion_scale, XRANGE=xrange, ZRANGE=zrange)
+
+	;Ohm's Law
+	cut       = [150.9, 150.3, 148.4] 
+	win       = MrSim_OhmsLaw(oSim, component, cut[0], HORIZONTAL=horizontal)
+	win2      = MrSim_OhmsLaw(oSim, component, cut[1], HORIZONTAL=horizontal)
+	win3      = MrSim_OhmsLaw(oSim, component, cut[2], HORIZONTAL=horizontal)
+
+	nWins = 2
+	nCols = 3
+	nRows = 4
+	win  -> Refresh, /DISABLE
+	win  -> SetProperty, LAYOUT=[nCols, nRows], XGAP=3, XSIZE=900, OXMARGIN=[10,15]
+	win2 -> Refresh, /DISABLE
+	win3 -> Refresh, /DISABLE
 
 ;-------------------------------------------------------
 ; Switch Windows ///////////////////////////////////////
 ;-------------------------------------------------------
-    for iWin = 1, nWins do begin
-        ;Select the window
-        case iWin of
-            1: theWin = win2
-            2: theWin = win3
-        endcase
-        theWin -> SetProperty, LAYOUT=[nCols, nRows], XGAP=1.5, XSIZE=900
-    
-        ;Step through each graphic in the window.
-        graphics = theWin -> Get(/ALL)
-        foreach gfx, graphics do begin
-            ;Throw away the legends
-            if obj_isa(gfx, 'MrLegend') then continue
-        
-            ;Append the cut-location to the name
-            name = gfx.name
-            gfx.name = strtrim(cut[iWin-1], 2) + ' ' + name
+	for iWin = 1, nWins do begin
+		;Select the window
+		case iWin of
+			1: theWin = win2
+			2: theWin = win3
+		endcase
+		theWin -> SetProperty, LAYOUT=[nCols, nRows], XGAP=1.5, XSIZE=900
 
-            ;Change columns
-            ;   - So that they do not push objects in WIN to next column
-            isOPlot = gfx -> GetOverplot()
-            if ~isOPlot then begin
-                layout = gfx.layout
-                colrow = win -> ConvertLocation(layout[2], layout[0:1], /PINDEX, /TO_COLROW)
-                gfx -> SetLayout, [iWin+1, colrow[1]]
-            endif else begin
-                layout = !Null
-            endelse
-            
-            ;Switch Windows
-            gfx -> SwitchWindows, win
-        endforeach
+		;Step through each graphic in the window.
+		graphics = theWin -> Get(/ALL)
+		foreach gfx, graphics do begin
+			;Throw away the legends
+			if obj_isa(gfx, 'MrLegend') then continue
+	
+			;Append the cut-location to the name
+			name = gfx.name
+			gfx.name = strtrim(cut[iWin-1], 2) + ' ' + name
 
-        ;Destroy the window
-        obj_destroy, theWin
-    endfor
+			;Change columns
+			;   - So that they do not push objects in WIN to next column
+			isOPlot = gfx -> GetOverplot()
+			if ~isOPlot then begin
+				layout = gfx.layout
+				colrow = win -> ConvertLocation(layout[2], layout[0:1], /PINDEX, /TO_COLROW)
+				gfx -> SetLayout, [iWin+1, colrow[1]]
+			endif else begin
+				layout = !Null
+			endelse
+		
+			;Switch Windows
+			gfx -> SwitchWindows, win
+		endforeach
+
+		;Destroy the window
+		obj_destroy, theWin
+	endfor
 
 ;-------------------------------------------------------
 ; Format Annotations ///////////////////////////////////
 ;-------------------------------------------------------
-    ;Step through each row
-    for row = 1, nRows do begin
-        yrange = [!values.f_infinity, -!values.f_infinity]
-    
-        ;Step through each column
-        for col = 1, nCols do begin
-            ;Find the graphic
-            gfx     = win -> FindByColRow([col,row])
-            isOPlot = gfx -> GetOverplot(TARGET=target)
-            if isOPlot then gfx = target
-        
-            ;Get the YRANGE
-            yr        = gfx.yrange
-            yrange[0] = yr[0] < yrange[0]
-            yrange[1] = yr[1] > yrange[1]
-        endfor
-    
-        ;Step through each column
-        for col = 1, 3 do begin
-            ;Find the graphic
-            gfx     = win -> FindByColRow([col,row])
-            isOPlot = gfx -> GetOverplot(TARGET=target)
-            if isOPlot then gfx = target
-        
-            ;Set Properties
-            gfx.yrange = yrange
-            if col gt 1 then gfx -> SetProperty, YTITLE='', YTICKFORMAT='(a1)'
-            if col eq 1 then gfx -> SetProperty, YTITLE='E$\downN$'
-            if row eq 1 then gfx -> SetProperty, TITLE='$\Omega$$\downci$$\up-1$=64.0 L=' + string(cut[col-1], FORMAT='(f0.1)') + 'd$\downi$'
-        endfor
+	;Step through each row
+	for row = 1, nRows do begin
+		yrange = [!values.f_infinity, -!values.f_infinity]
 
-        ;Set Properties
-        if row gt 1     then gfx -> SetProperty, TITLE=''
-        if row lt nRows then gfx -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
-    endfor
+		;Step through each column
+		for col = 1, nCols do begin
+			;Find the graphic
+			gfx     = win -> FindByColRow([col,row])
+			isOPlot = gfx -> GetOverplot(TARGET=target)
+			if isOPlot then gfx = target
+	
+			;Get the YRANGE
+			yr        = gfx.yrange
+			yrange[0] = yr[0] < yrange[0]
+			yrange[1] = yr[1] > yrange[1]
+		endfor
+
+		;Step through each column
+		for col = 1, 3 do begin
+			;Find the graphic
+			gfx     = win -> FindByColRow([col,row])
+			isOPlot = gfx -> GetOverplot(TARGET=target)
+			if isOPlot then gfx = target
+	
+			;Set Properties
+			gfx.yrange = yrange
+			if col gt 1 then gfx -> SetProperty, YTITLE='', YTICKFORMAT='(a1)'
+			if col eq 1 then gfx -> SetProperty, YTITLE='E$\downN$'
+			if row eq 1 then gfx -> SetProperty, TITLE='$\Omega$$\downci$$\up-1$=64.0 L=' + string(cut[col-1], FORMAT='(f0.1)') + 'd$\downi$'
+		endfor
+
+		;Set Properties
+		if row gt 1     then gfx -> SetProperty, TITLE=''
+		if row lt nRows then gfx -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
+	endfor
 
 ;-------------------------------------------------------
 ; Move Legends /////////////////////////////////////////
 ;-------------------------------------------------------
-    ;Relocate the legends
-    win["Ohm's Law"]               -> SetProperty, LOCATION=8, VSPACE=2.0, TARGET=win['150.300 Total E' + component]
-    win["Ohm's Law: VxB term"]     -> SetProperty, LOCATION=8, VSPACE=2.0, TARGET=win['150.300 E' + component + ' vs. Ec']
-    win["Ohm's Law: JxB term"]     -> SetProperty, LOCATION=8, VSPACE=2.0, TARGET=win['150.300 E' + component + ' vs. Hall E']
-    win["Ohm's Law: div(Pe) term"] -> SetProperty, LOCATION=8, VSPACE=2.0, TARGET=win['150.300 E' + component + ' vs. E inert']    
-    
-    ;Overview
-    im_win = MrSim_ColorSlab(oSim, im_name, C_NAME='Ay', HORIZ_LINES=cut, $
-                             LINE_COLOR=['White', 'Forest Green', 'Red'])
+	;Relocate the legends
+	win["Ohm's Law"]               -> SetProperty, LOCATION=8, VSPACE=2.0, TARGET=win['150.300 Total E' + component]
+	win["Ohm's Law: VxB term"]     -> SetProperty, LOCATION=8, VSPACE=2.0, TARGET=win['150.300 E' + component + ' vs. Ec']
+	win["Ohm's Law: JxB term"]     -> SetProperty, LOCATION=8, VSPACE=2.0, TARGET=win['150.300 E' + component + ' vs. Hall E']
+	win["Ohm's Law: div(Pe) term"] -> SetProperty, LOCATION=8, VSPACE=2.0, TARGET=win['150.300 E' + component + ' vs. E inert']    
 
-    if obj_valid(oSim) then obj_destroy, oSim
-    win -> Refresh
-    return, win
+	;Overview
+	im_win = MrSim_ColorSlab(oSim, im_name, C_NAME='Ay', HORIZ_LINES=cut, $
+	                         LINE_COLOR=['White', 'Forest Green', 'Red'])
+
+	if obj_valid(oSim) then obj_destroy, oSim
+	win -> Refresh
+	return, win
 end
 
 

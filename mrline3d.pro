@@ -79,7 +79,7 @@ NPOINTS=npoints
     
     ;Create v
     v = r1 - r0
-    
+
     ;One of v=(a,b,c) must not be zero.
     case 1 of
         ;dx > 0

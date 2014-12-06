@@ -1243,9 +1243,9 @@ D_DZ=d_dz
             dz = dz_de
         endcase
         'MAGNETOPAUSE': begin
-            dx = dz_de
-            dy = dy_de
-            dz = dx_de
+            dx = -dz_de
+            dy =  dy_de
+            dz =  dx_de
         endcase
         'MAGNETOTAIL':  begin
             dx = dx_de
