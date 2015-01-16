@@ -328,23 +328,30 @@ _REF_EXTRA = extra
     ;Create a Line Plot of the named variable
     yrange = [min(data, MAX=yMax), yMax]
     lineCut = MrPlot(pos, data, CURRENT=current, $
-                     COLOR=color, $
-                     DIMENSION=dimension, $
-                     OVERPLOT=overplot, $
-                     NAME=pname, $
-                     TITLE=title, $
-                     XTITLE=xtitle, $
-                     XRANGE=cut_range, $
-                     YRANGE=yrange, $
-                     YTITLE=_name)
+                     COLOR     = color, $
+                     DIMENSION = dimension, $
+                     OVERPLOT  = overplot, $
+                     NAME      = pname, $
+                     TITLE     = title, $
+                     XTITLE    = xtitle, $
+                     XRANGE    = cut_range, $
+                     YRANGE    = yrange, $
+                     YTITLE    = _name)
     
 ;-------------------------------------------------------
 ;Output ////////////////////////////////////////////////
 ;-------------------------------------------------------
     ;Add a legend if more than one cut was taken
-    if add_legend && nCuts gt 1 then begin
-        lcLegend = MrLegend(TARGET=lineCut, LOCATION=7, TCOLOR=color, COLORS=color, $
-                            TITLE=caxis + '=' + string(cuts, FORMAT='(f0.1)'), LENGTH=0)
+    if add_legend || nCuts gt 1 then begin
+        lcLegend = MrLegend(ALIGNMENT    = 'NE', $
+                            LABEL        = caxis + '=' + string(cuts, FORMAT='(f0.1)'), $
+                            NAME         = 'LineCut: ' + name, $
+                            POSITION     = [1,1], $
+                            /RELATIVE, $
+                            SAMPLE_COLOR = color, $
+                            SAMPLE_WIDTH = 0, $
+                            TARGET       = lineCut, $
+                            TEXT_COLOR   = color)
     endif
     
     ;Refresh and output, if requested.

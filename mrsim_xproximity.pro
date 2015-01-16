@@ -205,16 +205,6 @@ _REF_EXTRA = extra
     !Null = MrSim_LineCut(oSim, names[2], cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
     !Null = MrSim_LineCut(oSim, names[3], cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
     !Null = MrSim_LineCut(oSim, names[4], cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
-    
-    ;Create a legend
-    if nCuts gt 1 then begin
-        !Null = MrLegend(LENGTH   = 0, $
-                         LOCATION = 4, $
-                         NAME     ='Legend: Cuts', $
-                         TITLE    = legendLabl + '=' + string(cuts, FORMAT='(f0.1)') + units, $
-                         TARGET   = drWin[0], $
-                         TCOLORS  = ['Blue', 'Forest Green', 'Red'])
-    endif
 
 ;-------------------------------------------------------
 ; Create a 2D Color Plot? //////////////////////////////
@@ -222,7 +212,9 @@ _REF_EXTRA = extra
     if im_name ne '' then begin
         oSim -> GetProperty, COORD_SYSTEM=coord_sys
         
-        ;Vertical orientation
+    ;-------------------------------------------------------
+    ; Vertical Orientation /////////////////////////////////
+    ;-------------------------------------------------------
         if coord_sys eq 'MAGNETOPAUSE' then begin
             ;Create a second column
             drWin -> SetProperty, LAYOUT=[2,5], COL_WIDTH=[0.4, 0.6], XGAP=10, XSIZE=650, YSIZE=550
@@ -237,33 +229,38 @@ _REF_EXTRA = extra
             
             ;Create the 2D color image
             !Null = MrSim_ColorSlab(oSim, im_name, /CURRENT, $
-                                    C_NAME = c_name, $
-                                    NLEVELS = nlevels, $
-                                    VERT_LINES = vert_lines, $
+                                    C_NAME      = c_name, $
+                                    NLEVELS     = nlevels, $
+                                    VERT_LINES  = vert_lines, $
                                     HORIZ_LINES = horiz_lines)
             
             ;Relocate it to fill the first column
-            pos          = MrLayout([2,5], COL_WIDTH=[0.4, 0.6], XGAP=10)
-            position     = [pos[0,8], pos[1,8], pos[2,0], pos[1,0]]
-            position[3] -= 0.04
-            drWin['Color '     + im_name] -> SetProperty, POSITION=position
-            drWin['CB: Color ' + im_name] -> SetProperty, CBLOCATION='TOP', OFFSET=0.5, WIDTH=1.0
+            position = [0.12, 0.13, 0.41, 0.82]
+            drWin['Color '     + im_name] -> SetProperty, POSITION=position, TITLE=''
+            drWin['CB: Color ' + im_name] -> SetProperty, CBLOCATION='TOP', OFFSET=0.5, WIDTH=1.0, XTICKS=2
         
-        ;Horizontal orientation
+    ;-------------------------------------------------------
+    ; Horizontal Orientation ///////////////////////////////
+    ;-------------------------------------------------------
         endif else begin
             
             ;Create the 2D color image
             !Null = MrSim_ColorSlab(oSim, im_name, /CURRENT, $
-                                    C_NAME = c_name, $
-                                    NLEVELS = nlevels, $
-                                    VERT_LINES = vert_lines, $
+                                    C_NAME      = c_name, $
+                                    NLEVELS     = nlevels, $
+                                    VERT_LINES  = vert_lines, $
                                     HORIZ_LINES = horiz_lines)
             
             ;Move it to location [1,1]
             drWin['Color ' + im_name] -> SetLayout, [1,1]
+            drWin['Color '     + im_name].TITLE=title
+            drWin['CB: Color ' + im_name].WIDTH=1.5
             drWin -> SetProperty, XGAP=[5, 0.5, 0.5, 0.5, 0.5]
-            
         endelse
+        
+    ;-------------------------------------------------------
+    ; ColorSlab Properties /////////////////////////////////
+    ;-------------------------------------------------------
     endif
 
     ;Destroy the object.
@@ -273,20 +270,14 @@ _REF_EXTRA = extra
 ;Prepare output ////////////////////////////////////////
 ;-------------------------------------------------------
     ;Get all of the plots
-    allGr = drWin -> Get(/ALL, ISA=['MRIMAGE', 'MRPLOT'])
-    foreach gfx, allGr do gfx -> SetProperty, TITLE='', XTITLE='', XTICKFORMAT='(a1)'
-    allGr[0].TITLE=title
-    allGr[-1] -> SetProperty, XTICKFORMAT='', XTITLE=axLabls[0] + ' (' + units + ')'
+    drWin['Cut ' + names[0]] -> SetProperty, XTITLE='', XTICKFORMAT='(a1)', TITLE=title
+    drWin['Cut ' + names[1]] -> SetProperty, XTITLE='', XTICKFORMAT='(a1)', TITLE=''
+    drWin['Cut ' + names[2]] -> SetProperty, XTITLE='', XTICKFORMAT='(a1)', TITLE=''
+    drWin['Cut ' + names[3]] -> SetProperty, XTITLE='', XTICKFORMAT='(a1)', TITLE=''
+    drWin['Cut ' + names[4]] -> SetProperty, XTITLE=axLabls[0] + ' (' + units + ')', TITLE=''
     
     ;Change the character size
     drWin -> SetGlobal, CHARSIZE=1.8
-    
-    ;Set title and margin
-    if im_name ne '' then begin
-        drWin['Color '     + im_name].TITLE=title
-        drWin['CB: Color ' + im_name].WIDTH=1.5
-        drWin.OXMARGIN=[10,11]
-    endif
     
     ;Refresh and output, if requested.
     drWin -> Refresh
