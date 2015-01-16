@@ -191,8 +191,9 @@ _REF_EXTRA = extra
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
     
     ;Rename the data products
-    _name = MrSim_Rename(name, coord_system, MVA_FRAME=mva_frame, /SUBSCRIPT)
-    units = MrSim_Rename(units, /SUBSCRIPT, MVA_FRAME=mva_frame)
+    _name = MrSim_GDA_Rename(name, coord_system, MVA_FRAME=mva_frame)
+    _name = MrSim_GDA_Format(_name, /SYMBOLS)
+    units = MrSim_GDA_Format(units)
     
     ;Create two points to define the line
     r0 = fltarr(3,nCuts)

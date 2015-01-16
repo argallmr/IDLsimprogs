@@ -229,8 +229,9 @@ _REF_EXTRA = extra
 ;Prepare Ranges ////////////////////////////////////////
 ;-------------------------------------------------------
     ;Rename items
-    _name = MrSim_Rename(name, coord_system, MVA_FRAME=mva_frame, /SUBSCRIPT)
-    units = MrSim_Rename(units, /SUBSCRIPT)
+    _name = MrSim_GDA_Rename(name, coord_system, MVA_FRAME=mva_frame)
+    _name = MrSim_GDA_Format(_name, /SYMBOLS)
+    units = MrSim_GDA_Format(units)
 
     ;Time interval in wci given?
     ;   - Display time in terms of t*wci.

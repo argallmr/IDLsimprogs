@@ -149,7 +149,7 @@ _REF_EXTRA = extra
     oSim -> GetProperty, TIME=time, COORD_SYSTEM=coord_system, AXIS_LABELS=axLabls, $
                          MVA_FRAME=mva_frame, YRANGE=yrange
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
-    units = MrSim_Rename(units, /SUBSCRIPT, MVA_FRAME=mva_frame)
+    units = MrSim_GDA_Format(units)
     
     ;HORIZONTAL CUTS
     if coord_system eq 'MAGNETOPAUSE' then begin

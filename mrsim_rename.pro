@@ -185,9 +185,10 @@ names = ['Ay', 'Bx', 'By', 'Bz', 'E-', 'Ex', 'Ey', 'Ez', 'ne', 'ni', $
 
 new_names = MrSim_Rename(names, 'Magnetopause', /MVA_FRAME)
 print, '-------------------------------------'
+print, 'Magnetopause --> Simulation LMN.'
 print, 'Magnetopause Names:'
 print, names, FORMAT='(5(3x, a5))'
-print, 'Simulation Names:'
+print, 'Simulation LMN Names:'
 print, new_names, FORMAT='(5(3x, a5))'
 
 

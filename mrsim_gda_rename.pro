@@ -82,24 +82,24 @@ MVA_FRAME=mva_frame
     ;Coordinates in use now
     if _mva_frame then begin
         case _coord_system of
-            'SIMULATION':   sim_coords = ['L', 'M', 'N']
-            'MAGNETOPAUSE': sim_coords = ['N', 'M', 'L']
-            'MAGNETOTAIL':  sim_coords = ['L', 'M', 'N']
+            'SIMULATION':   coords_in = ['L', 'M', 'N']
+            'MAGNETOPAUSE': coords_in = ['N', 'M', 'L']
+            'MAGNETOTAIL':  coords_in = ['L', 'M', 'N']
             else: message, 'Coordinate system "' + coord_system + '" not recognized.'
         endcase
-    endif else coords = ['X', 'Y', 'Z']
+    endif else coords_in = ['X', 'Y', 'Z']
     
     ;How current system relates to the simulation coordinate system:
     case _coord_system of
-        'SIMULATION':   sim_coords = ['x', 'y', 'z']
-        'MAGNETOPAUSE': sim_coords = ['z', 'y', 'x']
-        'MAGNETOTAIL':  sim_coords = ['x', 'y', 'z']
+        'SIMULATION':   coords_out = ['x', 'y', 'z']
+        'MAGNETOPAUSE': coords_out = ['z', 'y', 'x']
+        'MAGNETOTAIL':  coords_out = ['x', 'y', 'z']
         else: message, 'Coordinate system "' + coord_system + '" not recognized.'
     endcase
             
     ;Regex: ^(any character)(Not coordinates)*(coordinate?)(coordinate?)$
     ;   - Careful of "ne" with "LMN" coordinates.
-    jcoord = strjoin(coords)
+    jcoord = strjoin(coords_in)
     regex  = '(^.[^' + jcoord + ']*)([' + jcoord + ']?)([' + jcoord + ']?$)'
     
     ;Find the coordinates in the name
@@ -110,12 +110,12 @@ MVA_FRAME=mva_frame
     
     ;Change coordinates.
     for i = 2, 3 do begin
-        ix = where(nameParts[i,*] eq coords[0], nx)
-        iy = where(nameParts[i,*] eq coords[1], ny)
-        iz = where(nameParts[i,*] eq coords[2], nz)
-        if nx gt 0 then new_name[ix] += sim_coords[0]
-        if ny gt 0 then new_name[iy] += sim_coords[1]
-        if nz gt 0 then new_name[iz] += sim_coords[2]
+        ix = where(nameParts[i,*] eq coords_in[0], nx)
+        iy = where(nameParts[i,*] eq coords_in[1], ny)
+        iz = where(nameParts[i,*] eq coords_in[2], nz)
+        if nx gt 0 then new_name[ix] += coords_out[0]
+        if ny gt 0 then new_name[iy] += coords_out[1]
+        if nz gt 0 then new_name[iz] += coords_out[2]
     endfor
     
     ;Return a scalar
@@ -134,7 +134,7 @@ names = ['Ay', 'Bx', 'By', 'Bz', 'E-', 'Ex', 'Ey', 'Ez', 'ne', 'ni', $
          'Pi-yx', 'Pi-yy', 'Pi-yz', 'Pi-zx', 'Pi-zy', 'Pi-zz', $
          'Uex', 'Uey', 'Uez', 'Uix', 'Uiy', 'Uiz']
 
-new_names = MrSim_GDA_names(names, 'Magnetopause')
+new_names = MrSim_GDA_Rename(names, 'Magnetopause')
 print, '-------------------------------------'
 print, 'Magnetopause Names:'
 print, names, FORMAT='(5(3x, a5))'
