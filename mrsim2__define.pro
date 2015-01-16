@@ -231,7 +231,7 @@ ZRANGE = zrange
         ysize /= sqrt(mi_me)
         zsize /= sqrt(mi_me)
     endif
-    
+
     if n_elements(nsmooth) eq 0 then nsmooth = 3
     if n_elements(time)    eq 0 then time    = 0
     if n_elements(xrange)  eq 0 then xrange  = [0, xsize]
@@ -655,12 +655,6 @@ WPE_WCE=wpe_wce
     if arg_present(Ly_de)      then Ly_de      = (*self.info).Ly_de
     if arg_present(Lz_de)      then Lz_de      = (*self.info).Lz_de
     
-    ;
-    ; ASCII Info file
-    ;   - Make sure it has been read.
-    ;
-    if has_tag(*self.info, 'MI_ME') eq 0 then return
-    
     ; 3D-specific
     if self.dimension eq '3D' then begin
         ;Data has been downsampled (see comments in the INIT method). Calculate the modified
@@ -673,6 +667,12 @@ WPE_WCE=wpe_wce
         if arg_present(dy_de) then dy_de = (*self.info).dy_de
         if arg_present(dz_de) then dz_de = (*self.info).dz_de
     endelse
+    
+    ;
+    ; ASCII Info file
+    ;   - Make sure it has been read.
+    ;
+    if has_tag(*self.info, 'MI_ME') eq 0 then return
     
     if arg_present(L_di)               then L_di       = (*self.info).L_di
     if arg_present(L_de)               then L_de       = (*self.info).L_de
@@ -1986,10 +1986,14 @@ pro MrSim2::ReadInfo_Binary, info_file, status
     info = { nx: nx, $
              ny: ny, $
              nz: nz, $
+             dx_de: xmax / nx, $
+             dy_de: ymax / ny, $
+             dz_de: zmax / nz, $
              lx_de: xmax, $
              ly_de: ymax, $
              lz_de: zmax $
            }
+
 
     ;If the info has already been read, simply assign the proper values. Since
     ;the ASCII info file has more information, we do not want to overwrite it.

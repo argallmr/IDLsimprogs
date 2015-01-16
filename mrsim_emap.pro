@@ -196,7 +196,7 @@ _REF_EXTRA=extra
     nDist = nDims eq 1 ? 1 : dims[1]
 
     if n_elements(nBins)    eq 0 then nBins    = 75
-    if n_elements(layout)   eq 0 then layout   = [1,nDist]
+    if n_elements(layout)   eq 0 then layout   = [ceil(sqrt(nDist)), ceil(float(nDist) / ceil(sqrt(nDist)))]
     if n_elements(location) eq 0 then location = 5
     if n_elements(c_name)   eq 0 then c_name   = ''
     if n_elements(im_name)  eq 0 then im_name  = ''
@@ -204,12 +204,14 @@ _REF_EXTRA=extra
     if n_elements(hGap)     eq 0 then hGap     = 0
     if n_elements(xsize)    eq 0 then xsize    = 800
     if n_elements(ysize)    eq 0 then ysize    = 600
-    
+
     ;Make sure the distribution is large enough
     if nDist gt 1 then begin
         if nDist gt layout[0]*layout[1] then $
             message, string(FORMAT='(%"LAYOUT is not large enough to hold %i distributions.")', nDist)
-    endif
+    endif else begin
+        nDist = product(layout)
+    endelse
     
 ;-------------------------------------------------------
 ; Position of Distribution Functions ///////////////////
@@ -329,7 +331,7 @@ _REF_EXTRA=extra
         centers = fltarr(nD, nDist)
         centers[0,*] = bin_center[0] + (temporary(hoffset))[0,*]
         if is2D then begin
-            centers[1,*] = bin_center[2] + (temporary(voffset))[0,*]
+            centers[1,*] = bin_center[1] + (temporary(voffset))[0,*]
         endif else begin
             centers[1,*] = bin_center[1]
             centers[2,*] = bin_center[2] + (temporary(voffset))[0,*]

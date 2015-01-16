@@ -285,9 +285,6 @@ _REF_EXTRA = extra
         data = temporary(temp)
     endelse
     pos  = horizontal ? reform(coords[0,*]) : reform(coords[1,*])
-
-    ;Destroy the object
-    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
     
     ;Make sure the data exists. Do this /after/ OSIM has a chance to be destroyed
     ;and before the graphic window is created.
@@ -322,6 +319,9 @@ _REF_EXTRA = extra
             then title += '  ' + caxis + 'y=' + string(yrange[0], FORMAT='(f0.1)') + units
     endelse
 
+    ;Destroy the object
+    if osim_created && arg_present(oSim) eq 0 then obj_destroy, oSim
+
 ;-------------------------------------------------------
 ;Make Plots ////////////////////////////////////////////
 ;-------------------------------------------------------
@@ -343,8 +343,8 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
     ;Add a legend if more than one cut was taken
     if add_legend && nCuts gt 1 then begin
-        lcLegend = MrLegend(TARGET=lineCut, LOCATION=7, COLOR=color, $
-                            TITLE=string(cuts, FORMAT='(f0.1)'), LENGTH=0)
+        lcLegend = MrLegend(TARGET=lineCut, LOCATION=7, TCOLOR=color, COLORS=color, $
+                            TITLE=caxis + '=' + string(cuts, FORMAT='(f0.1)'), LENGTH=0)
     endif
     
     ;Refresh and output, if requested.

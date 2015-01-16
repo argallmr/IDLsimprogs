@@ -392,7 +392,7 @@ _REF_EXTRA = extra
     ;Horizontal Lines
     if nHLines gt 0 then begin
         hlPlot = MrPlot([x[0],x[-1]], rebin(reform(horiz_lines, 1, nHLines), 2, nHLines), $
-                        /CURRENT, OVERPLOT=colorIm, COLOR=line_color[0:nHLines-1], $
+                        /CURRENT, OVERPLOT=colorIm, COLOR=line_color[nVLines:nVLines+nHLines-1], $
                         DIMENSION=1, NAME='HLines ' + name)
     endif
 ;-------------------------------------------------------

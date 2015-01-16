@@ -602,6 +602,40 @@ function MrSim2_Data::GetDataByName, name
         'JXB_X':   data = self -> Vector_CrossProduct('J', 'B', /X)
         'JXB_Y':   data = self -> Vector_CrossProduct('J', 'B', /Y)
         'JXB_Z':   data = self -> Vector_CrossProduct('J', 'B', /Z)
+        'PE_PAR':  data = self -> Pe(/PARALLEL)
+        'PE_PERP': data = self -> Pe(/PERPENDICULAR)
+        'PE_TR':   data = self -> Pe(/TRACE)
+        'PI_PAR':  data = self -> Pi(/PARALLEL)
+        'PI_PERP': data = self -> Pi(/PERPENDICULAR)
+        'PI_TR':   data = self -> Pi(/TRACE)
+        'TE':      data = self -> Te(/TENSOR)
+        'TE_PAR':  data = self -> Te(/PARALLEL)
+        'TE_PERP': data = self -> Te(/PERPENDICULAR)
+        'TE_MAG':  data = self -> Te(/MAGNITUDE)
+        'TE_TR':   data = self -> Te(/TRACE)
+        'TE_XX':   data = self -> Te(/TXX)
+        'TE_XY':   data = self -> Te(/TXY)
+        'TE_XZ':   data = self -> Te(/TXZ)
+        'TE_YX':   data = self -> Te(/TXY)
+        'TE_YY':   data = self -> Te(/TYY)
+        'TE_YZ':   data = self -> Te(/TYZ)
+        'TE_ZX':   data = self -> Te(/TXZ)
+        'TE_ZY':   data = self -> Te(/TYZ)
+        'TE_ZZ':   data = self -> Te(/TZZ)
+        'TI':      data = self -> Ti(/TENSOR)
+        'TI_PAR':  data = self -> Ti(/PARALLEL)
+        'TI_PERP': data = self -> Ti(/PERPENDICULAR)
+        'TI_MAG':  data = self -> Ti(/MAGNITUDE)
+        'TI_TR':   data = self -> Ti(/TRACE)
+        'TI_XX':   data = self -> Ti(/TXX)
+        'TI_XY':   data = self -> Ti(/TXY)
+        'TI_XZ':   data = self -> Ti(/TXZ)
+        'TI_YX':   data = self -> Ti(/TXY)
+        'TI_YY':   data = self -> Ti(/TYY)
+        'TI_YZ':   data = self -> Ti(/TYZ)
+        'TI_ZX':   data = self -> Ti(/TXZ)
+        'TI_ZY':   data = self -> Ti(/TYZ)
+        'TI_ZZ':   data = self -> Ti(/TZZ)
         'V':       data = self -> V(/VECTOR)
         'VX':      data = self -> V(/X)
         'VY':      data = self -> V(/Y)
@@ -1466,15 +1500,18 @@ function MrSim2_Data::Tensor_Parallel, T, V
         else _V = ptr_new(V)
     
     ;Get Data
-    v_hat = *_V / sqrt(total(*_V^2, 3))
+    v_hat         = *_V
+    v_hat[*,*,0] /= sqrt(total(*_V^2, 3))
+    v_hat[*,*,1] /= sqrt(total(*_V^2, 3))
+    v_hat[*,*,2] /= sqrt(total(*_V^2, 3))
     ptr_free, _V
-    
+
     ;Parallel pressure.
     ;   - Pressure tensor is symmetric, hence, the multiple of 2.0
     ;   - P_par = integral f (v dot b) (v dot b) d3v
-    T_par = _T[*,*,0] * v_hat[*,*,0]^2 + 2.0 * _T[*,*,1] * v_hat[*,*,0] * v_hat[*,*,1] + 2.0 * _T[*,*,2] * v_hat[*,*,0] * v_hat[*,*,2] + $
-            _T[*,*,3] * v_hat[*,*,1]^2 + 2.0 * _T[*,*,4] * v_hat[*,*,1] * v_hat[*,*,2] + $
-            _T[*,*,5] * v_hat[*,*,2]^2
+    T_par = (*_T)[*,*,0] * v_hat[*,*,0]^2 + 2.0 * (*_T)[*,*,1] * v_hat[*,*,0] * v_hat[*,*,1] + 2.0 * (*_T)[*,*,2] * v_hat[*,*,0] * v_hat[*,*,2] + $
+            (*_T)[*,*,3] * v_hat[*,*,1]^2 + 2.0 * (*_T)[*,*,4] * v_hat[*,*,1] * v_hat[*,*,2] + $
+            (*_T)[*,*,5] * v_hat[*,*,2]^2
     ptr_free, _T
     
     return, T_par
@@ -1516,7 +1553,7 @@ function MrSim2_Data::Tensor_Perpendicular, T, V
     endif
     
     ;Was a name or data given?
-    T_par = self -> Tensor_Par(T, V)    
+    T_par = self -> Tensor_Parallel(T, V)    
     
     if MrIsA(T, 'STRING') $
         then _T = ptr_new(self -> GetData(T, /DIAGONAL)) $
@@ -1528,7 +1565,7 @@ function MrSim2_Data::Tensor_Perpendicular, T, V
     
     ;Free the pointers
     ptr_free, _T
-    
+
     return, T_perp
 end
 
@@ -2389,6 +2426,8 @@ end
 ;                           If set, an upper-diagonal matrix of tensor components will be
 ;                               returned in an NxMx3x3-dimensional array. If no other
 ;                               keywords are set, this is the default.
+;       TRACE:              in, optional, type=boolean, default=0
+;                           If set, the trace of the pressure tensor is returned.
 ;       TXX:                in, optional, type=boolean, default=0
 ;                           If set, the Txx-component of the electron pressure is returned.
 ;       TXY:                in, optional, type=boolean, default=0
@@ -2411,6 +2450,7 @@ MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
 TENSOR=tensor, $
+TRACE=Ttrace, $
 TXX=Txx, $
 TXY=Txy, $
 TXZ=Txz, $
@@ -2427,6 +2467,7 @@ TZZ=Tzz
     tf_par    = keyword_set(parallel)
     tf_perp   = keyword_set(perpendicular)
     tensor    = keyword_set(tensor)
+    Ttrace    = keyword_set(Ttrace)
     Txx       = keyword_set(Txx)
     Txy       = keyword_set(Txy)
     Txz       = keyword_set(Txz)
@@ -2439,8 +2480,8 @@ TZZ=Tzz
     perpName = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
     ;If nothing was chosen, return the tensor.
-    tensor = tensor || (diagonal + Txx + Txy + Txz + Tyy + Tyz + Tzz + tf_par + tf_perp + magnitude) eq 0
-    if diagonal then begin
+    tensor = tensor || (diagonal + Ttrace + Txx + Txy + Txz + Tyy + Tyz + Tzz + tf_par + tf_perp + magnitude) eq 0
+    if diagonal || Ttrace then begin
         Txx = 1
         Tyy = 1
         Tzz = 1
@@ -2461,13 +2502,15 @@ TZZ=Tzz
     if Tyy then if n_elements(*self.Pe_yy) eq 0 then self -> SetData, 'Pe_yy'
     if Tyz then if n_elements(*self.Pe_yz) eq 0 then self -> SetData, 'Pe_yz'
     if Tzz then if n_elements(*self.Pe_zz) eq 0 then self -> SetData, 'Pe_zz'
-    
+
     ;Return
     ;   - TENSOR and DIAGONAL must come before T[XYZ][XYZ].
+    ;   - TTRACE must come before DIAGONAL
     case 1 of
-        tf_par:    return, self -> Tensor_Parallel('Pe', parName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        tf_perp:   return, self -> Tensor_Perpendicular('Pe', perpName, X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_par:    return, self -> Tensor_Parallel('Pe', parName)
+        tf_perp:   return, self -> Tensor_Perpendicular('Pe', perpName)
         magnitude: return, self -> Tensor_Magnitude('Pe')
+        Ttrace:    return, ( *self.Pe_xx + *self.Pe_yy + *self.Pe_zz ) / 3.0
         diagonal:  return, [[[*self.Pe_xx]], [[*self.Pe_yy]], [[*self.Pe_zz]]]
         tensor:    return, [[[*self.Pe_xx]], [[*self.Pe_xy]], [[*self.Pe_xz]], $
                             [[*self.Pe_yy]], [[*self.Pe_yz]], [[*self.Pe_zz]]]
@@ -2505,6 +2548,8 @@ end
 ;                           If set, an upper-diagonal matrix of tensor components will be
 ;                               returned in an NxMx3x3-dimensional array. If no other
 ;                               keywords are set, this is the default.
+;       TRACE:              in, optional, type=boolean, default=0
+;                           If set, the trace of the pressure tensor is returned.
 ;       TXX:                in, optional, type=boolean, default=0
 ;                           If set, the Txx-component of the ion pressure is returned.
 ;       TXY:                in, optional, type=boolean, default=0
@@ -2527,6 +2572,7 @@ MAGNITUDE=magnitude, $
 PARALLEL=parallel, $
 PERPENDICULAR=perpendicular, $
 TENSOR=tensor, $
+TRACE=Ttrace, $
 TXX=Txx, $
 TXY=Txy, $
 TXZ=Txz, $
@@ -2543,6 +2589,7 @@ TZZ=Tzz
     tf_par    = keyword_set(parallel)
     tf_perp   = keyword_set(perpendicular)
     tensor    = keyword_set(tensor)
+    Ttrace    = keyword_set(Ttrace)
     Txx       = keyword_set(Txx)
     Txy       = keyword_set(Txy)
     Txz       = keyword_set(Txz)
@@ -2555,8 +2602,8 @@ TZZ=Tzz
     perpName = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
     ;If nothing was chosen, return the tensor.
-    tensor = tensor || (diagonal + Txx + Txy + Txz + Tyy + Tyz + Tzz + tf_par + tf_perp + magnitude) eq 0
-    if diagonal then begin
+    tensor = tensor || (diagonal + Ttrace + Txx + Txy + Txz + Tyy + Tyz + Tzz + tf_par + tf_perp + magnitude) eq 0
+    if diagonal || Ttrace then begin
         Txx = 1
         Tyy = 1
         Tzz = 1
@@ -2580,19 +2627,21 @@ TZZ=Tzz
     
     ;Return
     ;   - TENSOR and DIAGONAL must come before T[XYZ][XYZ].
+    ;   - TTRACE must come before DIAGONAL
     case 1 of
-        parallel:      return, self -> Tensor_Pararallel('Pi', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        perpendicular: return, self -> Tensor_Perpendicular('Pi', X=x, Y=y, Z=z, MAGNITUDE=magnitude)
-        magnitude:     return, self -> Tensor_Magnitude('Pi')
-        diagonal:      return, [[[*self.Pi_xx]], [[*self.Pi_yy]], [[*self.Pi_zz]]]
-        tensor:        return, [[[*self.Pi_xx]], [[*self.Pi_xy]], [[*self.Pi_xz]], $
-                                [[*self.Pi_yy]], [[*self.Pi_yz]], [[*self.Pi_zz]]]
-        Txx:           return, *self.Pi_xx
-        Txy:           return, *self.Pi_xy
-        Txz:           return, *self.Pi_xz
-        Tyy:           return, *self.Pi_yy
-        Tyz:           return, *self.Pi_yz
-        Tzz:           return, *self.Pi_zz
+        tf_par:    return, self -> Tensor_Pararallel('Pi')
+        tf_perp:   return, self -> Tensor_Perpendicular('Pi')
+        magnitude: return, self -> Tensor_Magnitude('Pi')
+        Ttrace:    return, ( *self.Pe_xx + *self.Pe_yy + *self.Pe_zz ) / 3.0
+        diagonal:  return, [[[*self.Pi_xx]], [[*self.Pi_yy]], [[*self.Pi_zz]]]
+        tensor:    return, [[[*self.Pi_xx]], [[*self.Pi_xy]], [[*self.Pi_xz]], $
+                            [[*self.Pi_yy]], [[*self.Pi_yz]], [[*self.Pi_zz]]]
+        Txx:       return, *self.Pi_xx
+        Txy:       return, *self.Pi_xy
+        Txz:       return, *self.Pi_xz
+        Tyy:       return, *self.Pi_yy
+        Tyz:       return, *self.Pi_yz
+        Tzz:       return, *self.Pi_zz
     endcase
 end
 
@@ -3128,6 +3177,163 @@ Z=z
     
     return, V
 end
+
+
+;+
+;   Return various data products associated with the electron temperature tensor.
+;
+; :Private:
+;
+; :Keywords;
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude is returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       TENSOR:             in, optional, type=boolean, default=0
+;                           If set, an upper-diagonal matrix of tensor components will be
+;                               returned in an NxMx3x3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       TXX:                in, optional, type=boolean, default=0
+;                           If set, the Txx-component of the electron pressure is returned.
+;       TXY:                in, optional, type=boolean, default=0
+;                           If set, the Txy-component of the electron pressure is returned.
+;       TXZ:                in, optional, type=boolean, default=0
+;                           If set, the Txz-component of the electron pressure is returned.
+;       TYY:                in, optional, type=boolean, default=0
+;                           If set, the Tyy-component of the electron pressure is returned.
+;       TYZ:                in, optional, type=boolean, default=0
+;                           If set, the Tyz-component of the electron pressure is returned.
+;       TZZ:                in, optional, type=boolean, default=0
+;                           If set, the Tzz-component of the electron pressure is returned.
+;
+; :Returns:
+;       DATA:               Electron pressure tensor data.
+;-
+function MrSim2_Data::Te, $
+DIAGONAL=diagonal, $
+MAGNITUDE=magnitude, $
+PARALLEL=parallel, $
+PERPENDICULAR=perpendicular, $
+TENSOR=tensor, $
+TRACE=Ttrace, $
+TXX=Txx, $
+TXY=Txy, $
+TXZ=Txz, $
+TYY=Tyy, $
+TYZ=Tyz, $
+TZZ=Tzz
+
+    compile_opt strictarr, hidden
+    on_error, 2
+
+    ;Get the electron density and pressure
+    n_e = self -> n_e()
+    Pe  = self -> Pe(DIAGONAL=diagonal, $
+                     MAGNITUDE=magnitude, $
+                     PARALLEL=parallel, $
+                     PERPENDICULAR=perpendicular, $
+                     TENSOR=tensor, $
+                     TRACE=Ttrace, $
+                     TXX=Txx, $
+                     TXY=Txy, $
+                     TXZ=Txz, $
+                     TYY=Tyy, $
+                     TYZ=Tyz, $
+                     TZZ=Tzz)
+    
+    ;Calculate the temperature
+    Te = temporary(Pe) / temporary(n_e)
+    
+    return, Te
+end
+
+
+;+
+;   Return various data products associated with the ion temperature tensor.
+;
+; :Private:
+;
+; :Keywords;
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude is returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       TENSOR:             in, optional, type=boolean, default=0
+;                           If set, an upper-diagonal matrix of tensor components will be
+;                               returned in an NxMx3x3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       TXX:                in, optional, type=boolean, default=0
+;                           If set, the Txx-component of the electron pressure is returned.
+;       TXY:                in, optional, type=boolean, default=0
+;                           If set, the Txy-component of the electron pressure is returned.
+;       TXZ:                in, optional, type=boolean, default=0
+;                           If set, the Txz-component of the electron pressure is returned.
+;       TYY:                in, optional, type=boolean, default=0
+;                           If set, the Tyy-component of the electron pressure is returned.
+;       TYZ:                in, optional, type=boolean, default=0
+;                           If set, the Tyz-component of the electron pressure is returned.
+;       TZZ:                in, optional, type=boolean, default=0
+;                           If set, the Tzz-component of the electron pressure is returned.
+;
+; :Returns:
+;       DATA:               Electron pressure tensor data.
+;-
+function MrSim2_Data::Ti, $
+DIAGONAL=diagonal, $
+MAGNITUDE=magnitude, $
+PARALLEL=parallel, $
+PERPENDICULAR=perpendicular, $
+TENSOR=tensor, $
+TXX=Txx, $
+TXY=Txy, $
+TXZ=Txz, $
+TYY=Tyy, $
+TYZ=Tyz, $
+TZZ=Tzz
+
+    compile_opt strictarr, hidden
+    on_error, 2
+    
+    ;Get the electron density and pressure
+    n_i = self -> n_i()
+    Pi  = self -> Ti(DIAGONAL=diagonal, $
+                     MAGNITUDE=magnitude, $
+                     PARALLEL=parallel, $
+                     PERPENDICULAR=perpendicular, $
+                     TENSOR=tensor, $
+                     TXX=Txx, $
+                     TXY=Txy, $
+                     TXZ=Txz, $
+                     TYY=Tyy, $
+                     TYZ=Tyz, $
+                     TZZ=Tzz)
+    
+    ;Calculate the temperature
+    Ti = temporary(Pi) / temporary(n_i)
+    
+    return, Ti
+end
+
 
 
 ;+

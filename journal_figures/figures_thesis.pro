@@ -329,8 +329,9 @@ FNAMES=fnames
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
-		if obj_valid(win)  then obj_destroy, win
-		if obj_valid(cwin) then obj_destroy, cwin
+		if obj_valid(oSim)     then obj_destroy, oSim
+		if max(obj_valid(win)) then obj_destroy, win
+		if obj_valid(im_win)   then obj_destroy, im_win
 		void = cgErrorMSG()
 		return, obj_new()
 	endif
@@ -349,12 +350,12 @@ FNAMES=fnames
 ;---------------------------------------------------------------------
 	theSim    = 'Asymm-Scan/By0'
 	time      = 28
-	xrange    = 367.7 + [-50, 50]
-	zrange    = [-20, 20]
+	xrange    = 367.7 + [-40, 40]
+	zrange    = [-15, 20]
 	ion_scale = 0
-	mva_frame = 0
+	mva_frame = 1
 	coord_sys = 'Simulation'
-	im_name   = 'Dng_e'
+	im_name   = 'Jey'
 	oSim      = MrSim_Create(theSim, time, XRANGE=xrange, ZRANGE=zrange, $
 	                         ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
 	                         COORD_SYSTEM=coord_sys)
@@ -366,54 +367,105 @@ FNAMES=fnames
 	cuts = [367.7, 349.0, 330.0]
 	
 	;Distribution information
+	v_va        = 1
 	dist_type   = 'Vx-Vy'
 	dist_width  = [0.5, 0.5]
 	dist_layout = [5, 3]
-	dist_loc    = [[cuts[0],   8.3], $     ;1st Cut (X-line)
-	               [cuts[0],   1.7], $
-	               [cuts[0],  -0.3], $
-	               [cuts[0],  -1.8], $
-	               [cuts[0],  -8.3], $
-	               [cuts[1],   8.3], $     ;2nd Cut
-	               [cuts[1],   3.3], $
-	               [cuts[1],  -2.3], $
-	               [cuts[1],  -6.0], $
-	               [cuts[1], -10.0], $
-	               [cuts[2],  10.0], $     ;3rd Cut
-	               [cuts[2],   6.7], $
-	               [cuts[2],   0.0], $
-	               [cuts[2], -10.0], $
-	               [cuts[2], -16.7]]
+	dist_loc    = [ $
+	               ;1st Cut
+	               [cuts[0],   8.3], $     ;MSP Inflow
+	               [cuts[0],   0.3], $     ;MSP Separatrix
+	               [cuts[0],  -0.8], $     ;X-Point
+	               [cuts[0],  -1.8], $     ;MSH Separatrix
+	               [cuts[0],  -8.3], $     ;MSH Inflow
+	               ;2nd Cut
+	               [cuts[1],   8.3], $     ;MSP Inflow
+	               [cuts[1],   3.3], $     ;MSP Separatrix
+	               [cuts[1],  -1.6], $     ;Central Current Sheet
+	               [cuts[1],  -7.8], $     ;MSH Separatrix
+	               [cuts[1], -10.0], $     ;MSH Inflow
+	               ;3rd Cut
+	               [cuts[2],  10.0], $     ;MSP Inflow
+	               [cuts[2],   6.7], $     ;MSP Separatrix
+	               [cuts[2],  -2.8], $     ;Central Current Sheet
+	               [cuts[2], -13.1], $     ;MSH Separatrix
+	               [cuts[2], -16.7]]       ;MSH Inflow
 	
 	;Create the distribution functions
 	win = MrSim_eMap(oSim, dist_type, dist_loc, dist_width, $
-	                 LAYOUT  = dist_layout, $
-	                 IM_NAME = im_name, $
-	                 IM_WIN  = im_win, $
-	                 C_NAME  = 'Ay', $
-	                 YSIZE   = ysize)
+	                 LAYOUT    = dist_layout, $
+	                 POSITIONS = positions, $
+	                 V_VA      = v_va, $
+	                 YSIZE     = ysize)
 
 ;---------------------------------------------------------------------
-; Draw Lines at Cuts /////////////////////////////////////////////////
+; Overview Plot //////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
+	;Change to Magnetopause orientation and ion scale
+	oSim -> SetProperty, COORD_SYSTEM='Magnetopause'
+	oSim -> SetScale, /ION_SCALE
+	oSim -> GetInfo, MI_ME=mi_me, DTXWCI=dtxwci
+
+	;Convert units to di
+	temp       = xrange
+	xrange     = reverse(zrange) / sqrt(mi_me)
+	zrange     = temporary(temp) / sqrt(mi_me)
+	cuts      /= sqrt(mi_me)
+	positions /= sqrt(mi_me)
+	positions  = positions[[1,0,3,2],*]
+	positions[[0,2],*] = -positions[[2,0],*]
+	
+	;Create the overview image
+	im_win  = MrSim_ColorSlab(oSim, im_name, C_NAME='Ay')
+	obj_destroy, oSim
 	im_win -> Refresh, /DISABLE
-	target = im_win['Color ' + im_name]
-	!Null  = MrPlotS([cuts[0], cuts[0]], zrange, TARGET=target, COLOR='White', THICK=1)
-	!Null  = MrPlotS([cuts[1], cuts[1]], zrange, TARGET=target, COLOR='White', THICK=1)
-	!Null  = MrPlotS([cuts[2], cuts[2]], zrange, TARGET=target, COLOR='White', THICK=1)
+	
+	;Get the target
+	target  = im_win['Color ' + im_name]
+	target -> SetProperty, XTICKINTERVAL=1.0
+	im_win['CB: Color ' + im_name].WIDTH=1.5
+	
+	;Draw lines along spacecraft trajectories
+	!Null  = MrPlotS(xrange, [cuts[0], cuts[0]], TARGET=target, NAME='Trajectory 1', COLOR='White', THICK=1)
+	!Null  = MrPlotS(xrange, [cuts[1], cuts[1]], TARGET=target, NAME='Trajectory 2', COLOR='White', THICK=1)
+	!Null  = MrPlotS(xrange, [cuts[2], cuts[2]], TARGET=target, NAME='Trajectory 3', COLOR='White', THICK=1)
+	
+	;Draw distribution function locations
+	for i = 0, n_elements(positions[0,*]) - 1 do begin
+		!Null = MrPlotS(positions[[0,2,2,0,0], i], positions[[1,1,3,3,1], i], $
+		                COLOR='White', TARGET=target, THICK=1, $
+		                NAME=string(FORMAT='(%"Dist Outline %02i")', i))
+	endfor
+	im_win -> SetProperty, XSIZE=400, YSIZE=500
 	im_win -> Refresh
 
 ;---------------------------------------------------------------------
 ; Adjust /////////////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
 	win -> Refresh, /DISABLE
-	win['eMap Title'].yloc     = 0.94
-	win['CB: Counts'].position = [0.93, 0.25, 0.945, 0.75]
-	win -> Refresh
+	win -> SetCurrent
+	win['CB: Counts'] -> SetProperty, POSITION=[0.93, 0.25, 0.945, 0.75], TITLE='Dng'
+	
+	;Change axis labels to N and L
+	left   = ['00', '05', '10']
+	bottom = ['10', '11', '12', '13', '14']
+	for iRow = 0, 2 do win['eDist Vx-Vy ' + left[iRow]].YTITLE   = 'V$\downM$/V$\downA$'
+	for iCol = 0, 4 do win['eDist Vx-Vy ' + bottom[iCol]].XTITLE = 'V$\downL$/V$\downA$'
+	win -> SetGlobal, XTICKINTERVAL=10, YTICKINTERVAL=5
+	
+	;Remove markers
+	allText = win -> Get(/ALL, ISA='MrText')
+	win -> Remove, allText, /DESTROY
+	
+	;Add the title
+	title = string(FORMAT='(%"eMap V$\\downL$-V$\\downM$ t$\\Omega$$\\downci$=%i")', time*dtxwci)
+	!Null = MrText(0.5, 0.95, title, ALIGNMENT=0.5, /CURRENT, $
+                   NAME='eMap Title', /NORMAL, CHARSIZE=2)
 	
 	;Create figure names
-	fnames = ['Asymm-Scan-By0_FlyBy-Prox_Vx-Vy.png', $
-	          'Asymm-Scan-By0_FlyBy-Prox_Dng.png']
+	win -> Refresh
+	fnames = ['Asymm-Scan-By0_FlyBy-Prox_Vx-Vy', $
+	          'Asymm-Scan-By0_FlyBy-Prox_Dng']
 	win    = [win, im_win]
 	
 	;Return the distribution window.
@@ -963,9 +1015,9 @@ FNAMES=fnames
 	xrange    = [420, 450]
 	zrange    = [-10, 10]
 	ion_scale = 0
-	mva_frame = 0
+	mva_frame = 1
 	coord_sys = 'Simulation'
-	im_name   = 'Dng_e'
+	im_name   = 'Jey'
 	oSim      = MrSim_Create(theSim, time, XRANGE=xrange, ZRANGE=zrange, $
 	                         ION_SCALE=ion_scale, MVA_FRAME=mva_frame, $
 	                         COORD_SYSTEM=coord_sys)
@@ -977,54 +1029,105 @@ FNAMES=fnames
 	cuts = [434.5, 438.0, 445.0]
 	
 	;Distribution information
+	v_va        = 1
 	dist_type   = 'Vx-Vy'
 	dist_width  = [0.5, 0.5]
 	dist_layout = [5, 3]
-	dist_loc    = [[cuts[0],   4.2], $     ;1st Cut (X-line)
-	               [cuts[0],   2.0], $
-	               [cuts[0],   1.0], $
-	               [cuts[0],   0.5], $
-	               [cuts[0],  -1.7], $
-	               [cuts[1],   5.0], $     ;2nd Cut
-	               [cuts[1],   2.2], $
-	               [cuts[1],   0.0], $
-	               [cuts[1],  -1.4], $
-	               [cuts[1],  -4.2], $
-	               [cuts[2],   5.8], $     ;3rd Cut
-	               [cuts[2],   2.9], $
-	               [cuts[2],   0.0], $
-	               [cuts[2],  -4.2], $
-	               [cuts[2],  -5.8]]
+	dist_loc    = [ $
+	               ;1st Cut
+	               [cuts[0],   4.2], $     ;MSP Inflow
+	               [cuts[0],   1.8], $     ;MSP Separatrix
+	               [cuts[0],   0.3], $     ;X-Point
+	               [cuts[0],  -0.4], $     ;MSH Separatrix
+	               [cuts[0],  -1.7], $     ;MSH Inflow
+	               ;2nd Cut
+	               [cuts[1],   5.0], $     ;MSP Inflow
+	               [cuts[1],   1.4], $     ;MSP Separatrix
+	               [cuts[1],   0.0], $     ;Central Current Sheet
+	               [cuts[1],  -1.4], $     ;MSH Separatrix
+	               [cuts[1],  -4.2], $     ;MSH Inflow
+	               ;3rd Cut
+	               [cuts[2],   5.8], $     ;MSP Inflow
+	               [cuts[2],   2.9], $     ;MSP Separatrix
+	               [cuts[2],  -3.3], $     ;Central Current Sheet
+	               [cuts[2],  -4.5], $     ;MSH Separatrix
+	               [cuts[2],  -5.8]]       ;MSH Inflow
 	
 	;Create the distribution functions
 	win = MrSim_eMap(oSim, dist_type, dist_loc, dist_width, $
-	                 LAYOUT  = dist_layout, $
-	                 IM_NAME = im_name, $
-	                 IM_WIN  = im_win, $
-	                 C_NAME  = 'Ay', $
-	                 YSIZE   = ysize)
+	                 LAYOUT    = dist_layout, $
+	                 POSITIONS = positions, $
+	                 V_VA      = 1, $
+	                 YSIZE     = ysize)
 
 ;---------------------------------------------------------------------
-; Draw Lines at Cuts /////////////////////////////////////////////////
+; Overview Plot //////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
+	;Change to Magnetopause orientation and ion scale
+	oSim -> SetProperty, COORD_SYSTEM='Magnetopause'
+	oSim -> SetScale, /ION_SCALE
+	oSim -> GetInfo, MI_ME=mi_me, DTXWCI=dtxwci
+
+	;Convert units to di
+	temp       = xrange
+	xrange     = reverse(zrange) / sqrt(mi_me)
+	zrange     = temporary(temp) / sqrt(mi_me)
+	cuts      /= sqrt(mi_me)
+	positions /= sqrt(mi_me)
+	positions  = positions[[1,0,3,2],*]
+	positions[[0,2],*] = -positions[[2,0],*]
+	
+	;Create the overview image
+	im_win  = MrSim_ColorSlab(oSim, im_name, C_NAME='Ay')
+	obj_destroy, oSim
 	im_win -> Refresh, /DISABLE
-	target = im_win['Color ' + im_name]
-	!Null  = MrPlotS([cuts[0], cuts[0]], zrange, TARGET=target, COLOR='White', THICK=1)
-	!Null  = MrPlotS([cuts[1], cuts[1]], zrange, TARGET=target, COLOR='White', THICK=1)
-	!Null  = MrPlotS([cuts[2], cuts[2]], zrange, TARGET=target, COLOR='White', THICK=1)
+	
+	;Get the target
+	target  = im_win['Color ' + im_name]
+	target -> SetProperty, XTICKINTERVAL=1.0
+	im_win['CB: Color ' + im_name].WIDTH=1.5
+	
+	;Draw lines along spacecraft trajectories
+	!Null  = MrPlotS(xrange, [cuts[0], cuts[0]], TARGET=target, NAME='Trajectory 1', COLOR='White', THICK=1)
+	!Null  = MrPlotS(xrange, [cuts[1], cuts[1]], TARGET=target, NAME='Trajectory 2', COLOR='White', THICK=1)
+	!Null  = MrPlotS(xrange, [cuts[2], cuts[2]], TARGET=target, NAME='Trajectory 3', COLOR='White', THICK=1)
+	
+	;Draw distribution function locations
+	for i = 0, n_elements(positions[0,*]) - 1 do begin
+		!Null = MrPlotS(positions[[0,2,2,0,0], i], positions[[1,1,3,3,1], i], $
+		                COLOR='White', TARGET=target, THICK=1, $
+		                NAME=string(FORMAT='(%"Dist Outline %02i")', i))
+	endfor
+	im_win -> SetProperty, XSIZE=400, YSIZE=500
 	im_win -> Refresh
 
 ;---------------------------------------------------------------------
 ; Adjust /////////////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
 	win -> Refresh, /DISABLE
-	win['eMap Title'].yloc     = 0.94
-	win['CB: Counts'].position = [0.93, 0.25, 0.945, 0.75]
-	win -> Refresh
+	win -> SetCurrent
+	win['CB: Counts'] -> SetProperty, POSITION=[0.93, 0.25, 0.945, 0.75]
+	
+	;Change axis labels to N and L
+	left   = ['00', '05', '10']
+	bottom = ['10', '11', '12', '13', '14']
+	for iRow = 0, 2 do win['eDist Vx-Vy ' + left[iRow]].YTITLE   = 'V$\downM$/V$\downA$'
+	for iCol = 0, 4 do win['eDist Vx-Vy ' + bottom[iCol]].XTITLE = 'V$\downL$/V$\downA$'
+	win -> SetGlobal, XTICKINTERVAL=10, YTICKINTERVAL=5
+	
+	;Remove markers
+	allText = win -> Get(/ALL, ISA='MrText')
+	win -> Remove, allText, /DESTROY
+	
+	;Add the title
+	title = string(FORMAT='(%"eMap V$\\downL$-V$\\downM$ t$\\Omega$$\\downci$=%i")', time*dtxwci)
+	!Null = MrText(0.5, 0.95, title, ALIGNMENT=0.5, /CURRENT, $
+                   NAME='eMap Title', /NORMAL, CHARSIZE=2)
 	
 	;Create figure names
-	fnames = ['Asymm-Scan-By1_FlyBy-Prox_Vx-Vy.png', $
-	          'Asymm-Scan-By1_FlyBy-Prox_Dng.png']
+	win -> Refresh
+	fnames = ['Asymm-Scan-By1_FlyBy-Prox_Vx-Vy', $
+	          'Asymm-Scan-By1_FlyBy-Prox_Dng']
 	win    = [win, im_win]
 	
 	;Return the distribution window.
@@ -1476,116 +1579,128 @@ EPS=eps, $
 PS=ps, $
 IM_PNG=im_png, $
 SAVE=tf_save
-    compile_opt strictarr
-    
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /CANCEL
-        if max(obj_valid(win)) then obj_destroy, win
-        void = cgErrorMSG()
-        return, obj_new()
-    endif
-    
+	compile_opt strictarr
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if max(obj_valid(win)) then obj_destroy, win
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
 ;---------------------------------------------------------------------
 ; Info ///////////////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
 
-    ;Current list of figures
-    list_of_figures = [['Asymm-3D',       ''], $
-                       ['    y860  Prox', ''], $
-                       ['    y1440 Prox', ''], $
-                       ['Asymm-Scan-By1', ''], $
-                       ['    FlyBy',      ''], $
-                       ['    FlyBy Prox', ''], $
-                       ['    Prox',       ''], $
-                       ['Asymm-Scan-By0', ''], $
-                       ['    FlyBy',      ''], $
-                       ['    FlyBy Prox', ''], $
-                       ['    Prox',       ''], $
-                       ['    Ohms Law',   ''], $
-                       ['Asymm-Large-2D', ''], $
-                       ['    FlyBy',      ''], $
-                       ['    t32 Prox',   ''], $
-                       ['    t90 Prox',   ''], $
-                       ['    Ohms Law',   '']]
-    
-    ;Print the list of figures?
-    if n_elements(figure) eq 0 then begin
-        len = strtrim(max(strlen(list_of_figures[0,*])) > 7, 2)
-        print, 'FIGURES', 'DESCRIPTION', FORMAT='(a' + len + ', 4x, a11)'
-        print, list_of_figures, FORMAT='(a-' + len + ', 4x, a0)'
-        return, obj_new()
-    endif
+	;Current list of figures
+	list_of_figures = [['Asymm-3D',       ''], $
+	                   ['    y860  Prox', ''], $
+	                   ['    y1440 Prox', ''], $
+	                   ['Asymm-Scan-By1', ''], $
+	                   ['    FlyBy',      ''], $
+	                   ['    FlyBy Prox', ''], $
+	                   ['    Prox',       ''], $
+	                   ['Asymm-Scan-By0', ''], $
+	                   ['    FlyBy',      ''], $
+	                   ['    FlyBy Prox', ''], $
+	                   ['    Prox',       ''], $
+	                   ['    Ohms Law',   ''], $
+	                   ['Asymm-Large-2D', ''], $
+	                   ['    FlyBy',      ''], $
+	                   ['    t32 Prox',   ''], $
+	                   ['    t90 Prox',   ''], $
+	                   ['    Ohms Law',   '']]
+
+	;Print the list of figures?
+	if n_elements(figure) eq 0 then begin
+		len = strtrim(max(strlen(list_of_figures[0,*])) > 7, 2)
+		print, 'FIGURES', 'DESCRIPTION', FORMAT='(a' + len + ', 4x, a11)'
+		print, list_of_figures, FORMAT='(a-' + len + ', 4x, a0)'
+		return, obj_new()
+	endif
 
 ;---------------------------------------------------------------------
 ; Create Figures /////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    
-    _figure = strupcase(figure)
-    tf_save = keyword_set(tf_save)
 
-    case _figure of
-        'ASYMM-3D Y860 PROX':        win = FigThesis_Asymm3D_Y860_Prox()
-        'ASYMM-3D Y1440 PROX':       win = FigThesis_Asymm3D_Y1440_Prox()
-        'ASYMM-SCAN-BY0 FLYBY':      win = FigThesis_AsymmScanBy0_FlyBy(FNAMES=fnames)
-        'ASYMM-SCAN-BY0 FLYBY PROX': win = FigThesis_AsymmScanBy0_FlyBy_Prox(FNAMES=fnames)
-        'ASYMM-SCAN-BY0 OHMS LAW':   win = FigThesis_AsymmScanBy0_OhmsLaw()
-        'ASYMM-SCAN-BY0 PROX':       win = FigThesis_AsymmScanBy0_Prox()
-        'ASYMM-SCAN-BY0 PROX 3IM':   win = FigThesis_AsymmScanBy0_Prox_3IM()
-        'ASYMM-SCAN-BY1 FLYBY':      win = FigThesis_AsymmScanBy1_FlyBy(FNAMES=fnames)
-        'ASYMM-SCAN-BY1 FLYBY PROX': win = FigThesis_AsymmScanBy1_FlyBy_Prox(FNAMES=fnames)
-        'ASYMM-SCAN-BY1 PROX':       win = FigThesis_AsymmScanBy1_Prox()
-        'ASYMM-LARGE-2D FLYBY':      win = FigThesis_AsymmLarge2D_FlyBy(FNAMES=fnames)
-        'ASYMM-LARGE-2D OHMS LAW':   win = FigThesis_AsymmLarge2D_OhmsLaw()
-        'ASYMM-LARGE-2D T32 PROX':   win = FigThesis_AsymmLarge2D_t32_Prox()
-        'ASYMM-LARGE-2D T90 PROX':   win = FigThesis_AsymmLarge2D_t90_Prox()
-        else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
-    endcase
+	_figure = strupcase(figure)
+	tf_save = keyword_set(tf_save)
+
+	case _figure of
+		'ASYMM-3D Y860 PROX':        win = FigThesis_Asymm3D_Y860_Prox()
+		'ASYMM-3D Y1440 PROX':       win = FigThesis_Asymm3D_Y1440_Prox()
+		'ASYMM-SCAN-BY0 FLYBY':      win = FigThesis_AsymmScanBy0_FlyBy(FNAMES=fnames)
+		'ASYMM-SCAN-BY0 FLYBY PROX': win = FigThesis_AsymmScanBy0_FlyBy_Prox(FNAMES=fnames)
+		'ASYMM-SCAN-BY0 OHMS LAW':   win = FigThesis_AsymmScanBy0_OhmsLaw()
+		'ASYMM-SCAN-BY0 PROX':       win = FigThesis_AsymmScanBy0_Prox()
+		'ASYMM-SCAN-BY0 PROX 3IM':   win = FigThesis_AsymmScanBy0_Prox_3IM()
+		'ASYMM-SCAN-BY1 FLYBY':      win = FigThesis_AsymmScanBy1_FlyBy(FNAMES=fnames)
+		'ASYMM-SCAN-BY1 FLYBY PROX': win = FigThesis_AsymmScanBy1_FlyBy_Prox(FNAMES=fnames)
+		'ASYMM-SCAN-BY1 PROX':       win = FigThesis_AsymmScanBy1_Prox()
+		'ASYMM-LARGE-2D FLYBY':      win = FigThesis_AsymmLarge2D_FlyBy(FNAMES=fnames)
+		'ASYMM-LARGE-2D OHMS LAW':   win = FigThesis_AsymmLarge2D_OhmsLaw()
+		'ASYMM-LARGE-2D T32 PROX':   win = FigThesis_AsymmLarge2D_t32_Prox()
+		'ASYMM-LARGE-2D T90 PROX':   win = FigThesis_AsymmLarge2D_t90_Prox()
+		else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
+	endcase
     
 ;---------------------------------------------------------------------
 ; Save to File? //////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
-    if keyword_set(tf_save) then begin
-        ;Save as what?
-        eps    = keyword_set(eps)
-        ps     = keyword_set(ps)
-        png    = keyword_set(png)
-        im_png = keyword_set(im_png)
-        if eps + png + ps + im_png eq 0 then begin
-            eps    = 1
-            ps     = 1
-            png    = 1
-            im_png = 1
-        endif
-    
-        ;Number of files and where to save them.
-        nWins = n_elements(win)
-        froot = '/home/argall/figures/'
-    
-        ;Single window
-        if nWins eq 1 then begin
-            ;Create the file name
-            fname = 'MrThesis_' + idl_validname(figure, /CONVERT_ALL)
-            fbase = filepath(fname, ROOT_DIR=froot)
-        
-            ;Save a variety of file types.
-            win -> Refresh
-            if im_png then win -> Save, fbase + '_im.png'
-            if eps    then win -> Save, fbase + '.eps'
-            if ps     then win -> Save, fbase + '.ps'
-        
-            ;Take a snapshot
-            if png then begin
-                win.SAVEAS -> SetProperty, IM_RASTER=0
-                win -> Save, fbase + '-ss.png'
-                win.SAVEAS -> SetProperty, IM_RASTER=1
-            endif
-            
-        ;Multiple windows
-        endif else begin
-            for i = 0, nWins - 1 do win[i] -> Save, FilePath(fnames[i], ROOT_DIR=froot)
-        endelse
-    endif
-    
-    return, win
+	if keyword_set(tf_save) then begin
+		;Save as what?
+		eps    = keyword_set(eps)
+		ps     = keyword_set(ps)
+		png    = keyword_set(png)
+		im_png = keyword_set(im_png)
+		if eps + png + ps + im_png eq 0 then begin
+			eps    = 1
+			ps     = 1
+			png    = 1
+			im_png = 1
+		endif
+
+		;Number of files and where to save them.
+		nWins = n_elements(win)
+		froot = '/home/argall/figures/'
+
+		;Single window
+		if nWins eq 1 then begin
+			;Create the file name
+			fname = 'MrThesis_' + idl_validname(figure, /CONVERT_ALL)
+			fbase = filepath(fname, ROOT_DIR=froot)
+	
+			;Save a variety of file types.
+			win -> Refresh
+			if im_png then win -> Save, fbase + '_im.png'
+			if eps    then win -> Save, fbase + '.eps'
+			if ps     then win -> Save, fbase + '.ps'
+	
+			;Take a snapshot
+			if png then begin
+				win.SAVEAS -> SetProperty, IM_RASTER=0
+				win -> Save, fbase + '-ss.png'
+				win.SAVEAS -> SetProperty, IM_RASTER=1
+			endif
+		
+		;Multiple windows
+		endif else begin
+			for i = 0, nWins - 1 do begin
+				fname = FilePath(fnames[i], ROOT_DIR=froot)
+				if im_png then win[i] -> Save, fname + '_im.png'
+				if eps    then win[i] -> Save, fname + '.eps'
+				if ps     then win[i] -> Save, fname + '.ps'
+				
+				;Snapshot
+				if png then begin
+					win[i].SAVEAS -> SetProperty, IM_RASTER=0
+					win[i] -> Save, fname + '-ss.png'
+					win[i].SAVEAS -> SetProperty, IM_RASTER=1
+				endif
+			endfor
+		endelse
+	endif
+
+	return, win
 end
