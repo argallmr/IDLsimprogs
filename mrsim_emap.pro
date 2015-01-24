@@ -130,8 +130,11 @@
 ;       2014/10/30  -   Changed input parameters X, Z, DX, and, DZ to BIN_CENTER and
 ;                           HALF_WIDTH. - MRA
 ;       2014/11/21  -   Program is more general to simulation dimensions.
+;       2015/01/23  -   Set the ASPECT property instead of calculating positions. MrText
+;                           uses TeXToIDL instead of cgCheckForSymbols, so update was
+;                           required. - MRA.
 ;-
-function MrSim_eMap, theSim, type, bin_center, half_width, $
+function MrSim_eMap, theSim, type, bin_center, half_width, time, $
 C_NAME=c_name, $
 CIRCLES=circles, $
 HGAP=hGap, $
@@ -367,7 +370,7 @@ _REF_EXTRA=extra
     xgap     = 0
     ygap     = 0
     charsize = 1.5
-    win2 = MrWindow(LAYOUT=layout, CHARSIZE=charsize, OXMARGIN=oxmargin, NAME='Dist Win', $
+    win2 = MrWindow(LAYOUT=layout, CHARSIZE=charsize, OXMARGIN=oxmargin, NAME='eMap Win', $
                     XGAP=xgap, YGAP=ygap, XSIZE=xsize, YSIZE=ysize, REFRESH=0)
 
 ;-------------------------------------------------------
@@ -423,8 +426,7 @@ _REF_EXTRA=extra
 
     ;Determine the aspect ratio of the plots and create positions
     aspect = (yrange[1] - yrange[0]) / (xrange[1] - xrange[0])
-    pos  = MrLayout(layout, CHARSIZE=charsize, OXMARGIN=oxmargin, ASPECT=aspect, $
-                    XGAP=xgap, YGAP=ygap)
+    win2 -> SetProperty, ASPECT=aspect
 
     ;Step through each distribution
     allIm = win2 -> Get(/ALL, ISA='MrImage')
@@ -437,8 +439,9 @@ _REF_EXTRA=extra
         ;Change the position, axis ranges, and tickmarks
         if tf_xvel then imgTemp.XRANGE = xrange
         if tf_yvel then imgTemp.YRANGE = yrange
-        imgTemp -> SetProperty, POSITION=pos[*,i], RANGE=[0, cmax], $
-                                XTICKINTERVAL=xtickinterval, XMINOR=5, YTICKINTERVAL=ytickinterval, YMINOR=5
+        imgTemp -> SetProperty, RANGE=[0, cmax], $
+                                XTICKINTERVAL=xtickinterval, XMINOR=5, $
+                                YTICKINTERVAL=ytickinterval, YMINOR=5
 
         ;All Except Left Column
         ;   - Do not label y-axis
@@ -465,7 +468,7 @@ _REF_EXTRA=extra
     oSim -> GetInfo, DTXWCI=dtxwci
     
     ;Create a title
-    title  = 'eMap ' + type + ' t*$\Omega$$\downci$='
+    title  = 'eMap ' + type + ' t*\Omega_{ci}='
     title += string(dtxwci*time, FORMAT='(f0.1)')
     if sim_class eq 'MRSIM3D' then title += ' y=' + string(yrange[0], FORMAT='(f0.1)') + 'de'
     

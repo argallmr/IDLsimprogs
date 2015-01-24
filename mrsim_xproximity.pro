@@ -206,6 +206,13 @@ _REF_EXTRA = extra
     !Null = MrSim_LineCut(oSim, names[3], cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
     !Null = MrSim_LineCut(oSim, names[4], cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
 
+    ;Do not outline or fill the legend
+    drWin['LineCut: ' + names[0]] -> SetProperty, FILL_COLOR='', LINESTYLE='None'
+    drWin['LineCut: ' + names[1]] -> SetProperty, FILL_COLOR='', LINESTYLE='None'
+    drWin['LineCut: ' + names[2]] -> SetProperty, FILL_COLOR='', LINESTYLE='None'
+    drWin['LineCut: ' + names[3]] -> SetProperty, FILL_COLOR='', LINESTYLE='None'
+    drWin['LineCut: ' + names[4]] -> SetProperty, FILL_COLOR='', LINESTYLE='None'
+
 ;-------------------------------------------------------
 ; Create a 2D Color Plot? //////////////////////////////
 ;-------------------------------------------------------

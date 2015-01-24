@@ -1231,8 +1231,8 @@ _REF_EXTRA=ref_extra
     endif
     
     ;Add text annotations
-    xText = string(FORMAT='(%"X=%0.1f$\\+-$%0.1f")', bin_center[0], half_width[0])
-    zText = string(FORMAT='(%"Z=%0.1f$\\+-$%0.1f")', bin_center[nDims-1], half_width[nDims-1])
+    xText = string(FORMAT='(%"X=%0.1f\\pm%0.1f")', bin_center[0], half_width[0])
+    zText = string(FORMAT='(%"Z=%0.1f\\pm%0.1f")', bin_center[nDims-1], half_width[nDims-1])
     !Null = MrText(0.04, 0.87, xText, /RELATIVE, TARGET=img, NAME='BinX')
     !Null = MrText(0.04, 0.05, zText, /RELATIVE, TARGET=img, NAME='BinZ')
     
