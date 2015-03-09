@@ -1029,10 +1029,10 @@ DIST3D=dist3D
     ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
     directory = '/data1/sim1/data/'
     dtxwci    = 0.25
-    dist3D     = 0
+    dist3D    = 0
     if arg_present(ascii_version) then ascii_version = 1
-    if arg_present(fMap_dir)      then fMap_dir     = '/home/argall/simulations/Sim1/'
-    if arg_present(eCountFactor)  then eCountFactor = 2L
+    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/fmaps'
+    if arg_present(eCountFactor)  then eCountFactor  = 2L
     
     ;Binary Info File
     ;   - Stored in the data directory

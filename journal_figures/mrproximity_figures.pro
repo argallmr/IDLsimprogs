@@ -21,6 +21,7 @@
 ; :History:
 ;    Modification History::
 ;       2015/01/22  -   Written by Matthew Argall
+;       2015/03/03  -   Draw distribution boxes on Figure 1. Remove images from Figure 2. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -28,93 +29,211 @@
 ;-
 function ProxFigs_Figure1, $
 FNAMES=fnames
-    compile_opt idl2
-    
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /CANCEL
-        if obj_valid(win1)   then obj_destroy, win1
-        if obj_valid(win2)   then obj_destroy, win2
-        if obj_valid(win3)   then obj_destroy, win3
-        if obj_valid(theSim) then obj_destroy, theSim
-        void = cgErrorMSG()
-        return, obj_new()
-    endif
-    
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win1)   then obj_destroy, win1
+		if obj_valid(win2)   then obj_destroy, win2
+		if obj_valid(win3)   then obj_destroy, win3
+		if obj_valid(theSim) then obj_destroy, theSim
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
 ;-----------------------------------------------------
 ; Asymm-Scan/By0 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-    theSim    = 'Asymm-Scan/By0'
-    cuts      = [36.77, 34.9, 33.0]
-    tIndex    = 28
-    xrange    = [2,-2]
-    zrange    = 36.77 + [-5, 5]
-    coord_sys = 'Magnetopause'
-    ion_scale = 1
-    mva_frame = 1
-    im_name   = 'Jey'
-    c_name    = 'Ay'
-    win1 = MrSim_XProximity(theSim, cuts, tIndex, $
-                            C_NAME    = c_name, $
-                            COORD_SYS = coord_sys, $
-                            IM_NAME   = im_name, $
-                            ION_SCALE = ion_scale, $
-                            MVA_FRAME = mva_frame, $
-                            XRANGE    = xrange, $
-                            ZRANGE    = zrange)
+	theSim    = 'Asymm-Scan/By0'
+	cuts      = [36.77, 34.9, 33.0]
+	tIndex    = 28
+	xrange    = [2,-2]
+	zrange    = 36.77 + [-5, 5]
+	coord_sys = 'Magnetopause'
+	ion_scale = 1
+	mva_frame = 1
+	im_name   = 'Jey'
+	c_name    = 'Ay'
+
+;	cut_range = [2,-2]
+	xrange = [2,-2]
+;	xrange    = [2.0,-1.5]
+;	zrange    = 36.77 + [-4.0, 4.0]
+	zrange    = 36.77 + [-5, 5]
+
+	win1 = MrSim_XProximity(theSim, cuts, tIndex, $
+	                        C_NAME     = c_name, $
+	                        COORD_SYS  = coord_sys, $
+	                        IM_NAME    = im_name, $
+	                        ION_SCALE  = ion_scale, $
+	                        MVA_FRAME  = mva_frame, $
+	                        SIM_OBJECT = oSim, $
+	                        XRANGE     = xrange, $
+	                        ZRANGE     = zrange)
+
+;-----------------------------------------------------
+; Asymm-Scan/By0: Mark Distribution Functions \\\\\\\\
+;-----------------------------------------------------
+	;Distribution information (de)
+	dist_width  = [0.5, 0.5]
+	dist_loc    = [ $
+	               ;1st Cut
+	               [cuts[0],   8.3], $     ;MSP Inflow
+	               [cuts[0],   0.3], $     ;MSP Separatrix
+	               [cuts[0],  -0.8], $     ;X-Point
+	               [cuts[0],  -1.8], $     ;MSH Separatrix
+	               [cuts[0],  -8.3], $     ;MSH Inflow
+	               ;2nd Cut
+	               [cuts[1],   8.3], $     ;MSP Inflow
+	               [cuts[1],   3.3], $     ;MSP Separatrix
+	               [cuts[1],  -1.6], $     ;Central Current Sheet
+	               [cuts[1],  -7.8], $     ;MSH Separatrix
+	               [cuts[1], -10.0], $     ;MSH Inflow
+	               ;3rd Cut
+	               [cuts[2],  10.0], $     ;MSP Inflow
+	               [cuts[2],   6.7], $     ;MSP Separatrix
+	               [cuts[2],  -2.8], $     ;Central Current Sheet
+	               [cuts[2], -13.1], $     ;MSH Separatrix
+	               [cuts[2], -16.7]]       ;MSH Inflow
+	
+	;Magnetopause?
+	if coord_sys eq 'MAGNETOPAUSE' then begin
+		dist_loc      = reverse(dist_loc, 1)
+		dist_loc[0,*] = -dist_loc[0,*]
+	endif
+	
+	;Ion Scale?
+	if ion_scale then begin
+		osim -> GetInfo, MI_ME=mi_me
+		dist_width    /= sqrt(mi_me)
+		dist_loc[0,*] /= sqrt(mi_me)
+	endif
+
+	;Retrieve the color image
+	img_temp = win1['Color ' + im_name]
+	
+	;Draw boxes where the distributions are taken
+	for i = 0, n_elements(dist_loc[0,*]) - 1 do begin
+		;Coordinates of the box corners.
+		dx_minus = dist_loc[0,i] - dist_width[0]
+		dx_plus  = dist_loc[0,i] + dist_width[0]
+		dy_minus = dist_loc[1,i] - dist_width[1]
+		dy_plus  = dist_loc[1,i] + dist_width[1]
+		xcoords = [dx_minus, dx_plus,  dx_plus, dx_minus, dx_minus]
+		ycoords = [dy_minus, dy_minus, dy_plus, dy_plus,  dy_minus]
+		
+		;Draw the box
+		box = MrPlotS(xcoords, ycoords, COLOR='white', NAME='DistBox' + strtrim(i,2), TARGET=img_temp, /DATA)
+	endfor
 
 ;-----------------------------------------------------
 ; Asymm-Scan/By1 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-    theSim    = 'Asymm-Scan/By1'
-    cuts      = [43.5, 43.8, 44.5]
-    tIndex    = 30
-    xrange    = [1,-1]
-    zrange    = [42.0, 45.0]
-    coord_sys = 'Magnetopause'
-    ion_scale = 1
-    mva_frame = 1
-    im_name   = 'Jey'
-    c_name    = 'Ay'
-    win2 = MrSim_XProximity(theSim, cuts, tIndex, $
-                            C_NAME    = c_name, $
-                            COORD_SYS = coord_sys, $
-                            IM_NAME   = im_name, $
-                            ION_SCALE = ion_scale, $
-                            MVA_FRAME = mva_frame, $
-                            XRANGE    = xrange, $
-                            ZRANGE    = zrange)
+	theSim    = 'Asymm-Scan/By1'
+	cuts      = [43.5, 43.8, 44.5]
+	tIndex    = 30
+	xrange    = [1,-1]
+	zrange    = [42.0, 45.0]
+	coord_sys = 'Magnetopause'
+	ion_scale = 1
+	mva_frame = 1
+	im_name   = 'Jey'
+	c_name    = 'Ay'
+	win2 = MrSim_XProximity(theSim, cuts, tIndex, $
+	                        C_NAME    = c_name, $
+	                        COORD_SYS = coord_sys, $
+	                        IM_NAME   = im_name, $
+	                        ION_SCALE = ion_scale, $
+	                        MVA_FRAME = mva_frame, $
+	                        XRANGE    = xrange, $
+	                        ZRANGE    = zrange)
+
+;-----------------------------------------------------
+; Asymm-Scan/By1: Mark Distribution Functions \\\\\\\\
+;-----------------------------------------------------
+	;Distribution information (de)
+	dist_width = [0.5, 0.5]
+	dist_loc = [ $
+	            ;1st Cut
+	            [cuts[0],   4.2], $     ;MSP Inflow
+	            [cuts[0],   1.8], $     ;MSP Separatrix
+	            [cuts[0],   0.3], $     ;X-Point
+	            [cuts[0],  -0.4], $     ;MSH Separatrix
+	            [cuts[0],  -1.7], $     ;MSH Inflow
+	            ;2nd Cut
+	            [cuts[1],   5.0], $     ;MSP Inflow
+	            [cuts[1],   1.4], $     ;MSP Separatrix
+	            [cuts[1],   0.0], $     ;Central Current Sheet
+	            [cuts[1],  -1.4], $     ;MSH Separatrix
+	            [cuts[1],  -4.2], $     ;MSH Inflow
+	            ;3rd Cut
+	            [cuts[2],   5.8], $     ;MSP Inflow
+	            [cuts[2],   2.9], $     ;MSP Separatrix
+	            [cuts[2],  -3.3], $     ;Central Current Sheet
+	            [cuts[2],  -4.5], $     ;MSH Separatrix
+	            [cuts[2],  -5.8]]       ;MSH Inflow
+	
+	;Magnetopause?
+	if coord_sys eq 'MAGNETOPAUSE' then begin
+		dist_loc      = reverse(dist_loc, 1)
+		dist_loc[0,*] = -dist_loc[0,*]
+	endif
+	
+	;Ion Scale?
+	if ion_scale then begin
+		osim -> GetInfo, MI_ME=mi_me
+		dist_width    /= sqrt(mi_me)
+		dist_loc[0,*] /= sqrt(mi_me)
+	endif
+
+	;Retrieve the color image
+	img_temp = win2['Color ' + im_name]
+	
+	;Draw boxes where the distributions are taken
+	for i = 0, n_elements(dist_loc[0,*]) - 1 do begin
+		;Coordinates of the box corners.
+		dx_minus = dist_loc[0,i] - dist_width[0]
+		dx_plus  = dist_loc[0,i] + dist_width[0]
+		dy_minus = dist_loc[1,i] - dist_width[1]
+		dy_plus  = dist_loc[1,i] + dist_width[1]
+		xcoords = [dx_minus, dx_plus,  dx_plus, dx_minus, dx_minus]
+		ycoords = [dy_minus, dy_minus, dy_plus, dy_plus,  dy_minus]
+		
+		;Draw the box
+		box = MrPlotS(xcoords, ycoords, COLOR='white', NAME='DistBox' + strtrim(i,2), TARGET=img_temp, /DATA)
+	endfor
 
 ;-----------------------------------------------------
 ; Asymm-3D \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
-    simName   = 'Asymm-3D'
-    cuts      = [45.2, 43.7, 35.2]
-    tIndex    = 120816
-    xrange    = [5, -4]
-    ycell     = 860
-    zrange    = 45.3 + [-15, 15]
-    coord_sys = 'Magnetopause'
-    ion_scale = 1
-    mva_frame = 1
-    im_name   = 'Jey'
-    
-    ;Create the simulation object
-    theSim = MrSim_Create(simName, tIndex, $
-                          COORD_SYS = coord_sys, $
-                          ION_SCALE = ion_scale, $
-                          MVA_FRAME = mva_frame, $
-                          XRANGE    = xrange, $
-                          ZRANGE    = zrange)
-    ycoord = theSim -> Cell2Coord(ycell, /Y)
-    theSim.YRANGE = [ycoord, ycoord]
-    
-    ;Create the graphic
-    win3 = MrSim_XProximity(theSim, cuts, IM_NAME = im_name)
-    
-    ;Destroy the simulation object
-    obj_destroy, theSim
-    
+	simName   = 'Asymm-3D'
+	cuts      = [45.2, 43.7, 35.2]
+	tIndex    = 120816
+	xrange    = [5, -4]
+	ycell     = 860
+	zrange    = 45.3 + [-15, 15]
+	coord_sys = 'Magnetopause'
+	ion_scale = 1
+	mva_frame = 1
+	im_name   = 'Jey'
+	
+	;Create the simulation object
+	theSim = MrSim_Create(simName, tIndex, $
+	                      COORD_SYS = coord_sys, $
+	                      ION_SCALE = ion_scale, $
+	                      MVA_FRAME = mva_frame, $
+	                      XRANGE    = xrange, $
+	                      ZRANGE    = zrange)
+	ycoord = theSim -> Cell2Coord(ycell, /Y)
+	theSim.YRANGE = [ycoord, ycoord]
+	
+	;Create the graphic
+	win3 = MrSim_XProximity(theSim, cuts, IM_NAME = im_name)
+
+	;Destroy the simulation object
+	obj_destroy, theSim
+
 ;-----------------------------------------------------
 ; Finish \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
@@ -125,6 +244,219 @@ FNAMES=fnames
     fnames = ['Prox_Asymm-Scan-By0', 'Prox_Asymm-Scan-By1', 'Prox_Asymm-3D']
     
     return, wins
+end
+
+
+;+
+;   Create Figure 2: eMap for Asymm-Scan/By0 and Asymm-Scan/By1.
+;-
+function ProxFigs_Figure2, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win1)   then obj_destroy, win1
+		if obj_valid(win2)   then obj_destroy, win2
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+;-----------------------------------------------------
+; Asymm-Scan/By0 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Descibe the simulation
+	theSim      = 'Asymm-Scan/By0'
+	time        = 28
+	coord_sys   = 'Magnetopause'
+	ion_scale   = 0
+	mva_frame   = 1
+	
+	;Create the simulation object
+	oSim = MrSim_Create(theSim, time, $
+	                    COORD_SYS = coord_sys, $
+	                    ION_SCALE = ion_scale, $
+	                    MVA_FRAME = mva_frame)
+
+	;Describe the distributions
+	dist_type   = 'Vpar-Vperp'
+	dist_width  = [0.5, 0.5]
+	dist_layout = [5, 3]
+	v_va        = 1
+
+	;Locations in SIMULATION coordinates.
+	cuts        = [367.7, 349.0, 330.0]
+	dist_loc    = [ $
+	               ;1st Cut
+	               [cuts[0],   8.3], $     ;MSP Inflow
+	               [cuts[0],   0.3], $     ;MSP Separatrix
+	               [cuts[0],  -0.8], $     ;X-Point
+	               [cuts[0],  -1.8], $     ;MSH Separatrix
+	               [cuts[0],  -8.3], $     ;MSH Inflow
+	               ;2nd Cut
+	               [cuts[1],   8.3], $     ;MSP Inflow
+	               [cuts[1],   3.3], $     ;MSP Separatrix
+	               [cuts[1],  -1.6], $     ;Central Current Sheet
+	               [cuts[1],  -7.8], $     ;MSH Separatrix
+	               [cuts[1], -10.0], $     ;MSH Inflow
+	               ;3rd Cut
+	               [cuts[2],  10.0], $     ;MSP Inflow
+	               [cuts[2],   6.7], $     ;MSP Separatrix
+	               [cuts[2],  -2.8], $     ;Central Current Sheet
+	               [cuts[2], -13.1], $     ;MSH Separatrix
+	               [cuts[2], -16.7]]       ;MSH Inflow
+
+	;Change to MAGNETOPAUSE coordinates
+	if coord_sys eq 'MAGNETOPAUSE' then begin
+		dist_loc      = reverse(dist_loc, 1)
+		dist_loc[0,*] = -dist_loc[0,*]
+	endif
+	
+	;Ion Scale?
+	if ion_scale then begin
+		oSim -> GetInfo, MI_ME=mi_me
+		dist_width    /= sqrt(mi_me)
+		dist_loc[0,*] /= sqrt(mi_me)
+	endif
+
+	;Create the distribution window.
+	win1 = MrSim_eMap(oSim, dist_type, dist_loc, dist_width, $
+	                  CIRCLES    = circles, $
+	                  HGAP       = hGap, $
+	                  NBINS      = nBins, $
+	                  LAYOUT     = dist_layout, $
+	                  LOCATION   = location, $
+	                  POSITIONS  = positions, $
+	                  SIM_OBJECT = oSim, $
+	                  VGAP       = vGap, $
+	                  V_VA       = v_va, $
+	                  XSIZE      = xsize, $
+	                  YSIZE      = ysize)
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+	
+	;Turn refresh off while we update things.
+	win1 -> Refresh, /DISABLE
+	win1.ysize = 350
+	
+	;Get the title, then trash all text items
+	title = win1['eMap Title'].string
+	win1 -> Remove, TYPE='MrText'
+
+	;Set the [xy]tick interval
+	win1 -> SetGlobal, XTICKINTERVAL=10, YTICKINTERVAL=5
+	
+	;Create a new title
+	title = MrText(0.5, 0.94, title, ALIGNMENT=0.5, VERTICAL_ALIGNMENT=0.5)
+	
+;-----------------------------------------------------
+; Asymm-Scan/By1 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Describe the simulation
+	theSim    = 'Asymm-Scan/By1'
+	time      = 30
+	xrange    = [10, -10]
+	zrange    = [420, 450]
+	ion_scale = 0
+	mva_frame = 1
+	coord_sys = 'Magnetopause'
+	
+	;Create the simulation object
+	oSim = MrSim_Create(theSim, time, $
+	                    COORD_SYS = coord_sys, $
+	                    ION_SCALE = ion_scale, $
+	                    MVA_FRAME = mva_frame)
+	
+	;Distribution information
+	v_va        = 1
+	dist_type   = 'Vpar-Vperp'
+	dist_width  = [0.5, 0.5]
+	dist_layout = [5, 3]
+	
+	;Locations in SIMULATION coordinates.
+	cuts     = [434.5, 438.0, 445.0]
+	dist_loc = [ $
+	            ;1st Cut
+	            [cuts[0],   4.2], $     ;MSP Inflow
+	            [cuts[0],   1.8], $     ;MSP Separatrix
+	            [cuts[0],   0.3], $     ;X-Point
+	            [cuts[0],  -0.4], $     ;MSH Separatrix
+	            [cuts[0],  -1.7], $     ;MSH Inflow
+	            ;2nd Cut
+	            [cuts[1],   5.0], $     ;MSP Inflow
+	            [cuts[1],   1.4], $     ;MSP Separatrix
+	            [cuts[1],   0.0], $     ;Central Current Sheet
+	            [cuts[1],  -1.4], $     ;MSH Separatrix
+	            [cuts[1],  -4.2], $     ;MSH Inflow
+	            ;3rd Cut
+	            [cuts[2],   5.8], $     ;MSP Inflow
+	            [cuts[2],   2.9], $     ;MSP Separatrix
+	            [cuts[2],  -3.3], $     ;Central Current Sheet
+	            [cuts[2],  -4.5], $     ;MSH Separatrix
+	            [cuts[2],  -5.8]]       ;MSH Inflow
+
+	;Change to MAGNETOPAUSE coordinates
+	if coord_sys eq 'MAGNETOPAUSE' then begin
+		dist_loc      = reverse(dist_loc, 1)
+		dist_loc[0,*] = -dist_loc[0,*]
+	endif
+	
+	;Ion Scale?
+	if ion_scale then begin
+		oSim -> GetInfo, MI_ME=mi_me
+		dist_width    /= sqrt(mi_me)
+		dist_loc[0,*] /= sqrt(mi_me)
+	endif
+
+	;Create the distribution window.
+	win2 = MrSim_eMap(theSim, dist_type, dist_loc, dist_width, time, $
+	                  C_NAME     = c_name, $
+	                  CIRCLES    = circles, $
+	                  HGAP       = hGap, $
+	                  IM_NAME    = im_name, $
+	                  NBINS      = nBins, $
+	                  LAYOUT     = dist_layout, $
+	                  LOCATION   = location, $
+	                  POSITIONS  = positions, $
+	                  SIM_OBJECT = oSim, $
+	                  VGAP       = vGap, $
+	                  V_VA       = v_va, $
+	                  XSIZE      = xsize, $
+	                  YSIZE      = ysize, $
+	                  XRANGE     = xrange, $
+	                  ZRANGE     = zrange, $
+	                  ION_SCALE  = ion_scale, $
+	                  COORD_SYS  = coord_sys)
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+	
+	;Turn refresh off while we update things.
+	win2 -> Refresh, /DISABLE
+	win2.ysize = 350
+	
+	;Get the title, then trash all text items
+	title = win2['eMap Title'].string
+	win2 -> Remove, TYPE='MrText'
+
+	;Set the [xy]tick interval
+	win2 -> SetGlobal, XTICKINTERVAL=10, YTICKINTERVAL=5
+	
+	;Create a new title
+	title = MrText(0.5, 0.94, title, ALIGNMENT=0.5, VERTICAL_ALIGNMENT=0.5)
+
+;-----------------------------------------------------
+; Finish \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	
+	;Output file names
+	fnames = 'eMap_' + dist_type + ['_Asymm-Scan-By0', '_Asymm-Scan-By1']
+	
+	win1 -> Refresh
+	win2 -> Refresh
+	return, [win1, win2]
 end
 
 
@@ -157,7 +489,7 @@ SAVE=tf_save
 
 	;Current list of figures
 	list_of_figures = [['Figure 1', 'X-Line proximity for Asymm-Scan/By0, Asymm-Scan/By1, and Asym3D'], $
-	                   ['        ', '']]
+	                   ['Figure 2', 'eDists at inflow, separatrix, center for Asymm-Scan/By0 and Asymm-Scan/By1']]
 
 	;Print the list of figures?
 	if n_elements(figure) eq 0 then begin
@@ -176,6 +508,7 @@ SAVE=tf_save
 
 	case _figure of
 		'FIGURE 1': win = ProxFigs_Figure1(FNAMES=fnames)
+		'FIGURE 2': win = ProxFigs_Figure2(FNAMES=fnames)
 		else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
 	endcase
     

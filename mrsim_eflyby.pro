@@ -144,11 +144,19 @@ _REF_EXTRA=extra
         ;Make room for the image
         oSim -> GetProperty, COORD_SYSTEM=coord_sys
         if strupcase(coord_sys) eq 'MAGNETOPAUSE' then begin
-            fbWin.OXMARGIN = [20, 15]
-            gfx.POSITION   = [0.15, 0.1, 0.4, 0.77]
+            fbWin.OXMARGIN = [34, 12]
+            im_win['Color ' + im_name]     -> SetProperty, POSITION=[0.09, 0.2, 0.30, 0.80], TITLE=''
+            im_win['CB: Color ' + im_name] -> SetProperty, CBLOCATION='Top', XTICKS=2, WIDTH=1.0
+            fbWin['eMap Title']            -> SetProperty, YLOC=0.94, XLOC=0.6
+            fbWin['CB: Counts']            -> SetProperty, POSITION=[0.93, 0.25, 0.94, 0.75]
+            
         endif else begin
             fbWin.OYMARGIN = [4, 18]
             gfx.POSITION   = [0.2, 0.7, 0.8, 0.95]
+    
+            ;Adjust the color bar and title position
+            fbWin['CB: Counts'].position = [0.92, 0.1, 0.94, 0.5]
+            fbWin['eMap Title'] -> SetProperty, YLOC=0.575
         endelse
 
         ;Move everything into the eMap window
@@ -156,10 +164,6 @@ _REF_EXTRA=extra
         foreach graph, gfx do graph -> SwitchWindows, fbWin
         obj_destroy, im_win
     endif
-    
-    ;Adjust the color bar and title position
-    fbWin['CB: Counts'].position = [0.92, 0.1, 0.94, 0.5]
-    fbWin['eMap Title'] -> SetProperty, YLOC=0.575
     
     ;Destroy the simulation
     obj_destroy, oSim

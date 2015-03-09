@@ -376,7 +376,7 @@ _REF_EXTRA = extra
     nLineColors = n_elements(line_color)
     if nLineColors eq 0 then begin
         if nVLines gt 1 || nHLines gt 1 $
-            then line_color = ['Blue', 'Forest Green', 'Red', 'Magenta', 'Orange'] $
+            then line_color = MrDefaultColor(NCOLORS=nVLines+nHLines) $
             else line_color = 'Black'
         nLineColors = n_elements(line_color)
     endif

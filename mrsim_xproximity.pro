@@ -84,8 +84,8 @@
 ;       2014/07/25  -   Renamed from Sim_DiffRegion.pro to MrSim_XProximity.pro - MRA
 ;-
 function MrSim_XProximity, theSim, cuts, time, $
-CUT_RANGE = cut_range, $
 C_NAME = c_name, $
+CUT_RANGE = cut_range, $
 IM_NAME = im_name, $
 OFILENAME = ofilename, $
 NLEVELS = nlevels, $
@@ -200,11 +200,11 @@ _REF_EXTRA = extra
         else title = 't$\Omega$$\downci$=' + string(time*dtxwci, FORMAT='(f0.1)') + '  ' + cutLoc
 
     ;Plot the individual cuts.
-    !Null = MrSim_LineCut(oSim, names[0], cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
-    !Null = MrSim_LineCut(oSim, names[1], cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
-    !Null = MrSim_LineCut(oSim, names[2], cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
-    !Null = MrSim_LineCut(oSim, names[3], cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
-    !Null = MrSim_LineCut(oSim, names[4], cuts, /CURRENT, HORIZONTAL=horizontal, HCUT_RANGE=hRange, VCUT_RANGE=vRange)
+    !Null = MrSim_LineCut(oSim, names[0], cuts, /CURRENT, HORIZONTAL=horizontal, CUT_RANGE=cut_range)
+    !Null = MrSim_LineCut(oSim, names[1], cuts, /CURRENT, HORIZONTAL=horizontal, CUT_RANGE=cut_range)
+    !Null = MrSim_LineCut(oSim, names[2], cuts, /CURRENT, HORIZONTAL=horizontal, CUT_RANGE=cut_range)
+    !Null = MrSim_LineCut(oSim, names[3], cuts, /CURRENT, HORIZONTAL=horizontal, CUT_RANGE=cut_range)
+    !Null = MrSim_LineCut(oSim, names[4], cuts, /CURRENT, HORIZONTAL=horizontal, CUT_RANGE=cut_range)
 
     ;Do not outline or fill the legend
     drWin['LineCut: ' + names[0]] -> SetProperty, FILL_COLOR='', LINESTYLE='None'

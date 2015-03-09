@@ -133,6 +133,7 @@
 ;       2015/01/23  -   Set the ASPECT property instead of calculating positions. MrText
 ;                           uses TeXToIDL instead of cgCheckForSymbols, so update was
 ;                           required. - MRA.
+;       2015/03/09  -   Added the LOG and RANGE keywords. - MRA
 ;-
 function MrSim_eMap, theSim, type, bin_center, half_width, time, $
 C_NAME=c_name, $
@@ -143,7 +144,9 @@ IM_WIN=im_win, $
 NBINS=nBins, $
 LAYOUT=layout, $
 LOCATION=location, $
+LOG=log, $
 POSITIONS=positions, $
+RANGE=range_in, $
 SIM_OBJECT=oSim, $
 VGAP=vGap, $
 V_VA=v_va, $
@@ -198,6 +201,7 @@ _REF_EXTRA=extra
     is2D  = dims[0] eq 2
     nDist = nDims eq 1 ? 1 : dims[1]
 
+    log = keyword_set(log)
     if n_elements(nBins)    eq 0 then nBins    = 75
     if n_elements(layout)   eq 0 then layout   = [ceil(sqrt(nDist)), ceil(float(nDist) / ceil(sqrt(nDist)))]
     if n_elements(location) eq 0 then location = 5
@@ -393,14 +397,18 @@ _REF_EXTRA=extra
         ;Create the distribution function
         ;   - Remove the colorbar
         imgTemp  = MrSim_eDist(oSim, type, centers[*,i], widths[*,i], $
-                               NBINS=nBins, CIRCLES=circles, /CURRENT, V_VA=v_va)
-        win2    -> Remove, win2['CB: eDist'], /DESTROY
+                               /CURRENT, $
+                               CIRCLES = circles, $
+                               LOG     = log, $
+                               NBINS   = nBins, $
+                               RANGE   = range, $
+                               V_VA    = v_va)
 
         ;Number the distribution
-        distNo               = string(i, FORMAT='(i02)')
-        imgTemp.NAME         = 'eDist ' + type + ' ' + distNo
-        win2['BinX'].NAME    = 'BinX '  + type + ' ' + distNo
-        win2['BinZ'].NAME    = 'BinZ '  + type + ' ' + distNo
+        distNo            = string(i, FORMAT='(i02)')
+        imgTemp.NAME      = 'eDist ' + type + ' ' + distNo
+        win2['BinX'].NAME = 'BinX '  + type + ' ' + distNo
+        win2['BinZ'].NAME = 'BinZ '  + type + ' ' + distNo
 ;        win2['Circles'].NAME = 'Circles ' + distNo
 
         ;Get maximum data range
@@ -413,6 +421,12 @@ _REF_EXTRA=extra
         yRange[0] <= yr[0]
         yRange[1] >= yr[1]
     endfor
+    
+    ;Remove all colorbars
+    win2 -> Remove, TYPE='weColorbar'
+    if n_elements(range_in) eq 0 $
+        then range = log ? [1, cmax] : [0, cmax] $
+        else range = range_in
 
 ;-------------------------------------------------------
 ; Make Pretty //////////////////////////////////////////
@@ -439,7 +453,7 @@ _REF_EXTRA=extra
         ;Change the position, axis ranges, and tickmarks
         if tf_xvel then imgTemp.XRANGE = xrange
         if tf_yvel then imgTemp.YRANGE = yrange
-        imgTemp -> SetProperty, RANGE=[0, cmax], $
+        imgTemp -> SetProperty, RANGE=range, $
                                 XTICKINTERVAL=xtickinterval, XMINOR=5, $
                                 YTICKINTERVAL=ytickinterval, YMINOR=5
 
@@ -477,9 +491,15 @@ _REF_EXTRA=extra
                    NAME='eMap Title', /NORMAL, CHARSIZE=2)
     
     ;Create a colorbar
-    !Null = MrColorbar(CTINDEX=13, RANGE=[0, cmax], POSITION=[0.9, 0.25, 0.92, 0.75], $
-                       TITLE='Counts', /CURRENT, NAME='CB: Counts', $
-                       /VERTICAL, TLOCATION='Right')
+    !Null = MrColorbar(/CURRENT, $
+                       CTINDEX   = 13, $
+                       YLOG      = log, $
+                       NAME      = 'CB: Counts', $
+                       POSITION  = [0.9, 0.25, 0.92, 0.75], $
+                       RANGE     = range, $
+                       TITLE     = 'Counts', $
+                       TLOCATION = 'Right', $
+                       /VERTICAL)
 
     win2   -> Refresh
     if obj_valid(im_win) then im_win -> Refresh

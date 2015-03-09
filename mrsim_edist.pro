@@ -60,6 +60,7 @@
 ;       2014/11/21  -   Better documentation. Parameters removed from helper functions
 ;                           when not needed. Dimensionality of simulation determined by
 ;                           `BIN_CENTER` coordinates. - MRA
+;       2015/03/09  -   Added the COORDS, LOG, and RANGE keywords. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -582,7 +583,8 @@ end
 ;-
 function MrSim_eDist_Vy_Vz, e_data, $
 NBINS=nBins, $
-V_VA=v_va
+V_VA=v_va, $
+VZ_VY=vz_vy
     compile_opt strictarr
     
     ;catch errors
@@ -595,8 +597,9 @@ V_VA=v_va
     endif
     
     ;Units
-    dims = size(e_data, /DIMENSIONS)
-    v_va = keyword_set(v_va)
+    dims  = size(e_data, /DIMENSIONS)
+    v_va  = keyword_set(v_va)
+    vz_vy = keyword_set(vz_vy)
 
     ;Histogram in velocity space
     ;   - [x, z, ux, uy, uz]
@@ -622,6 +625,22 @@ V_VA=v_va
     vmax    = max(abs([vyRange, vzRange]))
     xrange  = [-vmax, vmax]
     yrange  = xrange
+    
+    ;Vz-Vy?
+    if vz_vy then begin
+        ;Transpose the data
+        e_dist = transpose(e_dist)
+        
+        ;Temporary variables
+        xloc_temp   = xloc
+        xtitle_temp = xtitle
+        
+        ;Switch [XY]LOC and [XY]TITLE ([XY]RANGE are the same)
+        xloc   = yloc
+        xtitle = ytitle
+        yloc   = temporary(xloc_temp)
+        ytitle = temporary(xtitle_temp)
+    endif
     
     ;Create the distribution function
     img    = MrImage(e_dist, xloc, yloc, /CURRENT, /SCALE, /AXES, CTINDEX=13, $
@@ -1048,6 +1067,9 @@ end
 ;       CURRENT:        in, optional, type=boolean, default=0
 ;                       If set, the distribution function will be placed in the current
 ;                           MrWindow graphics window.
+;       COORDS:         in, optional, type=boolean, default=0
+;                       If set, the coordinates of the distribution are added as text
+;                           annotations to the distribution image.
 ;       ENERGY:         in, optional, type=boolean, default=0
 ;                       If set, the distribution function will be plotted in energy space.
 ;                           The default is velocity space.
@@ -1057,6 +1079,8 @@ end
 ;       FMAP_DIR:       in, optional, type=string
 ;                       Directory in which to find fMap save files. The default is
 ;                           determined by MrSim_Which.
+;       LOG:            in, optional, type=boolean, default=0
+;                       If set, electron counts (the color scale) will be log-scaled.
 ;       MOMENTUM:       in, optional, type=boolean, default=0
 ;                       If set, the distribution function will be plotted in momentum
 ;                           space. The default is velocity space.
@@ -1081,12 +1105,15 @@ end
 ;-
 function MrSim_eDist, theSim, type, bin_center, half_width, $
 CIRCLES=circles, $
+COORDS=coords, $
 CURRENT=current, $
 ENERGY=energy, $
 FMAP_DIR=fmap_dir, $
 FILENAME=filename, $
+LOG=log, $
 MOMENTUM=momentum, $
 NBINS=nBins, $
+RANGE=range, $
 SIM_OBJECT=oSim, $
 V_VA=v_va, $
 _REF_EXTRA=ref_extra
@@ -1131,6 +1158,7 @@ _REF_EXTRA=ref_extra
 ;-------------------------------------------------------
     _type    = strupcase(type)
     circles  = keyword_set(circles)
+    coords   = keyword_set(coords)
     current  = keyword_set(current)
     energy   = keyword_set(energy)
     momentum = keyword_set(momentum)
@@ -1189,7 +1217,7 @@ _REF_EXTRA=ref_extra
     refresh_in = 1
     if current then begin
         win = GetMrWindows(/CURRENT)
-        refresh_in = win.REFRESH
+        refresh_in = win -> GetRefresh()
         win -> Refresh, /DISABLE
     endif else begin
         win = MrWindow(NAME='eDist', XSIZE=500, YSIZE=400, OXMARGIN=[10,15], REFRESH=0)
@@ -1203,6 +1231,7 @@ _REF_EXTRA=ref_extra
         'VX-VZ':         img = MrSim_eDist_Vx_Vz(e_data, NBINS=nBins, V_VA=v_va)
         'VX-VY':         img = MrSim_eDist_Vx_Vy(e_data, NBINS=nBins, V_VA=v_va)
         'VY-VZ':         img = MrSim_eDist_Vy_Vz(e_data, NBINS=nBins, V_VA=v_va)
+        'VZ-VY':         img = MrSim_eDist_Vy_Vz(e_data, NBINS=nBins, V_VA=v_va, /VZ_VY)
         'VPAR-VPERP':    img = MrSim_eDist_Vpar_Vperp(e_data,    oSim, x1_range, x2_range, x3_range, NBINS=nBins, V_VA=v_va)
         'VPAR-VPERP1':   img = MrSim_eDist_Vpar_Vperp1(e_data,   oSim, x1_range, x2_range, x3_range, NBINS=nBins, V_VA=v_va)
         'VPAR-VPERP2':   img = MrSim_eDist_Vpar_Vperp2(e_data,   oSim, x1_range, x2_range, x3_range, NBINS=nBins, V_VA=v_va)
@@ -1215,6 +1244,9 @@ _REF_EXTRA=ref_extra
     ;Correct the counts
     img -> GetData, counts
     img -> SetData, temporary(counts)*eCountFactor
+    
+    ;Other properties
+    img -> SetProperty, LOG=log, RANGE=range
 
 ;-------------------------------------------------------
 ;Plot the Distribution /////////////////////////////////
@@ -1230,14 +1262,21 @@ _REF_EXTRA=ref_extra
                          /DATA, COLOR='Magenta', FILL_BACKGROUND=0)
     endif
     
-    ;Add text annotations
-    xText = string(FORMAT='(%"X=%0.1f\\pm%0.1f")', bin_center[0], half_width[0])
-    zText = string(FORMAT='(%"Z=%0.1f\\pm%0.1f")', bin_center[nDims-1], half_width[nDims-1])
-    !Null = MrText(0.04, 0.87, xText, /RELATIVE, TARGET=img, NAME='BinX')
-    !Null = MrText(0.04, 0.05, zText, /RELATIVE, TARGET=img, NAME='BinZ')
+    ;Add coordinates
+    if coords then begin
+        xText = string(FORMAT='(%"X=%0.1f\\pm%0.1f")', bin_center[0], half_width[0])
+        zText = string(FORMAT='(%"Z=%0.1f\\pm%0.1f")', bin_center[nDims-1], half_width[nDims-1])
+        !Null = MrText(0.04, 0.87, xText, /RELATIVE, TARGET=img, NAME='BinX')
+        !Null = MrText(0.04, 0.05, zText, /RELATIVE, TARGET=img, NAME='BinZ')
+    endif
     
     ;Colorbar
-    cb  = MrColorbar(NAME='CB: eDist', TARGET=img, /CURRENT, TITLE='Counts')
+    cb  = MrColorbar(/CURRENT, $
+                     YLOG   = log, $
+                     NAME   = 'CB: eDist', $
+                     RANGE  = range, $
+                     TARGET = img, $
+                     TITLE  = 'Counts')
     
     ;Return
     win -> Refresh, DISABLE=~refresh_in

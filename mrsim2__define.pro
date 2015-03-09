@@ -917,41 +917,42 @@ end
 ; :Private:
 ;-
 pro MrSim2::MakeSimDomain
-    compile_opt strictarr
+	compile_opt strictarr
+	on_error, 2
 
-    ;Get the simulations size in pixels and in electron skin depths.
-    self -> GetInfo, LX_DE=xsize, LY_DE=ysize, LZ_DE=zsize, NX=nx, NY=ny, NZ=nz, MI_ME=mi_me
+	;Get the simulations size in pixels and in electron skin depths.
+	self -> GetInfo, LX_DE=xsize, LY_DE=ysize, LZ_DE=zsize, NX=nx, NY=ny, NZ=nz, MI_ME=mi_me
 
-    ;Convert to units of "di"
-    if self.ion_scale then begin
-        xsize /= sqrt(mi_me)
-        ysize /= sqrt(mi_me)
-        zsize /= sqrt(mi_me)
-    endif
+	;Convert to units of "di"
+	if self.ion_scale then begin
+		xsize /= sqrt(mi_me)
+		ysize /= sqrt(mi_me)
+		zsize /= sqrt(mi_me)
+	endif
 
-    ;Set the simulation domain
-    ;   - See comments in ::ReadGDA_FilePos for effects of COORD_SYSTEM property.
-    case strupcase(self.coord_system) of
-        'SIMULATION': begin
-            *self.XSim = linspace(0, xsize, nx)
-            *self.YSim = linspace(0, ysize, ny) - ysize/2.0
-            *self.ZSim = linspace(0, zsize, nz) - zsize/2.0
-        endcase
-        
-        'MAGNETOPAUSE': begin
-            *self.ZSim =   linspace(0, xsize, nx)
-            *self.YSim =   linspace(0, ysize, ny) - ysize/2.0
-            *self.XSim = -(linspace(0, zsize, nz) - zsize/2.0)
-        endcase
-        
-        'MAGNETOTAIL': begin
-            *self.XSim = -linspace(0, xsize, nx)
-            *self.YSim =  linspace(0, ysize, ny) - ysize/2.0
-            *self.ZSim =  linspace(0, zsize, nz) - zsize/2.0
-        endcase
-        
-        else: message, 'Coordinate system unknown: "' + self.coord_system + '".'
-    endcase
+	;Set the simulation domain
+	;   - See comments in ::ReadGDA_FilePos for effects of COORD_SYSTEM property.
+	case strupcase(self.coord_system) of
+		'SIMULATION': begin
+			*self.XSim = linspace(0, xsize, nx)
+			*self.YSim = linspace(0, ysize, ny) - ysize/2.0
+			*self.ZSim = linspace(0, zsize, nz) - zsize/2.0
+		endcase
+	
+		'MAGNETOPAUSE': begin
+			*self.ZSim =   linspace(0, xsize, nx)
+			*self.YSim =   linspace(0, ysize, ny) - ysize/2.0
+			*self.XSim = -(linspace(0, zsize, nz) - zsize/2.0)
+		endcase
+	
+		'MAGNETOTAIL': begin
+			*self.XSim = -linspace(0, xsize, nx)
+			*self.YSim =  linspace(0, ysize, ny) - ysize/2.0
+			*self.ZSim =  linspace(0, zsize, nz) - zsize/2.0
+		endcase
+	
+		else: message, 'Coordinate system unknown: "' + self.coord_system + '".'
+	endcase
 end
 
 
@@ -977,147 +978,180 @@ VX3_RANGE=vx3_range, $
 X1_RANGE=x1_range, $
 X2_RANGE=x2_range, $
 X3_RANGE=x3_range
-    compile_opt strictarr
-    
-    ;catch errors
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /CANCEL
-        void = cgErrorMsg()
-        return, !Null
-    endif
+	compile_opt strictarr
 
-    if self.coord_system ne 'SIMULATION' then $
-        message, 'Can only read particles in simulation coordinates. ' + $
-                 'Current system: "' + self.coord_system + '".'
+	;catch errors
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		void = cgErrorMsg()
+		return, !Null
+	endif
 
-    ;Create defaults
-    if n_elements(fMap_dir) eq 0 then MrSim_Which, self.simname, FMAP_DIR=fMap_dir
-    if n_elements(filename) eq 0 || filename eq '' then begin
-        ;Get the y-grid-cell
-        yslice = self -> Coord2Cell(self.yrange[0], /Y)
-        
-        ;Get the file name
-        MrSim_Which, self.simname, EFILE=filename, DIST3D=dist3D, $
-                     TINDEX=self.time, YSLICE=yslice
-    endif
+	;Create defaults
+	if n_elements(fMap_dir) eq 0 then MrSim_Which, self.simname, FMAP_DIR=fMap_dir
+	if n_elements(filename) eq 0 || filename eq '' then begin
+		;Get the y-grid-cell
+		yslice = self -> Coord2Cell(self.yrange[0], /Y)
+	
+		;Get the file name
+		MrSim_Which, self.simname, EFILE=filename, DIST3D=dist3D, $
+		             TINDEX=self.time, YSLICE=yslice
+	endif
 
-    ;Set defaults
-    dist3D      =  keyword_set(dist3D)
-    par_perp    =  keyword_set(par_perp)
-    perp1_perp2 =  keyword_set(perp1_perp2)
-    velocity    = ~keyword_set(momentum)
+	;Set defaults
+	dist3D      =  keyword_set(dist3D)
+	par_perp    =  keyword_set(par_perp)
+	perp1_perp2 =  keyword_set(perp1_perp2)
+	velocity    = ~keyword_set(momentum)
 
-    ;Ranges
-    ;   - For 2D distributions, assume the spatial dimensions are XZ
-    ;   - For 3D distributions, XYZ
-    if n_elements(x1_range) eq 0 then x1_range = self.xrange
-    if dist3D then begin
-        if n_elements(x2_range) eq 0 then x2_range = self.yrange
-        if n_elements(x3_range) eq 0 then x3_range = self.zrange
-    endif else begin
-        if n_elements(x2_range) eq 0 then x2_range = self.zrange
-    endelse
-    
-    ;Cannot be used together.
-    if par_perp + perp1_perp2 gt 1 then $
-        message, 'PAR_PERP and PERP1_PERP2 are mutually exclusive.'
+	x1r = n_elements(x1_range) gt 0 ? x1_range : self.xrange
+	if dist3D then begin
+		x2r = n_elements(x2_range) gt 0 ? x2_range : self.yrange
+		x3r = n_elements(x3_range) gt 0 ? x3_range : self.zrange
+	endif else begin
+		x2r = n_elements(x2_range) gt 0 ? x2_range : self.zrange
+	endelse
 
+	;Convert ranges from COORD_SYS to SIMULATION coordinates
+	;   - ORIENTATION does not matter because the full distribution is returned.
+	case self.coord_system of
+		'SIMULATION': ;Do nothing
+		'MAGNETOPAUSE': begin
+			;Convert spatial range
+			x1r_temp  = x1r
+			if dist3D then begin
+				x1r = x3r
+				x3r = temporary(x1r_temp)
+			endif else begin
+				x1r = x2r
+				x2r = -reverse(temporary(x1r_temp))
+			endelse
+			if dist3D then x3r = -reverse(temporary(x1r))
+		endcase
+		'MAGNETOTAIL': x1r = -x1r
+	endcase
 
+	;Cannot be used together.
+	if par_perp + perp1_perp2 gt 1 then $
+		message, 'PAR_PERP and PERP1_PERP2 are mutually exclusive.'
 
 ;-------------------------------------------------------
 ; Read in Particle Data ////////////////////////////////
 ;-------------------------------------------------------
-    if dist3D then begin
-        data = MrSim_ReadParticles(filename, x1_range, x2_range, x3_range, $
-                                   FMAP_DIR  = fMap_dir, $
-                                   UX1_RANGE = vx1_range, $
-                                   UX2_RANGE = vx2_range, $
-                                   UX3_RANGE = vx3_range, $
-                                   VELOCITY  = velocity, $
-                                   VERBOSE   = verbose)
-    endif else begin
-        data = MrSim_ReadParticles(filename, x1_range, x2_range, $
-                                   FMAP_DIR  = fMap_dir, $
-                                   UX1_RANGE = vx1_range, $
-                                   UX2_RANGE = vx2_range, $
-                                   UX3_RANGE = vx3_range, $
-                                   VELOCITY  = velocity, $
-                                   VERBOSE   = verbose)
-    endelse
+	if dist3D then begin
+		data = MrSim_ReadParticles(filename, x1r, x2r, x3r, $
+		                           FMAP_DIR  = fMap_dir, $
+		                           UX1_RANGE = vx1_range, $
+		                           UX2_RANGE = vx2_range, $
+		                           UX3_RANGE = vx3_range, $
+		                           VELOCITY  = velocity, $
+		                           VERBOSE   = verbose)
+		
+		ix = [0,3]
+		iz = [2,5]
+	endif else begin
+		data = MrSim_ReadParticles(filename, x1r, x2r, $
+		                           FMAP_DIR  = fMap_dir, $
+		                           UX1_RANGE = vx1_range, $
+		                           UX2_RANGE = vx2_range, $
+		                           UX3_RANGE = vx3_range, $
+		                           VELOCITY  = velocity, $
+		                           VERBOSE   = verbose)
+		ix = [0,2]
+		iz = [1,4]
+	endelse
+
+;-------------------------------------------------------
+; Read in Particle Data ////////////////////////////////
+;-------------------------------------------------------
+	;Convert from SIMULATION coordinates to COORD_SYS coordinates.
+	case self.coord_system of
+		'SIMULATION': ;Do nothing
+		'MAGNETOPAUSE': begin
+			temp_data = data
+			data[ix,*] = -temp_data[iz,*]
+			data[iz,*] = (temporary(temp_data))[ix,*]
+		endcase
+		'MAGNETOTAIL': begin
+			data[ix,*] = -data[ix,*]
+		endcase
+	endcase
 
 ;-------------------------------------------------------
 ; Parallel & Perpendicular /////////////////////////////
 ;-------------------------------------------------------
-    if par_perp then begin
-        ;Indices at which momentum/velocity is stored
-        if dist3D then iu = [2,3,4] else iu = [3,4,5]
-    
-        ;B unit vector
-        B_hat = self -> Unit_Vector('B', TIME=time, XRANGE=xrange, ZRANGE=zrange)
-        
-        ;Get the parallel and perpendicular components
-        v_mag_sqr = total(data[iu,*]^2, 1)
-        v_par     = data[iu[0],*] * B_hat[0] + data[iu[1],*] * B_hat[1] + data[iu[2],*] * B_hat[3]
-        v_perp    = sqrt(temporary(v_mag_sqr) - v_par^2)
-    
-        ;Save the original data?
-        if arg_present(original) then original = data
-    
-        ;Fit into the data
-        data = data[0:iu[1],*]
-        data[iu[0],*] = temporary(v_par)
-        data[iu[1],*] = temporary(v_perp)
-        
-        ;Calculate the temperature of the distribution
-        if arg_present(temperature) && velocity then begin
-            nParticles     = n_elements(data[0,*])
-            temperature    = fltarr(2)
-            temperature[0] =       total(data[iu[0],*]^2) / nParticles
-            temperature[1] = 0.5 * total(data[iu[1],*]^2) / nParticles
-        endif
-    endif
-    
+	if par_perp then begin
+		;Indices at which momentum/velocity is stored
+		if dist3D then iu = [2,3,4] else iu = [3,4,5]
+
+		;B unit vector
+		B_hat = self -> Unit_Vector('B', TIME=time, XRANGE=xrange, ZRANGE=zrange)
+	
+		;Get the parallel and perpendicular components
+		v_mag_sqr = total(data[iu,*]^2, 1)
+		v_par     = data[iu[0],*] * B_hat[0] + data[iu[1],*] * B_hat[1] + data[iu[2],*] * B_hat[3]
+		v_perp    = sqrt(temporary(v_mag_sqr) - v_par^2)
+
+		;Save the original data?
+		if arg_present(original) then original = data
+
+		;Fit into the data
+		data = data[0:iu[1],*]
+		data[iu[0],*] = temporary(v_par)
+		data[iu[1],*] = temporary(v_perp)
+	
+		;Calculate the temperature of the distribution
+		if arg_present(temperature) && velocity then begin
+			nParticles     = n_elements(data[0,*])
+			temperature    = fltarr(2)
+			temperature[0] =       total(data[iu[0],*]^2) / nParticles
+			temperature[1] = 0.5 * total(data[iu[1],*]^2) / nParticles
+		endif
+	endif
+
 ;-------------------------------------------------------
 ; Perp1 & Perp2 ////////////////////////////////////////
 ;-------------------------------------------------------
-    if perp1_perp2 then begin
-        ;Indices at which momentum/velocity is stored
-        if dist3D then iu = [2,3,4] else iu = [3,4,5]
-        
-        ;B unit vector
-        p2_hat = self -> Unit_Perp2(B_HAT=B_hat, P1_HAT=p1_hat, TIME=time, XRANGE=xrange, ZRANGE=zrange)
-        
-        ;Get the parallel and perpendicular components
-        v_par     = data[iu[0],*] *  B_hat[0] + data[iu[1],*] *  B_hat[1] + data[iu[2],*] *  B_hat[3]
-        v_perp1   = data[iu[0],*] * p1_hat[0] + data[iu[1],*] * p1_hat[1] + data[iu[2],*] * p1_hat[3]
-        v_perp2   = data[iu[0],*] * p2_hat[0] + data[iu[1],*] * p2_hat[1] + data[iu[2],*] * p2_hat[3]
-    
-        ;Save the original data?
-        if arg_present(original) then original = data
-    
-        ;Fit into the data
-        data[iu[0],*] = temporary(v_par)
-        data[iu[1],*] = temporary(v_perp1)
-        data[iu[2],*] = temporary(v_perp2)
-        
-        ;Calculate the temperature of the distribution
-        if arg_present(temperature) && velocity then begin
-            nParticles     = n_elements(data[0,*])
-            temperature    = fltarr(3)
-            temperature[0] = total(data[iu[0],*]^2) / nParticles
-            temperature[1] = total(data[iu[1],*]^2) / nParticles
-            temperature[2] = total(data[iu[2],*]^2) / nParticles
-        endif
-    endif
-    
-    return, data
+	if perp1_perp2 then begin
+		;Indices at which momentum/velocity is stored
+		if dist3D then iu = [2,3,4] else iu = [3,4,5]
+	
+		;B unit vector
+		p2_hat = self -> Unit_Perp2(B_HAT=B_hat, P1_HAT=p1_hat, TIME=time, XRANGE=xrange, ZRANGE=zrange)
+	
+		;Get the parallel and perpendicular components
+		v_par     = data[iu[0],*] *  B_hat[0] + data[iu[1],*] *  B_hat[1] + data[iu[2],*] *  B_hat[3]
+		v_perp1   = data[iu[0],*] * p1_hat[0] + data[iu[1],*] * p1_hat[1] + data[iu[2],*] * p1_hat[3]
+		v_perp2   = data[iu[0],*] * p2_hat[0] + data[iu[1],*] * p2_hat[1] + data[iu[2],*] * p2_hat[3]
+
+		;Save the original data?
+		if arg_present(original) then original = data
+
+		;Fit into the data
+		data[iu[0],*] = temporary(v_par)
+		data[iu[1],*] = temporary(v_perp1)
+		data[iu[2],*] = temporary(v_perp2)
+	
+		;Calculate the temperature of the distribution
+		if arg_present(temperature) && velocity then begin
+			nParticles     = n_elements(data[0,*])
+			temperature    = fltarr(3)
+			temperature[0] = total(data[iu[0],*]^2) / nParticles
+			temperature[1] = total(data[iu[1],*]^2) / nParticles
+			temperature[2] = total(data[iu[2],*]^2) / nParticles
+		endif
+	endif
+
+	return, data
 end
 
 
 
 ;+
-;   The purpose of this program is to compute the Z-derivative of a data array.
+;   Given coordinates in a recognized coordinate system, and assuming a data file
+;   organized as a [nx, ny, nz] array in simulation coordinates, return the indices
+;   into the data file that correspond to the given coordinates.
 ;
 ; :Params:
 ;       DATA:               in, required, type=NxM float
@@ -1255,7 +1289,7 @@ end
 
 
 ;+
-;   The purpose of this program is to compute the Z-derivative of a data array.
+;   Transform data from simulation coordinates to another coordinate system.
 ;
 ; :Params:
 ;       DATA:               in, required, type=NxM float
@@ -1272,61 +1306,61 @@ end
 pro MrSim2::ReadGDA_TransformData, name, data, $
 COORD_SYSTEM=coord_system, $
 ORIENTATION=orientation
-    compile_opt strictarr
-    
-    ;Error handling
-    catch, the_error
-    if the_error ne 0 then begin
-        catch, /cancel
-        void = cgErrorMSG()
-        return
-    endif
+	compile_opt strictarr
 
-    _orient = n_elements(orientation)  eq 0 ? self.orientation  : strupcase(orientation)
-    _system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
+	;Error handling
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /cancel
+		void = cgErrorMSG()
+		return
+	endif
+
+	_orient = n_elements(orientation)  eq 0 ? self.orientation  : strupcase(orientation)
+	_system = n_elements(coord_system) eq 0 ? self.coord_system : strupcase(coord_system)
 
 ;-------------------------------------------------------
 ; Change from SIMULATION Coordinates? //////////////////
 ;-------------------------------------------------------
-    ;See ::ReadGDA_FilePos for detailed comments about
-    ;transformations.
+	;See ::ReadGDA_FilePos for detailed comments about
+	;transformations.
 
-    case strupcase(_system) of
-        'SIMULATION': ;Do nothing
-        
-        'MAGNETOPAUSE': begin
-            case _orient of
-                'XY': ;Do nothing
-                'XZ': data = transpose(data)
-                else: message, 'Orienatation "' + _orient + '" not recognized.'
-            endcase
+	case strupcase(_system) of
+		'SIMULATION': ;Do nothing
 
-            ;Now reverse the z-axes
-            ;   Single negate Bz, Uiz, Pe-xz, Pe-yz, etc.
-            case 1 of
-                stregex(name, '[A-Z][a-z]*z$',   /BOOLEAN): data = -data
-                stregex(name, '-(z[yx]|[xy]z)$', /BOOLEAN): data = -data
-                else: ;Do nothing
-            endcase
-        end
-        
-        'MAGNETOTAIL': begin
-            case _orient of
-                'XY': ;Do nothing
-                'XZ': ;Do nothing
-                else: message, 'Orienatation "' + _orient + '" not recognized.'
-            endcase
+		'MAGNETOPAUSE': begin
+			case _orient of
+				'XY': ;Do nothing
+				'XZ': data = transpose(data)
+				else: message, 'Orienatation "' + _orient + '" not recognized.'
+			endcase
 
-            ;Now reverse the x-axes
-            ;   Single negate Bx, Uix, Pe-xz, Pe-xy, etc.
-            case 1 of
-                stregex(name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
-                stregex(name, '-(y|z)[x]$',      /BOOLEAN): data = -data
-                stregex(name, '-[x](y|z)$',      /BOOLEAN): data = -data
-                else: ;Do nothing
-            endcase
-        end
-    endcase
+			;Now reverse the z-axes
+			;   Single negate Bz, Uiz, Pe-xz, Pe-yz, etc.
+			case 1 of
+				stregex(name, '[A-Z][a-z]*z$',   /BOOLEAN): data = -data
+				stregex(name, '-(z[yx]|[xy]z)$', /BOOLEAN): data = -data
+				else: ;Do nothing
+			endcase
+		endcase
+
+		'MAGNETOTAIL': begin
+			case _orient of
+				'XY': ;Do nothing
+				'XZ': ;Do nothing
+				else: message, 'Orienatation "' + _orient + '" not recognized.'
+			endcase
+
+			;Now reverse the x-axes
+			;   Single negate Bx, Uix, Pe-xz, Pe-xy, etc.
+			case 1 of
+				stregex(name, '[A-Z][a-z]*(x)$', /BOOLEAN): data = -data
+				stregex(name, '-(y|z)[x]$',      /BOOLEAN): data = -data
+				stregex(name, '-[x](y|z)$',      /BOOLEAN): data = -data
+				else: ;Do nothing
+			endcase
+		endcase
+	endcase
 end
 
 
