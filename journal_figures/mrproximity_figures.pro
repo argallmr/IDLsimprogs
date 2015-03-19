@@ -27,7 +27,7 @@
 ;+
 ;   Create Figure 1: X-Line proximity for Asymm-Scan/By0, Asymm-Scan/By1, and Asymm-3D.
 ;-
-function ProxFigs_Figure1, $
+function MrProxFigs_Figure1, $
 FNAMES=fnames
 	compile_opt idl2
 
@@ -250,7 +250,7 @@ end
 ;+
 ;   Create Figure 2: eMap for Asymm-Scan/By0 and Asymm-Scan/By1.
 ;-
-function ProxFigs_Figure2, $
+function MrProxFigs_Figure2, $
 FNAMES=fnames
 	compile_opt idl2
 
@@ -461,6 +461,135 @@ end
 
 
 ;+
+;   Create Figure 2: eMap for Asymm-Scan/By0 and Asymm-Scan/By1.
+;-
+function MrProxFigs_XPoint, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win)  then obj_destroy, win
+		if obj_valid(win2) then obj_destroy, win2
+		if obj_valid(oSim) then obj_destroy, oSim
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+;-----------------------------------------------------
+; Asymm-Scan/By0 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Descibe the simulation
+	theSim    = 'Asymm-Scan/By0'
+	time      = 28
+	coord_sys = 'Magnetopause'
+	xrange    = [2,-2]
+	zrange    = 36.77 + [-5, 5]
+	ion_scale = 1
+	mva_frame = 1
+	
+	;Create the simulation object
+	oSim = MrSim_Create(theSim, time, $
+	                    COORD_SYS = coord_sys, $
+	                    ION_SCALE = ion_scale, $
+	                    MVA_FRAME = mva_frame, $
+	                    XRANGE    = xrange, $
+	                    ZRANGE    = zrange)
+	
+	;Create a window
+	win = MrWindow(XSIZE=700, OXMARGIN=[33,15], REFRESH=0)
+
+	;Find the X-Point
+	xpt = MrSim_XPoint(oSim)
+
+	;Plot the reconnection rate.
+	rate = MrSim_ReconRate(oSim)
+	oSim -> SetProperty, TIME=time
+
+	;Convert time to t*wci^-2.
+	ti   = lindgen(oSim.nTimes)
+	twci = oSim -> tIndex2txwci(ti)
+	
+	;Plot the reconnection rate
+	gPlot = MrPlot(twci, rate, /CURRENT, $
+	               TITLE  = 'Reconnection Rate', $
+	               XTITLE = 't$\Omega$$\downci$$\up-1$', $
+	               YTITLE = 'R')
+	
+	;Determine the current time
+	t = oSim -> tIndex2txwci(oSim.time)
+
+	;Draw a line through the current time
+	!Null = MrPlotS([t, t], [min(rate, MAX=rMax), rMax], $
+	                COLOR     = 'Forest Green', $
+	                LINESTYLE = 'Dash', $
+	                TARGET    = gPlot)
+	 
+	
+	
+	;Plot cuts of BL, n, and EN through the X-line
+	lc1 = MrSim_LineCut(oSim, 'Bz', xpt[1], /CURRENT, /HORIZONTAL)
+	pos = lc1.position
+	lc2 = MrSim_LineCut(oSim, 'ni', xpt[1], /CURRENT, /HORIZONTAL)
+	lc3 = MrSim_LineCut(oSim, 'Ex', xpt[1], /CURRENT, /HORIZONTAL)
+	
+	;Move ni and Ex plots onto Bz to create independent data spaces for them
+	lc1 -> SetProperty, XRANGE=[1, -1]
+	lc2 -> SetProperty, XRANGE=[1, -1], COLOR='Blue', POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
+	lc3 -> SetProperty, XRANGE=[1, -1], COLOR='Red',  POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
+	win -> TrimLayout
+	
+	;Create axes for ni and Ex
+	ax1 = MrAxis('Y', TARGET=lC2, LOCATION='Right', COLOR='Blue', TICKDIR=1, TITLE='n$\downi$')
+	ax2 = MrAxis('Y', TARGET=lC3, LOCATION='Right', COLOR='Red',  TICKDIR=1, TITLE='E$\downN$', OFFSET=7)
+	
+	;Find where Bz = 0
+	lc1   -> GetData, x, Bz
+	!Null  = min(Bz, iZero, /ABSOLUTE)
+	
+	;Draw a vertical line throubh Bz = 0
+	!Null = MrPlotS(x[[iZero, iZero]], lc1.yrange, $
+	                COLOR     = 'Forest Green', $
+	                LINESTYLE = 'Dash', $
+	                TARGET    = lc1)
+	
+	;Color image of Jey in a new window
+	win2 = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay')
+	win2 -> Refresh, /DISABLE
+
+	;Put an X at the x-point
+	img  = win2['Color Jey']
+	gXpt = MrPlotS(xpt[0], xpt[1], $
+	               LINESTYLE = 'None', $
+	               PSYM      = 7, $
+	               SYMCOLOR  = 'Cyan', $
+	               SYMSIZE   = 2, $
+	               TARGET    = img, $
+	               THICK     = 2)
+	
+	;Update asthetics
+	title = img.TITLE
+	img                   -> SetProperty, POSITION=[0.1, 0.2, 0.3, 0.77], TITLE='', XRANGE=[4,-2]
+	win2['Ay Contours']   -> SetProperty, C_THICK=1.0, C_COLOR='Grey'
+	win2['CB: Color Jey'] -> SetProperty, CBLOCATION='TOP', TITLE=title, WIDTH=0.5, XTICKS=2, $
+	                                      XTICKFORMAT='(f0.2)'
+	
+	;Put the contents of the ColorSlab window into the LineCut window.
+	allGfx = win2 -> Get(/ALL)
+	foreach gfx, allGfx do gfx -> SwitchWindows, win
+	obj_destroy, win2
+	
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+	
+	win -> Refresh
+	return, win
+end
+
+
+;+
 ;   Create the desired figure.
 ;
 ; Params:
@@ -489,7 +618,8 @@ SAVE=tf_save
 
 	;Current list of figures
 	list_of_figures = [['Figure 1', 'X-Line proximity for Asymm-Scan/By0, Asymm-Scan/By1, and Asym3D'], $
-	                   ['Figure 2', 'eDists at inflow, separatrix, center for Asymm-Scan/By0 and Asymm-Scan/By1']]
+	                   ['Figure 2', 'eDists at inflow, separatrix, center for Asymm-Scan/By0 and Asymm-Scan/By1'], $
+	                   ['X-Point',  'Cuts of BL, n, and EN through the X-point, Jey with X-point marked, ReconRate.']]
 
 	;Print the list of figures?
 	if n_elements(figure) eq 0 then begin
@@ -507,8 +637,9 @@ SAVE=tf_save
 	tf_save = keyword_set(tf_save)
 
 	case _figure of
-		'FIGURE 1': win = ProxFigs_Figure1(FNAMES=fnames)
-		'FIGURE 2': win = ProxFigs_Figure2(FNAMES=fnames)
+		'FIGURE 1': win = MrProxFigs_Figure1(FNAMES=fnames)
+		'FIGURE 2': win = MrProxFigs_Figure2(FNAMES=fnames)
+		'X-POINT':  win = MrProxFigs_XPoint(FNAMES=fnames)
 		else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
 	endcase
     

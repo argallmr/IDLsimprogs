@@ -133,18 +133,19 @@
 ;       2015/01/23  -   Set the ASPECT property instead of calculating positions. MrText
 ;                           uses TeXToIDL instead of cgCheckForSymbols, so update was
 ;                           required. - MRA.
-;       2015/03/09  -   Added the LOG and RANGE keywords. - MRA
+;       2015/03/09  -   Added the COORDS, LOG, and RANGE keywords. - MRA
 ;-
 function MrSim_eMap, theSim, type, bin_center, half_width, time, $
 C_NAME=c_name, $
-CIRCLES=circles, $
+CIRCLES=circles_in, $
+COORDS=coords_in, $
 HGAP=hGap, $
 IM_NAME=im_name, $
 IM_WIN=im_win, $
 NBINS=nBins, $
 LAYOUT=layout, $
 LOCATION=location, $
-LOG=log, $
+LOG=log_in, $
 POSITIONS=positions, $
 RANGE=range_in, $
 SIM_OBJECT=oSim, $
@@ -201,7 +202,9 @@ _REF_EXTRA=extra
     is2D  = dims[0] eq 2
     nDist = nDims eq 1 ? 1 : dims[1]
 
-    log = keyword_set(log)
+    log     = keyword_set(log_in)
+    circles = keyword_set(circles_in)
+    coords  = keyword_set(coords_in)
     if n_elements(nBins)    eq 0 then nBins    = 75
     if n_elements(layout)   eq 0 then layout   = [ceil(sqrt(nDist)), ceil(float(nDist) / ceil(sqrt(nDist)))]
     if n_elements(location) eq 0 then location = 5
@@ -399,6 +402,7 @@ _REF_EXTRA=extra
         imgTemp  = MrSim_eDist(oSim, type, centers[*,i], widths[*,i], $
                                /CURRENT, $
                                CIRCLES = circles, $
+                               COORDS  = coords, $
                                LOG     = log, $
                                NBINS   = nBins, $
                                RANGE   = range, $
@@ -407,9 +411,13 @@ _REF_EXTRA=extra
         ;Number the distribution
         distNo            = string(i, FORMAT='(i02)')
         imgTemp.NAME      = 'eDist ' + type + ' ' + distNo
-        win2['BinX'].NAME = 'BinX '  + type + ' ' + distNo
-        win2['BinZ'].NAME = 'BinZ '  + type + ' ' + distNo
-;        win2['Circles'].NAME = 'Circles ' + distNo
+        
+        ;Rename the coordinate and circles
+        if coords then begin
+            win2['BinX'].NAME = 'BinX '  + type + ' ' + distNo
+            win2['BinZ'].NAME = 'BinZ '  + type + ' ' + distNo
+        endif
+        if circles then win2['Circles'].NAME = 'Circles ' + distNo
 
         ;Get maximum data range
         ;   - [xy]ranges are only applicable to velocity-space
@@ -468,7 +476,7 @@ _REF_EXTRA=extra
             then imgTemp -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
     endforeach
 
-    if layout[0] gt 3 then begin
+    if coords && layout[0] gt 3 then begin
         charsize = 1.0
         allText  = win2 -> Get(/ALL, ISA='MrText')
         foreach txt, allText do txt.CHARSIZE=charsize

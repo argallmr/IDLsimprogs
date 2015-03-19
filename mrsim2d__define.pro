@@ -133,6 +133,7 @@ _REF_EXTRA=extra
         rec_size = 4L * (nx * ny * nz + 2L)
         nTimes   = (Bx_info.size / rec_size) - 1
         print, FORMAT='(%"    # t-slices      = %i")', nTimes
+        self.nTimes
     endif
     
     ;Simulation info

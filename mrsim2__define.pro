@@ -41,19 +41,19 @@
 ; :Author:
 ;   Matthew Argall::
 ;       University of New Hampshire
-;       Morse Hall, Room 113
+;       Morse Hall, Room 348
 ;       8 College Rd.
 ;       Durham, NH, 03824
-;       matthew.argall@wildcats.unh.edu
+;       matthew.argall@unh.edu
 ;
 ; :Copyright:
 ;       Copyright 2013 by the University of New Hampshire
 ;
 ; :History:
 ;   Modification History::
-;
 ;       2014/09/06  -   Written by Matthew Argall
 ;       2014/11/20  -   Get1DCut returns number of points along cut. - MRA
+;       2015/03/16  -   Added the NTIMES property. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -305,6 +305,7 @@ ZRANGE = zrange
         rec_size = 4L * (nx * ny * nz + 2L)
         nTimes   = (Bx_info.size / rec_size) - 1
         print, FORMAT='(%"    # t-slices      = %i")', nTimes
+        self.nTimes = nTimes
     endif
     
     ;Simulation info
@@ -745,6 +746,7 @@ TIME = time, $
 IXRANGE = ixrange, $
 IYRANGE = iyrange, $
 IZRANGE = izrange, $
+NTIMES = nTimes, $
 XRANGE = xrange, $
 XSIM = XSim, $
 YRANGE = yrange, $
@@ -760,7 +762,7 @@ ZSIM = ZSim
         void = cgErrorMSG()
         return
     endif
-    
+
     if arg_present(axis_labels)  then axis_labels  = self.axis_labels
     if arg_present(coord_system) then coord_system = self.coord_system
     if arg_present(dimension)    then dimension    = self.dimension
@@ -770,6 +772,7 @@ ZSIM = ZSim
     if arg_present(iyrange)      then iyrange      = getIndexRange(*self.YSim, self.yrange)
     if arg_present(izrange)      then izrange      = getIndexRange(*self.ZSim, self.zrange)
     if arg_present(mva_frame)    then mva_frame    = self.mva_frame
+    if arg_present(nTimes)       then nTimes       = self.nTimes
     if arg_present(orientation)  then orientation  = self.orientation
     if arg_present(simname)      then simname      = self.simname
     if arg_present(simnum)       then simnum       = self.simnum
@@ -2444,6 +2447,7 @@ pro MrSim2__DEFINE, class
               coord_system: '', $
               
               ;Sim Domain
+              nTimes: 0L, $
               XRANGE: [0D, 0D], $
               XSim:   ptr_new(), $
               YRANGE: [0D, 0D], $
