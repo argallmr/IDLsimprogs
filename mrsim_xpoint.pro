@@ -44,7 +44,9 @@
 ;   Modification History::
 ;       2015-03-16  -   Written by Matthew Argall
 ;-
-function mrsim_xpoint, theSim, time, guess, $
+function mrsim_xpoint, theSim, time, $
+GUESS=guess, $
+MAX_ITER=max_iter, $
 SIM_OBJECT=oSim, $
 VIEW_WIN=win, $
 XRANGE=xrange, $
@@ -60,7 +62,7 @@ _REF_EXTRA=extra
 		void = cgErrorMSG()
 		return, !Null
 	endif
-
+	
 ;-------------------------------------------------------
 ; Check Simulation /////////////////////////////////////
 ;-------------------------------------------------------
@@ -86,80 +88,115 @@ _REF_EXTRA=extra
 	sim_class = obj_class(oSim)
 
 ;-------------------------------------------------------
-; Find the X-Point /////////////////////////////////////
+; Derivatives of Ay ////////////////////////////////////
 ;-------------------------------------------------------
 	;Read the data and X- and Z-coordinates
 	Ay = oSim -> GetData('Ay')
 	oSim -> GetProperty, XSIM=xSim, ZSIM=zSim
 
-	;Compute the derivative (centered difference)
-	;  - dAy = ∂/∂x Ay dx + ∂/∂z Ay dz
-	dAy_dx = oSim -> Scalar_Derivative('Ay', /D_DX)
-	dAy_dz = oSim -> Scalar_Derivative('Ay', /D_DZ)
+	;Compute the derivative (centered difference): B = Del x A
+	;  - Bx   = - ∂Ay / ∂z
+	;  - Bz   =   ∂Ay / dx
+	;  - Bmag = sqrt( Bx^2 + By^2 )
+	Bx = - oSim -> Scalar_Derivative('Ay', /D_DZ)
+	Bz =   oSim -> Scalar_Derivative('Ay', /D_DX)
 	
 	;Trim off the edges
-	dAy_dx = dAy_dx[1:-2, 1:-2]
-	dAy_dz = dAy_dz[1:-2, 1:-2]
-	Ay     = Ay[1:-2, 1:-2]
-	xSim   = xSim[1:-2]
-	zSim   = zSim[1:-2]
-	
-	;Locate the absolute minimum
-;	if n_elements(guess) eq 0 then begin
-		void = min(abs(dAy_dx) + abs(dAy_dz), ixpoint)
-	
-		;Determine the x- and z-index of the minimum
-		inds = array_indices(dAy_dx, ixpoint)
-		ix   = inds[0]
-		iz   = inds[1]
-	
-;	endif else begin
-;		;Initial guess
-;		ix = value_locate(xSim, guess[0])
-;		iz = value_locate(zSim, guess[1])
-;	
-;		count     = 0L
-;		tolerance = 1e-4
-;		max_iter  = 500
-;		path = fltarr(2, max_iter)
-;		
-;		while count lt max_iter && dd gt tolerance do begin
-;			void = max(dAy_dx[ix-1:ix+1, iz-1:iz+1], xMax, /ABSOLUTE) 
-;			void = max(dAy_dz[ix-1:ix+1, iz-1:iz+1], zMax, /ABSOLUTE)
-;			
-;			
-;			
-;			;Magnitude of the gradient
-;			mag = sqrt( dAy_dx[ix-1:ix+1, iz-1:iz+1]^2 + dAy_dz[ix-1:ix+1, iz-1:iz+1]^2 )
-;			
-;			;Move in the direction opposite to the steepest gradient
-;			;  - Subtract 2 and take abs() to move to the opposite side of the square.
-;			;  - Subtract 1 to put the middle cell at [0,0]
-;			void = max(mag, iMax)
-;			inds = array_indices([3,3], iMax, /DIMENSIONS)
-;			inds = abs(inds - 2) - 1
-;			
-;			;Move the direction opposite to the steepest gradient.
-;			ix += inds[0]
-;			iz += inds[1]
-;			
-;			;Value of the derivative at this point
-;			path[0, count] = [xSim[ix], zSim[iz]]
-;			dd             = mag[inds[0], inds[1]]
-;			count += 1
-;		endwhile
-;		
-;		if count lt max_iter then path = path[*, 0:count-1]
-;	endelse
+	Bx   = Bx[1:-2, 1:-2]
+	Bz   = Bz[1:-2, 1:-2]
+	Ay   = Ay[1:-2, 1:-2]
+	xSim = xSim[1:-2]
+	zSim = zSim[1:-2]
 
 ;-------------------------------------------------------
-; Mark the X-Point on Ay Contours //////////////////////
+; Absolute Minimum /////////////////////////////////////
+;-------------------------------------------------------
+	if n_elements(guess) eq 0 then begin
+		Bmag = sqrt(Bx^2 + Bz^2)
+		!Null = min(Bmag, ixpoint)
+
+		;Determine the x- and z-index of the minimum
+		inds = array_indices(Bz, ixpoint)
+		ix   = inds[0]
+		iz   = inds[1]
+		path = [xSim[ix], zSim[iz]]
+
+;-------------------------------------------------------
+; Wander Toward X-Point ////////////////////////////////
+;-------------------------------------------------------
+	endif else begin
+		;Initial guess
+		ix = value_locate(xSim, guess[0])
+		iz = value_locate(zSim, guess[1])
+		Bmag = sqrt(Bx^2 + Bz^2)
+		Btemp = !values.f_infinity
+	
+		;Loop conditions
+		if n_elements(max_iter) eq 0 then max_iter = 500
+		count     = 0L
+		ixTrans   = -2
+		izTrans   = -2
+		path      = fltarr(2, max_iter)
+		index     = lonarr(2, max_iter)
+
+		;Walk through the data grid
+		while (count lt max_iter) do begin
+			Btemp = Bmag[ix, iz]
+			dx = 5
+			dz = 10
+
+			;Ascend in x -- Translate in the direction of steepest gradient
+			BxSubArr = Bx[ix-dx:ix+dx, iz-dz:iz+dz]
+			Bxmin    = min(BxSubArr, iNew, /ABSOLUTE)
+			iNew     = array_indices([2*dx+1, 2*dz+1], iNew, /DIMENSIONS)
+			izTrans = iNew[1] - dz
+
+			;Descend in z -- Translate opposite to the steepest gradient
+			BzSubArr = Bz[ix-dx:ix+dx, iz-dz:iz+dz]
+			Bzmin    = min(BzSubArr, iNew, /ABSOLUTE)
+			iNew     = array_indices([2*dx+1, 2*dz+1], iNew, /DIMENSIONS)
+			ixTrans  = iNew[0] - dx
+
+			;New  value of the derivative
+			ix += ixTrans
+			iz += izTrans
+			
+			;If elements repeat, we will trace the same path over and over.
+			;   - This typically happens when we reach the x-point. We step away
+			;     then circle back along the same trajectory.
+			irepeat = where(ix eq index[0, *])
+			if irepeat[0] ne -1 then irepeat = where(iz eq index[1, irepeat])
+			if irepeat[0] ne -1 then begin
+;				print, 'Repeated elements.'
+				ix -= ixTrans
+				iz -= izTrans
+				break
+			endif
+			
+			;Record the path and indices
+			path[*, count]  = [xSim[ix], zSim[iz]]
+			index[*, count] = [ix, iz]
+			count += 1
+		endwhile
+
+		;Trim the path
+		if count lt max_iter then path = path[*, 0:count-1]
+	endelse
+
+;-------------------------------------------------------
+; Plot Meander Toward X-Point //////////////////////////
 ;-------------------------------------------------------
 	;Pick out the contour levels
 	if arg_present(win) then begin
 		;Contour levels, including the separatrices
-		levels = [Ay[ix, iz], cgConLevels(Ay, NLEVELS=nLevels)]
-		levels = levels[sort(levels)]
+		Ay_levels = [Ay[ix, iz],   cgConLevels(Ay, NLEVELS=nLevels)]
+		B_levels  = [Bmag[ix, iz], cgConLevels(Bmag, NLEVELS=nlevels)]
+		Bx_levels = [Bx[ix, iz],   cgConLevels(Bx, NLEVELS=nlevels)]
+		Bz_levels = [Bz[ix, iz],   cgConLevels(Bz, NLEVELS=nlevels)]
+		Ay_levels = Ay_levels[sort(Ay_levels)]
+		B_levels  = B_levels[sort(B_levels)]
+		Bx_levels = Bx_levels[sort(Bx_levels)]
+		Bz_levels = Bz_levels[sort(Bz_levels)]
 		
 		;Time
 		twci  = oSim -> tIndex2txWci(oSim.TIME)
@@ -168,31 +205,113 @@ _REF_EXTRA=extra
 		;Plot the contours
 		if n_elements(win) gt 0 && obj_valid(win) then begin
 			win            -> Refresh, /DISABLE
+			
+			;Update data and paths
 			win['Ay']      -> SetData, Ay, xSim, zSim
-			win['Ay']      -> SetProperty, LEVELS=levels, TITLE=title
-			win['X-Point'] -> SetProperty, XCOORDS=xSim[ix], YCOORDS=zSim[iz]
+			win['B']       -> SetData, Bmag, xSim, zSim
+			win['Bx']      -> SetData, Bx, xSim, zSim
+			win['Bz']      -> SetData, Bz, xSim, zSim
+			win['Ay']      -> SetProperty, LEVELS=Ay_levels, TITLE=title
+			win['B']       -> SetProperty, LEVELS=B_levels
+			win['Path_Ay'] -> SetProperty, XCOORDS=path[0,*],  YCOORDS=path[1,*]
+			win['Path_B']  -> SetProperty, XCOORDS=path[0,*],  YCOORDS=path[1,*]
+			win['Path_Bx'] -> SetProperty, XCOORDS=path[0,*],  YCOORDS=path[1,*]
+			win['Path_Bz'] -> SetProperty, XCOORDS=path[0,*],  YCOORDS=path[1,*]
+			win['X-Point'] -> SetProperty, XCOORDS=path[0,-1], YCOORDS=path[1,-1]
 			win            -> Refresh
 		endif else begin
+			;Draw contours of Ay
 			c_Ay = MrContour(Ay, xSim, zSim, $
 			                 C_LABELS = 0, $
-			                 LEVELS   = levels, $
+			                 LAYOUT   = [2,2,1], $
+			                 LEVELS   = Ay_levels, $
 			                 NAME     = 'Ay', $
 			                 XTITLE   = 'x (de)', $
 			                 YTITLE   = 'z (de)', $
 			                 TITLE    = title)
+			c_Ay -> Refresh, /DISABLE
+			c_Ay.window -> SetProperty, XSIZE=750, YSIZE=600
+			
+			c_Bmag = MrContour(Bmag, xSim, zSim, /CURRENT, $
+			                   C_LABELS = 0, $
+			                   LAYOUT   = [2,2,3], $
+			                   LEVELS   = B_levels, $
+			                   NAME     = 'B', $
+			                   XTITLE   = 'x (de)', $
+			                   YTITLE   = 'z (de)', $
+			                   TITLE    = '|B|')
+			
+			c_Bx = MrContour(Bx, xSim, zSim, /CURRENT, $
+			                 C_LABELS = 0, $
+			                 LAYOUT   = [2,2,2], $
+			                 LEVELS   = Bx_levels, $
+			                 NAME     = 'Bx', $
+			                 XTITLE   = 'x (de)', $
+			                 YTITLE   = 'z (de)', $
+			                 TITLE    = 'Bx = -dAy/dz')
+			
+			c_Bz = MrContour(Bz, xSim, zSim, /CURRENT, $
+			                   C_LABELS = 0, $
+			                   LAYOUT   = [2,2,4], $
+			                   LEVELS   = Bz_levels, $
+			                   NAME     = 'Bz', $
+			                   XTITLE   = 'x (de)', $
+			                   YTITLE   = 'z (de)', $
+			                   TITLE    = 'Bz = dAy/dx')
 			                 
-			;Mark the X-point
-			xpt = MrPlotS(xSim[ix], zSim[iz], /DATA, $
-			             LINESTYLE = 'None', $
-			             NAME      = 'X-Point', $
-			             PSYM      = 7, $
-			             SYMCOLOR  = 'Red', $
-			             SYMSIZE   = 2, $
-			             TARGET    = c_Ay, $
-			             THICK     = 2)
+			;Mark the path
+			gPath = MrPlotS(path[0,*], path[1,*], /DATA, $
+			                LINESTYLE = 'None', $
+			                NAME      = 'Path_Ay', $
+			                PSYM      = 1, $
+			                SYMCOLOR  = 'Blue', $
+			                SYMSIZE   = 1, $
+			                TARGET    = c_Ay, $
+			                THICK     = 2)
+			                 
+			;Mark the path
+			gPath = MrPlotS(path[0,*], path[1,*], /DATA, $
+			                LINESTYLE = 'None', $
+			                NAME      = 'Path_B', $
+			                PSYM      = 1, $
+			                SYMCOLOR  = 'Blue', $
+			                SYMSIZE   = 1, $
+			                TARGET    = c_Bmag, $
+			                THICK     = 2)
+			                 
+			;Mark the path
+			gPath = MrPlotS(path[0,*], path[1,*], /DATA, $
+			                LINESTYLE = 'None', $
+			                NAME      = 'Path_Bx', $
+			                PSYM      = 1, $
+			                SYMCOLOR  = 'Blue', $
+			                SYMSIZE   = 1, $
+			                TARGET    = c_Bx, $
+			                THICK     = 2)
+			                 
+			;Mark the path
+			gPath = MrPlotS(path[0,*], path[1,*], /DATA, $
+			                LINESTYLE = 'None', $
+			                NAME      = 'Path_Bz', $
+			                PSYM      = 1, $
+			                SYMCOLOR  = 'Blue', $
+			                SYMSIZE   = 1, $
+			                TARGET    = c_Bz, $
+			                THICK     = 2)
+
+			;Mark the X-Point
+			gXpt = MrPlotS(path[0,-1], path[1,-1], /DATA, $
+			               LINESTYLE = 'None', $
+			               NAME      = 'X-Point', $
+			               PSYM      = 1, $
+			               SYMCOLOR  = 'Red', $
+			               SYMSIZE   = 1, $
+			               TARGET    = c_Ay, $
+			               THICK     = 2)
 		
 			;Get the window
 			win = c_Ay.window
+			win -> Refresh
 		endelse
 	endif
 
@@ -200,6 +319,6 @@ _REF_EXTRA=extra
 ; Return ///////////////////////////////////////////////
 ;-------------------------------------------------------
 	;Return the location of the X-point
-	if osim_created then obj_destroy, oSim
-	return, [xSim[ix], zSim[iz]]
+	if ~arg_present(osim) && osim_created then obj_destroy, oSim
+	return, path[*,-1]
 end

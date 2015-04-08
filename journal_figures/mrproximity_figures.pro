@@ -463,6 +463,298 @@ end
 ;+
 ;   Create Figure 2: eMap for Asymm-Scan/By0 and Asymm-Scan/By1.
 ;-
+function MrProxFigs_OhmsLaw, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win) then obj_destroy, win
+		if n_elements(by0_wins)  gt 0 then obj_destroy, by0_wins
+		if n_elements(by01_wins) gt 0 then obj_destroy, by01_wins
+		if n_elements(by1_wins)  gt 0 then obj_destroy, by1_wins
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+;-----------------------------------------------------
+; Asymm-Scan/By0 t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Simulation
+	theSim       = 'Asymm-Scan/By0'
+	tIndex       = 28
+	xrange       = [1,-2]
+	zrange       = 36.77 + [-5, 5]
+	coord_system = 'Magnetopause'
+	mva_frame    = 1
+	ion_scale    = 1
+	horizontal   = 1
+	component    = 'X'
+	oSim   = MrSim_Create(theSim, tIndex, $
+	                      COORD_SYSTEM = coord_system, $
+	                      MVA_FRAME    = mva_frame, $
+	                      ION_SCALE    = ion_scale, $
+	                      XRANGE       = xrange, $
+	                      ZRANGE       = zrange)
+
+	;Do for various times
+	times      = [28, 32, 44]
+	nTimes     = n_elements(times)
+	by0_wins   = objarr(nTImes)
+	by0_fnames = strarr(nTimes)
+	
+	;Step through each time
+	for i = 0, nTimes - 1 do begin
+		;Set the time
+		oSim.TIME = times[i]
+
+		;Find the X-Point
+		xpt = MrSim_XPoint(oSim)
+
+		;Ohm's Law
+		win = MrSim_OhmsLaw(oSim, component, xpt[1], HORIZONTAL=horizontal)
+		win -> Refresh, /DISABLE
+	
+		;Extract graphics to use as targets
+		gET = win['Total EX']
+		gEC = win['EX vs. EC']
+		gEH = win['EX vs. Hall E']
+		gEP = win['EX vs. E Pressure']
+		gEI = win['EX vs. E eInert']
+
+		;Draw vertical lines to mark the x-point
+		oSim -> GetProperty, XSIM=xSim
+		line = MrPlotS( [xpt[0], xpt[0]], gET.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 E', $
+		                TARGET    = gET)
+		line = MrPlotS( [xpt[0], xpt[0]], gEC.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 EC', $
+		                TARGET    = gEC)
+		line = MrPlotS( [xpt[0], xpt[0]], gEH.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 EH', $
+		                TARGET    = gEH)
+		line = MrPlotS( [xpt[0], xpt[0]], gEP.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 EP', $
+		                TARGET    = gEP)
+		line = MrPlotS( [xpt[0], xpt[0]], gEI.YRANGE, $
+		                COLOR     = 'Grey', $
+		                NAME      = 'BL=0 EI', $
+		                LINESTYLE = '--', $
+		                TARGET    = gEI)
+		
+		;Change the size of the legend
+		ohLegend = win["Ohm's Law"]
+		ohLegend.VERTICAL_SPACING = 1.0
+		for j = 0, 5 do ohLegend -> SetProperty, j, TEXT_SIZE=1.0
+		
+		;Keep the window
+		by0_winS[i]    = win
+		by0_fnames[i]  = 'asymm-scan-by0_OhmsLaw_t' + strtrim(times[i], 2) + '_xline'
+		win           -> Refresh
+	endfor
+
+	;Destroy the simulation object
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Asymm-Scan/By1 t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Simulation
+	theSim       = 'Asymm-Scan/By1'
+	tIndex       = 30
+	xrange       = [1,-2]
+	zrange       = [42.0, 45.0]
+	coord_system = 'Magnetopause'
+	mva_frame    = 1
+	ion_scale    = 1
+	horizontal   = 1
+	component    = 'X'
+	oSim   = MrSim_Create(theSim, tIndex, $
+	                      COORD_SYSTEM = coord_system, $
+	                      MVA_FRAME    = mva_frame, $
+	                      ION_SCALE    = ion_scale, $
+	                      XRANGE       = xrange, $
+	                      ZRANGE       = zrange)
+
+	;Do for various times
+	times      = [30]
+	nTimes     = n_elements(times)
+	by1_wins   = objarr(nTImes)
+	by1_fnames = strarr(nTimes)
+	
+	;Step through each time
+	for i = 0, nTimes - 1 do begin
+		;Set the time
+		oSim.TIME = times[i]
+
+		;Find the X-Point
+		xpt = MrSim_XPoint(oSim)
+
+		;Ohm's Law
+		win = MrSim_OhmsLaw(oSim, component, xpt[1], HORIZONTAL=horizontal)
+		win -> Refresh, /DISABLE
+	
+		;Extract graphics to use as targets
+		gET = win['Total EX']
+		gEC = win['EX vs. EC']
+		gEH = win['EX vs. Hall E']
+		gEP = win['EX vs. E Pressure']
+		gEI = win['EX vs. E eInert']
+
+		;Draw vertical lines to mark the x-point
+		oSim -> GetProperty, XSIM=xSim
+		line = MrPlotS( [xpt[0], xpt[0]], gET.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 E', $
+		                TARGET    = gET)
+		line = MrPlotS( [xpt[0], xpt[0]], gEC.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 EC', $
+		                TARGET    = gEC)
+		line = MrPlotS( [xpt[0], xpt[0]], gEH.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 EH', $
+		                TARGET    = gEH)
+		line = MrPlotS( [xpt[0], xpt[0]], gEP.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 EP', $
+		                TARGET    = gEP)
+		line = MrPlotS( [xpt[0], xpt[0]], gEI.YRANGE, $
+		                COLOR     = 'Grey', $
+		                NAME      = 'BL=0 EI', $
+		                LINESTYLE = '--', $
+		                TARGET    = gEI)
+		
+		;Change the size of the legend
+		ohLegend = win["Ohm's Law"]
+		ohLegend.VERTICAL_SPACING = 1.0
+		for j = 0, 5 do ohLegend -> SetProperty, j, TEXT_SIZE=1.0
+		
+		;Keep the window
+		by1_wins[i]    = win
+		by1_fnames[i]  = 'asymm-scan-by1_OhmsLaw_t' + strtrim(times[i], 2) + '_xline'
+		win           -> Refresh
+	endfor
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+	
+;-----------------------------------------------------
+; Asymm-Scan/By0.1 t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Simulation
+	theSim       = 'Asymm-Scan/By0.1'
+	tIndex       = 28
+	xrange       = [1,-2]
+	zrange       = 40.5 + [-2.0, 2.0]
+	coord_system = 'Magnetopause'
+	mva_frame    = 1
+	ion_scale    = 1
+	horizontal   = 1
+	component    = 'X'
+	oSim   = MrSim_Create(theSim, tIndex, $
+	                      COORD_SYSTEM = coord_system, $
+	                      MVA_FRAME    = mva_frame, $
+	                      ION_SCALE    = ion_scale, $
+	                      XRANGE       = xrange, $
+	                      ZRANGE       = zrange)
+
+	;Do for various times
+	times       = [28, 32, 37]
+	nTimes      = n_elements(times)
+	by01_wins   = objarr(nTImes)
+	by01_fnames = strarr(nTimes)
+	
+	;Step through each time
+	for i = 0, nTimes - 1 do begin
+		;Set the time
+		oSim.TIME = times[i]
+
+		;Find the X-Point
+		xpt = MrSim_XPoint(oSim)
+
+		;Ohm's Law
+		win = MrSim_OhmsLaw(oSim, component, xpt[1], HORIZONTAL=horizontal)
+		win -> Refresh, /DISABLE
+	
+		;Extract graphics to use as targets
+		gET = win['Total EX']
+		gEC = win['EX vs. EC']
+		gEH = win['EX vs. Hall E']
+		gEP = win['EX vs. E Pressure']
+		gEI = win['EX vs. E eInert']
+
+		;Draw vertical lines to mark the x-point
+		oSim -> GetProperty, XSIM=xSim
+		line = MrPlotS( [xpt[0], xpt[0]], gET.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 E', $
+		                TARGET    = gET)
+		line = MrPlotS( [xpt[0], xpt[0]], gEC.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 EC', $
+		                TARGET    = gEC)
+		line = MrPlotS( [xpt[0], xpt[0]], gEH.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 EH', $
+		                TARGET    = gEH)
+		line = MrPlotS( [xpt[0], xpt[0]], gEP.YRANGE, $
+		                COLOR     = 'Grey', $
+		                LINESTYLE = '--', $
+		                NAME      = 'BL=0 EP', $
+		                TARGET    = gEP)
+		line = MrPlotS( [xpt[0], xpt[0]], gEI.YRANGE, $
+		                COLOR     = 'Grey', $
+		                NAME      = 'BL=0 EI', $
+		                LINESTYLE = '--', $
+		                TARGET    = gEI)
+		
+		;Change the size of the legend
+		ohLegend = win["Ohm's Law"]
+		ohLegend.VERTICAL_SPACING = 1.0
+		for j = 0, 5 do ohLegend -> SetProperty, j, TEXT_SIZE=1.0
+		                
+		;Keep the window
+		by01_wins[i]   = win
+		by01_fnames[i] = 'asymm-scan-by01_OhmsLaw_t' + strtrim(times[i], 2) + '_xline'
+		win           -> Refresh
+	endfor
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+	
+;-----------------------------------------------------
+; Asymm-Scan/By0.1 t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Gather windows
+	wins = [by0_wins, by01_wins, by1_wins]
+	
+	;Gather file names
+	fnames = [by0_fnames, by01_fnames, by1_fnames]
+
+	return, wins
+end
+
+
+;+
+;   Create Figure 2: eMap for Asymm-Scan/By0 and Asymm-Scan/By1.
+;-
 function MrProxFigs_XPoint, $
 FNAMES=fnames
 	compile_opt idl2
@@ -470,15 +762,200 @@ FNAMES=fnames
 	catch, the_error
 	if the_error ne 0 then begin
 		catch, /CANCEL
-		if obj_valid(win)  then obj_destroy, win
-		if obj_valid(win2) then obj_destroy, win2
-		if obj_valid(oSim) then obj_destroy, oSim
+		if n_elements(win1) gt 0 then obj_destroy, win1
+		if n_elements(win2) gt 0 then obj_destroy, win2
+		if n_elements(win3) gt 0 then obj_destroy, win3
+		if obj_valid(win)        then obj_destroy, win
+		if obj_valid(oSim)       then obj_destroy, oSim
 		void = cgErrorMSG()
 		return, obj_new()
 	endif
 
 ;-----------------------------------------------------
-; Asymm-Scan/By0 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Asymm-Scan/By0, t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Descibe the simulation
+	theSim    = 'Asymm-Scan/By0'
+	time      = 28
+	coord_sys = 'Magnetopause'
+	xrange    = [2,-2]
+	zrange    = 36.77 + [-5, 5]
+	ion_scale = 1
+	mva_frame = 1
+	oSim      = MrSim_Create(theSim, time, $
+	                         COORD_SYSTEM = coord_sys, $
+	                         MVA_FRAME    = mva_frame, $
+	                         ION_SCALE    = ion_scale, $
+	                         XRANGE       = xrange, $
+	                         ZRANGE       = zrange)
+	
+	;How many windows to create
+	times  = [28, 32, 44]
+	nTimes = n_elements(times)
+	win1   = objarr(nTimes)
+	fname1 = strarr(nTimes)
+	
+	;Make the plots
+	for i = 0, nTimes - 1 do begin
+		;Change the simulation time
+		oSim.TIME = times[i]
+
+		;Create the figure
+		win = MrSim_ProxX(oSim, times[i])
+		win -> Refresh, /DISABLE
+
+		;Zoom in
+;		win['Color Jey']  -> SetProperty, XRANGE=[3, -2]
+		win['Cut BL']     -> SetProperty, XRANGE=[1, -1]
+		win['Cut ni']     -> SetProperty, XRANGE=[1, -1]
+		win['Cut EN']     -> SetProperty, XRANGE=[1, -1]
+		win['BL=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+		win['EN=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+		win               -> Remove, win['X-Point']
+
+		;Store the window and file anme
+		win -> Refresh
+		win1[i]   = win
+		fname1[i] = 'Asymm-Scan-By0_ProxX_t' + strtrim(oSim.time, 2)
+	endfor
+	
+	;Destroy the object
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Asymm-Scan/By1, t=30 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By1'
+	time      = 30
+	xrange    = [2,-2]
+	zrange    = [42.0, 45.0]
+	coord_sys = 'Magnetopause'
+	ion_scale = 1
+	mva_frame = 1
+	oSim      = MrSim_Create(theSim, time, $
+	                         COORD_SYSTEM = coord_sys, $
+	                         MVA_FRAME    = mva_frame, $
+	                         ION_SCALE    = ion_scale, $
+	                         XRANGE       = xrange, $
+	                         ZRANGE       = zrange)
+	
+	;How many windows to create
+	times  = [30]
+	nTimes = n_elements(times)
+	win2   = objarr(nTimes)
+	fname2 = strarr(nTimes)
+	
+	;Make the plots
+	for i = 0, nTimes - 1 do begin
+		;Change the simulation time
+		oSim.TIME = times[i]
+	
+		;Create the figure
+		win = MrSim_ProxX(oSim, times[i])
+		win -> Refresh, /DISABLE
+		
+		;Zoom in
+;		win['Color Jey']  -> SetProperty, XRANGE=[3, -2]
+		win['Cut BL']     -> SetProperty, XRANGE=[1, -1]
+		win['Cut ni']     -> SetProperty, XRANGE=[1, -1]
+		win['Cut EN']     -> SetProperty, XRANGE=[1, -1]
+		win['BL=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+		win['EN=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+		win               -> Remove, win['X-Point']
+
+		;Refresh
+		win -> Refresh
+		fname2[i] = 'Asymm-Scan-By1_ProxX_t' + strtrim(oSim.time, 2)
+		win2[i]   = win
+	endfor
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Asymm-Scan/By0.1, t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By0.1'
+	time      = 28
+	xrange    = [2,-2]
+	zrange    = 40.5 + [-2.0, 2.0]
+	coord_sys = 'Magnetopause'
+	ion_scale = 1
+	mva_frame = 1
+	oSim      = MrSim_Create(theSim, time, $
+	                         COORD_SYSTEM = coord_sys, $
+	                         MVA_FRAME    = mva_frame, $
+	                         ION_SCALE    = ion_scale, $
+	                         XRANGE       = xrange, $
+	                         ZRANGE       = zrange)
+	
+	;How many windows to create
+	times  = [28, 32, 37]
+	nTimes = n_elements(times)
+	win3   = objarr(nTimes)
+	fname3 = strarr(nTimes)
+	
+	;Make the plots
+	for i = 0, nTimes - 1 do begin
+		;Change the simulation time
+		oSim.TIME = times[i]
+
+		;Create the figure
+		win = MrSim_ProxX(oSim, times[i])
+		win -> Refresh, /DISABLE
+	
+		;Zoom in
+;		win['Color Jey']  -> SetProperty, XRANGE=[3, -2]
+		win['Cut BL']     -> SetProperty, XRANGE=[1, -1]
+		win['Cut ni']     -> SetProperty, XRANGE=[1, -1]
+		win['Cut EN']     -> SetProperty, XRANGE=[1, -1]
+		win['BL=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+		win['EN=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+		win               -> Remove, win['X-Point']
+
+		;Refresh
+		win -> Refresh
+		win3[i]   = win
+		fname3[i] = 'Asymm-Scan-By01_ProxX_t' + strtrim(oSim.time, 2)
+	endfor
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	
+	;Return the window
+	fnames = [fname1, fname2, fname3]
+	return, [win1, win2, win3]
+end
+
+
+;+
+;   Create Figure 2: eMap for Asymm-Scan/By0 and Asymm-Scan/By1.
+;-
+function MrProxFigs_TProx, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win1)  then obj_destroy, win1
+		if obj_valid(win2)  then obj_destroy, win2
+		if obj_valid(win3)  then obj_destroy, win3
+		if obj_valid(win4)  then obj_destroy, win4
+		if obj_valid(win5)  then obj_destroy, win5
+		if obj_valid(win6)  then obj_destroy, win6
+		if obj_valid(win7)  then obj_destroy, win7
+		if obj_valid(oSim)  then obj_destroy, oSim
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+;-----------------------------------------------------
+; Asymm-Scan/By0, t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Descibe the simulation
 	theSim    = 'Asymm-Scan/By0'
@@ -489,103 +966,226 @@ FNAMES=fnames
 	ion_scale = 1
 	mva_frame = 1
 	
-	;Create the simulation object
-	oSim = MrSim_Create(theSim, time, $
-	                    COORD_SYS = coord_sys, $
-	                    ION_SCALE = ion_scale, $
-	                    MVA_FRAME = mva_frame, $
-	                    XRANGE    = xrange, $
-	                    ZRANGE    = zrange)
+	;Create the figure
+	win1 = MrSim_ProxT(theSim, time, $
+	                  COORD_SYS  = coord_sys, $
+	                  ION_SCALE  = ion_scale, $
+	                  MVA_FRAME  = mva_frame, $
+	                  SIM_OBJECT = oSim, $s
+	                  XRANGE     = xrange, $
+	                  ZRANGE     = zrange)
+	win1 -> Refresh, /DISABLE
 	
-	;Create a window
-	win = MrWindow(XSIZE=700, OXMARGIN=[33,15], REFRESH=0)
+	;Zoom in
+;	win1['Color Jey']  -> SetProperty, XRANGE=[3, -2]
+	win1['Cut Bz']     -> SetProperty, XRANGE=[1, -1]
+	win1['Cut Jey']    -> SetProperty, XRANGE=[1, -1]
+	win1['Cut ne']     -> SetProperty, XRANGE=[1, -1]
+	win1['Cut Ex']     -> SetProperty, XRANGE=[1, -1]
+	win1['Cut Dng_e']  -> SetProperty, XRANGE=[1, -1]
+	win1['BL=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	win1['EN=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	
+	;Refresh
+	win1 -> Refresh
+	fname1 = 'Asymm-Scan-By0_ProxT_t' + strtrim(time, 2)
 
-	;Find the X-Point
-	xpt = MrSim_XPoint(oSim)
-
-	;Plot the reconnection rate.
-	rate = MrSim_ReconRate(oSim)
-	oSim -> SetProperty, TIME=time
-
-	;Convert time to t*wci^-2.
-	ti   = lindgen(oSim.nTimes)
-	twci = oSim -> tIndex2txwci(ti)
+;-----------------------------------------------------
+; Asymm-Scan/By0, t=32 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Change times
+	oSim.TIME = 32
 	
-	;Plot the reconnection rate
-	gPlot = MrPlot(twci, rate, /CURRENT, $
-	               TITLE  = 'Reconnection Rate', $
-	               XTITLE = 't$\Omega$$\downci$$\up-1$', $
-	               YTITLE = 'R')
-	
-	;Determine the current time
-	t = oSim -> tIndex2txwci(oSim.time)
-
-	;Draw a line through the current time
-	!Null = MrPlotS([t, t], [min(rate, MAX=rMax), rMax], $
-	                COLOR     = 'Forest Green', $
-	                LINESTYLE = 'Dash', $
-	                TARGET    = gPlot)
-	 
-	
-	
-	;Plot cuts of BL, n, and EN through the X-line
-	lc1 = MrSim_LineCut(oSim, 'Bz', xpt[1], /CURRENT, /HORIZONTAL)
-	pos = lc1.position
-	lc2 = MrSim_LineCut(oSim, 'ni', xpt[1], /CURRENT, /HORIZONTAL)
-	lc3 = MrSim_LineCut(oSim, 'Ex', xpt[1], /CURRENT, /HORIZONTAL)
-	
-	;Move ni and Ex plots onto Bz to create independent data spaces for them
-	lc1 -> SetProperty, XRANGE=[1, -1]
-	lc2 -> SetProperty, XRANGE=[1, -1], COLOR='Blue', POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
-	lc3 -> SetProperty, XRANGE=[1, -1], COLOR='Red',  POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
-	win -> TrimLayout
-	
-	;Create axes for ni and Ex
-	ax1 = MrAxis('Y', TARGET=lC2, LOCATION='Right', COLOR='Blue', TICKDIR=1, TITLE='n$\downi$')
-	ax2 = MrAxis('Y', TARGET=lC3, LOCATION='Right', COLOR='Red',  TICKDIR=1, TITLE='E$\downN$', OFFSET=7)
-	
-	;Find where Bz = 0
-	lc1   -> GetData, x, Bz
-	!Null  = min(Bz, iZero, /ABSOLUTE)
-	
-	;Draw a vertical line throubh Bz = 0
-	!Null = MrPlotS(x[[iZero, iZero]], lc1.yrange, $
-	                COLOR     = 'Forest Green', $
-	                LINESTYLE = 'Dash', $
-	                TARGET    = lc1)
-	
-	;Color image of Jey in a new window
-	win2 = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay')
+	;Create the figure
+	win2 = MrSim_ProxT(oSim, $
+	                  COORD_SYS  = coord_sys, $
+	                  ION_SCALE  = ion_scale, $
+	                  MVA_FRAME  = mva_frame, $
+	                  XRANGE     = xrange, $
+	                  ZRANGE     = zrange)
 	win2 -> Refresh, /DISABLE
+	
+	;Zoom in
+;	win2['Color Jey']  -> SetProperty, XRANGE=[3, -2]
+	win2['Cut Bz']     -> SetProperty, XRANGE=[1, -1]
+	win2['Cut Jey']    -> SetProperty, XRANGE=[1, -1]
+	win2['Cut ne']     -> SetProperty, XRANGE=[1, -1]
+	win2['Cut Ex']     -> SetProperty, XRANGE=[1, -1]
+	win2['Cut Dng_e']  -> SetProperty, XRANGE=[1, -1]
+	win2['BL=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	win2['EN=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	
+	;Refresh
+	win2 -> Refresh
+	fname2 = 'Asymm-Scan-By0_ProxT_t' + strtrim(oSim.time, 2)
 
-	;Put an X at the x-point
-	img  = win2['Color Jey']
-	gXpt = MrPlotS(xpt[0], xpt[1], $
-	               LINESTYLE = 'None', $
-	               PSYM      = 7, $
-	               SYMCOLOR  = 'Cyan', $
-	               SYMSIZE   = 2, $
-	               TARGET    = img, $
-	               THICK     = 2)
+;-----------------------------------------------------
+; Asymm-Scan/By0, t=44 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Change times
+	oSim.TIME = 44
 	
-	;Update asthetics
-	title = img.TITLE
-	img                   -> SetProperty, POSITION=[0.1, 0.2, 0.3, 0.77], TITLE='', XRANGE=[4,-2]
-	win2['Ay Contours']   -> SetProperty, C_THICK=1.0, C_COLOR='Grey'
-	win2['CB: Color Jey'] -> SetProperty, CBLOCATION='TOP', TITLE=title, WIDTH=0.5, XTICKS=2, $
-	                                      XTICKFORMAT='(f0.2)'
+	;Create the figure
+	win3 = MrSim_ProxT(oSim, $
+	                  COORD_SYS  = coord_sys, $
+	                  ION_SCALE  = ion_scale, $
+	                  MVA_FRAME  = mva_frame, $
+	                  XRANGE     = xrange, $
+	                  ZRANGE     = zrange)
+	win3 -> Refresh, /DISABLE
 	
-	;Put the contents of the ColorSlab window into the LineCut window.
-	allGfx = win2 -> Get(/ALL)
-	foreach gfx, allGfx do gfx -> SwitchWindows, win
-	obj_destroy, win2
+	;Zoom in
+;	win3['Color Jey']  -> SetProperty, XRANGE=[3, -2]
+	win3['Cut Bz']     -> SetProperty, XRANGE=[1, -1]
+	win3['Cut Jey']    -> SetProperty, XRANGE=[1, -1]
+	win3['Cut ne']     -> SetProperty, XRANGE=[1, -1]
+	win3['Cut Ex']     -> SetProperty, XRANGE=[1, -1]
+	win3['Cut Dng_e']  -> SetProperty, XRANGE=[1, -1]
+	win3['BL=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	win3['EN=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
 	
-	
-	;Destroy the simulation object
+	;Refresh
+	win3 -> Refresh
+	fname3 = 'Asymm-Scan-By0_ProxT_t' + strtrim(oSim.time, 2)
 	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Asymm-Scan/By1, t=30 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By1'
+	time      = 30
+	xrange    = [2,-2]
+	zrange    = [42.0, 45.0]
+	coord_sys = 'Magnetopause'
+	ion_scale = 1
+	mva_frame = 1
 	
-	win -> Refresh
-	return, win
+	;Create the figure
+	win4 = MrSim_ProxT(theSim, time, $
+	                  COORD_SYS  = coord_sys, $
+	                  ION_SCALE  = ion_scale, $
+	                  MVA_FRAME  = mva_frame, $
+	                  SIM_OBJECT = oSim, $
+	                  XRANGE     = xrange, $
+	                  ZRANGE     = zrange)
+	win4 -> Refresh, /DISABLE
+	
+	;Zoom in
+;	win4['Color Jey']  -> SetProperty, XRANGE=[3, -2]
+	win4['Cut Bz']     -> SetProperty, XRANGE=[1, -1]
+	win4['Cut Jey']    -> SetProperty, XRANGE=[1, -1]
+	win4['Cut ne']     -> SetProperty, XRANGE=[1, -1]
+	win4['Cut Ex']     -> SetProperty, XRANGE=[1, -1]
+	win4['Cut Dng_e']  -> SetProperty, XRANGE=[1, -1]
+	win4['BL=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	win4['EN=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	
+	;Refresh
+	win4 -> Refresh
+	fname4 = 'Asymm-Scan-By1_ProxT_t' + strtrim(oSim.time, 2)
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Asymm-Scan/By0.1, t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By0.1'
+	time      = 28
+	xrange    = [2,-2]
+	zrange    = 40.5 + [-2.0, 2.0]
+	coord_sys = 'Magnetopause'
+	ion_scale = 1
+	mva_frame = 1
+	
+	;Create the figure
+	win5 = MrSim_ProxT(theSim, time, $
+	                  COORD_SYS  = coord_sys, $
+	                  ION_SCALE  = ion_scale, $
+	                  MVA_FRAME  = mva_frame, $
+	                  SIM_OBJECT = oSim, $
+	                  XRANGE     = xrange, $
+	                  ZRANGE     = zrange)
+	win5 -> Refresh, /DISABLE
+	
+	;Zoom in
+;	win5['Color Jey']  -> SetProperty, XRANGE=[3, -2]
+	win5['Cut Bz']     -> SetProperty, XRANGE=[1, -1]
+	win5['Cut Jey']    -> SetProperty, XRANGE=[1, -1]
+	win5['Cut ne']     -> SetProperty, XRANGE=[1, -1]
+	win5['Cut Ex']     -> SetProperty, XRANGE=[1, -1]
+	win5['Cut Dng_e']  -> SetProperty, XRANGE=[1, -1]
+	win5['BL=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	win5['EN=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	
+	;Refresh
+	win5 -> Refresh
+	fname5 = 'Asymm-Scan-By01_ProxT_t' + strtrim(oSim.time, 2)
+
+;-----------------------------------------------------
+; Asymm-Scan/By0.1, t=32 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Change times
+	oSim.TIME = 32
+	
+	;Create the figure
+	win6 = MrSim_ProxT(oSim, $
+	                  COORD_SYS  = coord_sys, $
+	                  ION_SCALE  = ion_scale, $
+	                  MVA_FRAME  = mva_frame, $
+	                  XRANGE     = xrange, $
+	                  ZRANGE     = zrange)
+	win6 -> Refresh, /DISABLE
+	
+	;Zoom in
+;	win6['Color Jey']  -> SetProperty, XRANGE=[3, -2]
+	win6['Cut Bz']     -> SetProperty, XRANGE=[1, -1]
+	win6['Cut Jey']    -> SetProperty, XRANGE=[1, -1]
+	win6['Cut ne']     -> SetProperty, XRANGE=[1, -1]
+	win6['Cut Ex']     -> SetProperty, XRANGE=[1, -1]
+	win6['Cut Dng_e']  -> SetProperty, XRANGE=[1, -1]
+	win6['BL=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	win6['EN=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	
+	;Refresh
+	win6 -> Refresh
+	fname6 = 'Asymm-Scan-By01_ProxT_t' + strtrim(oSim.time, 2)
+
+;-----------------------------------------------------
+; Asymm-Scan/By0.1, t=37 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Change times
+	oSim.TIME = 37
+	
+	;Create the figure
+	win7 = MrSim_ProxT(oSim, $
+	                  COORD_SYS  = coord_sys, $
+	                  ION_SCALE  = ion_scale, $
+	                  MVA_FRAME  = mva_frame, $
+	                  XRANGE     = xrange, $
+	                  ZRANGE     = zrange)
+	win7 -> Refresh, /DISABLE
+	
+	;Zoom in
+;	win7['Color Jey']  -> SetProperty, XRANGE=[3, -2]
+	win7['Cut Bz']     -> SetProperty, XRANGE=[1, -1]
+	win7['Cut Jey']    -> SetProperty, XRANGE=[1, -1]
+	win7['Cut ne']     -> SetProperty, XRANGE=[1, -1]
+	win7['Cut Ex']     -> SetProperty, XRANGE=[1, -1]
+	win7['Cut Dng_e']  -> SetProperty, XRANGE=[1, -1]
+	win7['BL=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	win7['EN=0 Horiz'] -> SetProperty, XCOORDS=[1, -1]
+	
+	;Refresh
+	win7 -> Refresh
+	fname7 = 'Asymm-Scan-By01_ProxT_t' + strtrim(oSim.time, 2)
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	
+	;Return the window
+	fnames = [fname1, fname2, fname3, fname4, fname5, fname6, fname7]
+	return, [win1, win2, win3, win4, win5, win6, win7]
 end
 
 
@@ -619,7 +1219,9 @@ SAVE=tf_save
 	;Current list of figures
 	list_of_figures = [['Figure 1', 'X-Line proximity for Asymm-Scan/By0, Asymm-Scan/By1, and Asym3D'], $
 	                   ['Figure 2', 'eDists at inflow, separatrix, center for Asymm-Scan/By0 and Asymm-Scan/By1'], $
-	                   ['X-Point',  'Cuts of BL, n, and EN through the X-point, Jey with X-point marked, ReconRate.']]
+	                   ['X-Point',  'Cuts of BL, n, and EN through the X-point, Jey with X-point marked, ReconRate.'], $
+	                   ['TProx',    'Cuts of BL, Jey, n, EN, and Dng through the X-point, Jey with X-point marked, ReconRate.'], $
+	                   ['OhmsLaw',  'Terms in Ohms Law at cuts through the X-line.']]
 
 	;Print the list of figures?
 	if n_elements(figure) eq 0 then begin
@@ -639,7 +1241,9 @@ SAVE=tf_save
 	case _figure of
 		'FIGURE 1': win = MrProxFigs_Figure1(FNAMES=fnames)
 		'FIGURE 2': win = MrProxFigs_Figure2(FNAMES=fnames)
+		'OHMSLAW':  win = MrProxFigs_OhmsLaw(FNAMES=fnames)
 		'X-POINT':  win = MrProxFigs_XPoint(FNAMES=fnames)
+		'TPROX':    win = MrProxFigs_TProx(FNAMES=fnames)
 		else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
 	endcase
     

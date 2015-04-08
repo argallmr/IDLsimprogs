@@ -74,6 +74,7 @@
 ; :History:
 ;    Modification History::
 ;       2014/01/16  -   Written by Matthew Argall
+;       2015/04/03  -   Forgot to ignoring case when searching for coordinates. Fixed. - MRA
 ;-
 function MrSim_GDA_Format, name, $
 UPCASE = upcase, $
@@ -111,7 +112,7 @@ SYMBOLS = symbols
 		while tf_coord do begin
 			;Location of the coordinate.
 			len_head  = strlen(thisHead)
-			pos_coord = stregex(thisHead, regex, LENGTH=len_coord)
+			pos_coord = stregex(thisHead, regex, LENGTH=len_coord, /FOLD_CASE)
 			theCoord  = strmid(thisHead, pos_coord)
 			
 			;Upper or lower case?

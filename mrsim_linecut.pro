@@ -190,11 +190,10 @@ _REF_EXTRA = extra
                          COORD_SYSTEM=coord_system, TIME=time, MVA_FRAME=mva_frame
     oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
     
-    ;Rename the data products
-    _name = MrSim_GDA_Rename(name, coord_system, MVA_FRAME=mva_frame)
-    _name = MrSim_GDA_Format(_name, /SYMBOLS)
+    ;Convert the name into a plot label
+    label = MrSim_GDA_Format(name, /SYMBOLS)
     units = MrSim_GDA_Format(units)
-    
+
     ;Create two points to define the line
     r0 = fltarr(3,nCuts)
     r1 = fltarr(3,nCuts)
@@ -310,6 +309,12 @@ _REF_EXTRA = extra
         pname = 'Cut ' + name
     endelse
     
+    ;Translate orientation to LMN
+    if mva_frame then begin
+        xaxis = MrSim_GDA_Rename(xaxis, coord_system, /MVA_OUT)
+        caxis = MrSim_GDA_Rename(caxis, coord_system, /MVA_OUT)
+    endif
+    
     ;Add the location to the title
     if n_elements(cuts) eq 1 then begin
         if oSim.dimension eq '2D' $
@@ -337,7 +342,7 @@ _REF_EXTRA = extra
                      XTITLE    = xtitle, $
                      XRANGE    = cut_range, $
                      YRANGE    = yrange, $
-                     YTITLE    = _name)
+                     YTITLE    = label)
     
 ;-------------------------------------------------------
 ;Output ////////////////////////////////////////////////

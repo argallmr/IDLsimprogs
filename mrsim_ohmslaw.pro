@@ -71,6 +71,9 @@
 ;       2014/11/20  -   Updated to work with new simulation object. Legends display the
 ;                           proper component. Divergence of the pressure tensor is
 ;                           computed correctly. - MRA
+;       2015/04/06  -   Added MrSim_OhmsLaw_Inert. Legend colors were mixed up. Fixed. - MRA
+;       2015/04/07  -   Added MrSim_OhmsLaw_eInert. The electron inertial term takes the
+;                            place of the fluid inertial term in the total E field. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -157,18 +160,21 @@ IONS = ions
             VxB   = MrSim_LineCut(oSim, 'VxB_x',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
             JxB   = MrSim_LineCut(oSim, 'JxB_x/ne',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
             divPe = MrSim_LineCut(oSim, 'divPe_x/ne', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
+            Ei    = MrSim_LineCut(oSim, 'Eie_x',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
         endcase
         'Y': begin
             E     = MrSim_LineCut(oSim, 'Ey',         cut, /CURRENT, HORIZONTAL=horizontal)
             VxB   = MrSim_LineCut(oSim, 'VxB_y',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
             JxB   = MrSim_LineCut(oSim, 'JxB_y/ne',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
             divPe = MrSim_LineCut(oSim, 'divPe_y/ne', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
+            Ei    = MrSim_LineCut(oSim, 'Eie_y',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
         endcase
         'Z': begin
             E     = MrSim_LineCut(oSim, 'Ez',         cut, /CURRENT,   HORIZONTAL=horizontal)
             VxB   = MrSim_LineCut(oSim, 'VxB_z',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
             JxB   = MrSim_LineCut(oSim, 'JxB_z/ne',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
             divPe = MrSim_LineCut(oSim, 'divPe_z/ne', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
+            Ei    = MrSim_LineCut(oSim, 'Eie_z',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
         endcase
         else: message, 'Component "' + component + '" not rectognized. Choose from {"X" | "Y" | "Z"}'
     endcase
@@ -191,12 +197,14 @@ IONS = ions
     VxB.name   = 'Total (VxB)'   + component
     JxB.name   = 'Total (JxB)'   + component
     divPe.name = 'Total div(Pe)' + component
+    Ei.name    = 'Total Eie'     + component
     
     ;Set the range
     E     -> GetData, pos, E_data
     VxB   -> GetData, VxB_data
     JxB   -> GetData, JxB_data
     divPe -> GetData, divPe_data
+    Ei    -> GetData, Ei_data
     
     ;Change signs
     ;   - E = -VxB              --> Negate
@@ -208,26 +216,35 @@ IONS = ions
     divPe -> SetData, divPe_data
     
     ;Create a plot that is the sum of all non-inertial and non-resistive terms
-    Etot_data  = VxB_data + JxB_data + divPe_data
-    Etot       = MrPlot(pos, Etot_data, OVERPLOT=E, COLOR='Purple', YRANGE=[min(Etot_data, MAX=yMax), yMax])
+    Etot_data  = VxB_data + JxB_data + divPe_data + Ei_data
+    Etot       = MrPlot(pos, Etot_data, OVERPLOT=E, COLOR='Magenta', YRANGE=[min(Etot_data, MAX=yMax), yMax])
     
     ;Change the ranges
     VxB.yrange   = -VxB.yrange
     divPe.yrange = -divPe.yrange
     
     ;Find the min and max
-    yrange = [min([E.yrange, VxB.yrange, JxB.yrange, divPe.yrange, Etot.yrange], MAX=yMax), yMax]
+    yrange = [min([E.yrange, VxB.yrange, JxB.yrange, divPe.yrange, Ei.yrange, Etot.yrange], MAX=yMax), yMax]
     E.YRANGE = yrange
     
-    legend_titles = ['E$\down'+_comp+'$', ['-(VxB)', '(JxB)', '-(divPe)'] + '$\down' + _comp +'$', $
-                     "E'$\down"+_comp+"$=E$\downC$+E$\downH$+E$\downP$"]
+    legend_titles = ['E'                  + '$\down' + _comp + '$', $
+                     'E$\downC$=-(VxB)'   + '$\down' + _comp + '$', $
+                     'E$\downH$=(JxB)'    + '$\down' + _comp + '$', $
+                     'E$\downP$=-(divPe)' + '$\down' + _comp + '$', $
+                     'E$\downI$=m$\downe$/e[div(v$\downe$v$\downe$)]' + '$\down' + _comp + '$', $
+                     "E'$\down"+_comp+"$=E$\downC$+E$\downH$+E$\downP$+E$\downI$"]
     legend_titles[2:3] += '/en'
     
     ;Create a legend
-    ohmLegend = MrLegend(TARGET=E, LOCATION=4, LENGTH=0, NAME="Ohm's Law", $
-                         TCOLORS=['Black', 'Blue', 'Forest Green', 'Red', 'Purple'], $
-                         TITLE=legend_titles)
-
+    ohmLegend = MrLegend(ALIGNMENT        = 'NE', $
+                         /RELATIVE, $
+                         LABEL            = legend_titles, $
+                         NAME             = "Ohm's Law", $
+                         POSITION         = [1,1], $
+                         SAMPLE_WIDTH     = 0, $
+                         TARGET           = E, $
+                         TEXT_COLOR       = ['Black', 'Blue', 'Forest Green', 'Red', 'Purple', 'Magenta'], $
+                         VERTICAL_SPACING = 1.25)
 end
 
 
@@ -359,7 +376,7 @@ IONS = ions
 ;-------------------------------------------------------
     
     ;Rename
-    E.name       = 'E' + component + ' vs. E inert'
+    E.name       = 'E' + component + ' vs. E Pressure'
     divPe.name   = 'Inertial div(Pe)' + component
     
     ;Find the min and max
@@ -384,9 +401,15 @@ IONS = ions
     !NULL = MrPlot(pos, divPe_2, OVERPLOT=E, NAME='Inertial div(Pe)' + component + 'Z', COLOR='Red')
     
     ;Create a legend
-    ohmLegend = MrLegend(TARGET=E, TITLE=titles, $
-                         TCOLORS=['Black', 'Blue', 'Forest Green', 'Red'], $
-                         LOCATION=4, LENGTH=0, NAME="Ohm's Law: div(Pe) term")
+    ohmLegend = MrLegend(ALIGNMENT        = 'NE', $
+                         /RELATIVE, $
+                         LABEL            = titles, $
+                         NAME             = "Ohm's Law: div(Pe) term", $
+                         POSITION         = [1,1], $
+                         SAMPLE_WIDTH     = 0, $
+                         TARGET           = E, $
+                         TEXT_COLOR       = ['Black', 'Blue', 'Forest Green', 'Red'], $
+                         VERTICAL_SPACING = 1.25)
 end
 
 
@@ -538,11 +561,17 @@ IONS = ions
     ;Find the min and max
     yrange    = [min([E.yrange, VxB.yrange, VB1.yrange, VB2.yrange], MAX=yMax), yMax]
     E.YRANGE = yrange
-
+    
     ;Create a legend
-    ohmLegend = MrLegend(TARGET=E, TITLE=titles, $
-                         TCOLORS=['Black', 'Blue', 'Forest Green', 'Red'], $
-                         LOCATION=4, LENGTH=0, NAME="Ohm's Law: VxB term")
+    ohmLegend = MrLegend(ALIGNMENT        = 'NE', $
+                         /RELATIVE, $
+                         LABEL            = titles, $
+                         NAME             = "Ohm's Law: VxB term", $
+                         POSITION         = [1,1], $
+                         SAMPLE_WIDTH     = 0, $
+                         TARGET           = E, $
+                         TEXT_COLOR       = ['Black', 'Blue', 'Forest Green', 'Red'], $
+                         VERTICAL_SPACING = 1.25)
 end
 
 
@@ -621,9 +650,9 @@ IONS = ions
             ;   - Ex = 1/(n*e) * [(Jy*Bz) - (Jz*By)]
             ;   - e  = |q|
             E   = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT, HORIZONTAL=horizontal)
-            JxB = MrSim_LineCut(oSim, 'JxB_x/' + n_name, cut, OVERPLOT=E, COLOR='Blue', HORIZONTAL=horizontal)
-            JB1 = MrSim_LineCut(oSim, 'Jy*Bz/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
-            JB2 = MrSim_LineCut(oSim, 'Jz*By/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            JxB = MrSim_LineCut(oSim, 'JxB_x/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            JB1 = MrSim_LineCut(oSim, 'Jy*Bz/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            JB2 = MrSim_LineCut(oSim, 'Jz*By/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
             
             ;Negate Jz*By
             JB2 -> GetData, JB2_data
@@ -640,8 +669,8 @@ IONS = ions
             ;   - e  = |q|
             E   = MrSim_LineCut(oSim, 'Ey',    cut, /CURRENT, HORIZONTAL=horizontal)
             JxB = MrSim_LineCut(oSim, 'JxB_y/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
-            JB1 = MrSim_LineCut(oSim, 'Jz*Bx/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
-            JB2 = MrSim_LineCut(oSim, 'Jx*Bz/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            JB1 = MrSim_LineCut(oSim, 'Jz*Bx/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            JB2 = MrSim_LineCut(oSim, 'Jx*Bz/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
             
             ;Negate Jx*Bz
             JB2 -> GetData, JB2_data
@@ -658,8 +687,8 @@ IONS = ions
             ;   - e  = |q|
             E   = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT, HORIZONTAL=horizontal)
             JxB = MrSim_LineCut(oSim, 'JxB_z/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
-            JB1 = MrSim_LineCut(oSim, 'Jx*By/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
-            JB2 = MrSim_LineCut(oSim, 'Jy*Bx/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            JB1 = MrSim_LineCut(oSim, 'Jx*By/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            JB2 = MrSim_LineCut(oSim, 'Jy*Bx/' + n_name, cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
             
             ;Negate Jy*Bx
             JB2 -> GetData, JB2_data
@@ -679,11 +708,288 @@ IONS = ions
     ;Find the min and max
     yrange   = [min([E.yrange, JxB.yrange, JB1.yrange, JB2.yrange], MAX=yMax), yMax]
     E.YRANGE = yrange
-
+    
     ;Create a legend
-    ohmLegend = MrLegend(TARGET=E, TITLE=titles, $
-                         TCOLORS=['Black', 'Blue', 'Forest Green', 'Red'], $
-                         LOCATION=4, LENGTH=0, NAME="Ohm's Law: JxB term")
+    ohmLegend = MrLegend(ALIGNMENT        = 'NE', $
+                         /RELATIVE, $
+                         LABEL            = titles, $
+                         NAME             = "Ohm's Law: JxB term", $
+                         POSITION         = [1,1], $
+                         SAMPLE_WIDTH     = 0, $
+                         TARGET           = E, $
+                         TEXT_COLOR       = ['Black', 'Blue', 'Forest Green', 'Red'], $
+                         VERTICAL_SPACING = 1.25)
+end
+
+
+;+
+;   Plot the components of the Hall term in the Generalized Ohm's Law
+;
+; :Params:
+;       COMPONENT:          in, required, type=string
+;                           The component of the Hall electric field to be plotted.
+;       OSIM:               in, required, type=objref
+;                           A "MRSIM2D" or "MRSIM3D" object containing information about
+;                               the simulation domain.
+; :Keywords:
+;       ELECTRONS:          in, optional, type=boolean, default=0
+;                           If set, the electron current will be plotted instead of the
+;                               total current.
+;       IONS:               in, optional, type=boolean, default=0
+;                           If set, the ion current will be plotted instead of the
+;                               total current.
+;-
+pro MrSim_OhmsLaw_Inert, oSim, component, cut, $
+ELECTRONS = electrons, $
+HORIZONTAL = horizontal, $
+IONS = ions
+    compile_opt strictarr
+    on_error, 2
+
+;-------------------------------------------------------
+; Defaults ////////////////////////////////////////////
+;-------------------------------------------------------
+    electrons = keyword_set(electrons)
+    ions      = keyword_set(ions)
+    if electrons + ions eq 0 then fluid = 1 else fluid = 0
+    if electrons + ions gt 1 then message, 'Keywords ELECTRONS and IONS are mutually exclusive.'
+    
+;-------------------------------------------------------
+; Prepare to Plot //////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Get the simulation size and time
+    oSim -> GetProperty, TIME=time, XSIM=XSim, ZSIM=ZSim, AXIS_LABELS=ax_labels
+    oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
+    
+    ;Time is inverse gyro-time?
+    if n_elements(dtxwci) gt 0 $
+        then title = 't=' + string(time*dtxwci, FORMAT='(f0.1)') + ' $\Omega$$\downc,i$$\up-1$' $
+        else title = 't$\downindex$=' + string(time, FORMAT='(i0)')
+        
+    ;Title
+    if obj_class(oSim) eq 'MRSIM3D' then begin
+        oSim -> GetProperty, YSLICE=yslice
+        title += '  [x,y]=(' + string(cut, FORMAT='(f0.1)')    + ', ' $
+                             + string(yslice, FORMAT='(f0.1)') + ')' + units
+    endif else begin
+        title += '  x=' + string(cut, FORMAT='(f0.1)') + units
+    endelse
+    
+    ;Species to be plotted
+    case 1 of
+        electrons: n_name = 'ne'
+        ions:      n_name = 'ni'
+        fluid:     n_name = 'ne'
+    endcase
+
+;-------------------------------------------------------
+; Plot the Hall Term ///////////////////////////////////
+;-------------------------------------------------------
+    subX = '$\down' + ax_labels[0] + '$'
+    subY = '$\down' + ax_labels[1] + '$'
+    subZ = '$\down' + ax_labels[2] + '$'
+    case strupcase(component) of
+        'X': begin
+            ;Ex and Spatial Derivatives of the Inertial Electric Field (x-component)
+            ;   - Ei    =   me / (e^2 * ne)   * { d/dx * ( VJ + JV - JJ / (e ne) ) }
+            ;   - Ei_VJ =   me / (e^2 * ne)   * { d/dx (Vx Jx) + d/dy (Vy Jx) + d/dz (Vz Jx)
+            ;   - Ei_JV =   me / (e^2 * ne)   * { d/dx (Jx Vx) + d/dy (Jy Vx) + d/dz (Jz Vx)
+            ;   - Ei_JJ = - me / (e^3 * ne^2) * { d/dx (Jx Jx) + d/dy (Jy Jx) + d/dz (Jz Jx)
+            E     = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT, HORIZONTAL=horizontal)
+            Ei    = MrSim_LineCut(oSim, 'EI',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            Ei_JV = MrSim_LineCut(oSim, 'EI_JV_x', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            Ei_VJ = MrSim_LineCut(oSim, 'EI_VJ_x', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
+            Ei_JJ = MrSim_LineCut(oSim, 'EI_JJ_x', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
+            
+            ;Titles for the legend
+            titles = ['E'+subX, 'E$\downI$'+subX, 'm$\downe$/(e$\up2$n$\downe$) '       + 'div(VJ)'+subX, $
+                                                  'm$\downe$/(e$\up2$n$\downe$) '       + 'div(JV)'+subX, $
+                                                  'm$\downe$/(e$\up3$n$\downe$$\up2$) ' + 'div(JJ)'+subX]
+        endcase
+        'Y': begin
+            ;Ex and Spatial Derivatives of the Inertial Electric Field (y-component)
+            ;   - Ei    =   me / (e^2 * ne)   * { d/dx * ( VJ + JV - JJ / (e ne) ) }
+            ;   - Ei_VJ =   me / (e^2 * ne)   * { d/dx (Vx Jy) + d/dy (Vy Jy) + d/dz (Vz Jy)
+            ;   - Ei_JV =   me / (e^2 * ne)   * { d/dx (Jx Vy) + d/dy (Jy Vy) + d/dz (Jz Vy)
+            ;   - Ei_JJ = - me / (e^3 * ne^2) * { d/dx (Jx Jy) + d/dy (Jy Jy) + d/dz (Jz Jy)
+            E     = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT, HORIZONTAL=horizontal)
+            Ei    = MrSim_LineCut(oSim, 'EI',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            Ei_JV = MrSim_LineCut(oSim, 'EI_JV_y', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            Ei_VJ = MrSim_LineCut(oSim, 'EI_VJ_y', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
+            Ei_JJ = MrSim_LineCut(oSim, 'EI_JJ_y', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
+            
+            ;Titles for the legend
+            titles = ['E'+subY, 'E$\downI$'+subY, 'm$\downe$/(e$\up2$n$\downe$) '       + 'div(VJ)'+subY, $
+                                                  'm$\downe$/(e$\up2$n$\downe$) '       + 'div(JV)'+subY, $
+                                                  'm$\downe$/(e$\up3$n$\downe$$\up2$) ' + 'div(JJ)'+subY]
+        endcase
+        'Z': begin
+            ;Ex and Spatial Derivatives of the Inertial Electric Field (z-component)
+            ;   - Ei    =   me / (e^2 * ne)   * { d/dx * ( VJ + JV - JJ / (e ne) ) }
+            ;   - Ei_VJ =   me / (e^2 * ne)   * { d/dx (Vx Jz) + d/dy (Vy Jz) + d/dz (Vz Jz)
+            ;   - Ei_JV =   me / (e^2 * ne)   * { d/dx (Jx Vz) + d/dy (Jy Vz) + d/dz (Jz Vz)
+            ;   - Ei_JJ = - me / (e^3 * ne^2) * { d/dx (Jx Jz) + d/dy (Jy Jz) + d/dz (Jz Jz)
+            E     = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT, HORIZONTAL=horizontal)
+            Ei    = MrSim_LineCut(oSim, 'EI',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            Ei_JV = MrSim_LineCut(oSim, 'EI_JV_z', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
+            Ei_VJ = MrSim_LineCut(oSim, 'EI_VJ_z', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
+            Ei_JJ = MrSim_LineCut(oSim, 'EI_JJ_z', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
+            
+            ;Titles for the legend
+            titles = ['E'+subZ, 'E$\downI$'+subZ, 'm$\downe$/(e$\up2$n$\downe$) '       + 'div(VJ)'+subZ, $
+                                                  'm$\downe$/(e$\up2$n$\downe$) '       + 'div(JV)'+subZ, $
+                                                  'm$\downe$/(e$\up3$n$\downe$$\up2$) ' + 'div(JJ)'+subZ]
+        endcase
+        else: message, 'Component "' + component + '" not rectognized. Choose from {"X" | "Y" | "Z"}'
+    endcase
+    
+    ;Rename
+    E.name  = 'E' + component + ' vs. E Inert'
+    Ei.name = 'E Inert'   + component
+    
+    ;Find the min and max
+    yrange   = [min([E.yrange, Ei.yrange, Ei_JV.yrange, Ei_VJ.yrange, Ei_JJ.yrange], MAX=yMax), yMax]
+    E.YRANGE = yrange
+    
+    ;Create a legend
+    ohmLegend = MrLegend(ALIGNMENT        = 'NE', $
+                         /RELATIVE, $
+                         LABEL            = titles, $
+                         NAME             = "Ohm's Law: Inertial term", $
+                         POSITION         = [1,1], $
+                         SAMPLE_WIDTH     = 0, $
+                         TARGET           = E, $
+                         TEXT_COLOR       = ['Black', 'Blue', 'Forest Green', 'Red', 'Purple'], $
+                         VERTICAL_SPACING = 1.25)
+end
+
+
+;+
+;   Plot the components of the Hall term in the Generalized Ohm's Law
+;
+; :Params:
+;       COMPONENT:          in, required, type=string
+;                           The component of the Hall electric field to be plotted.
+;       OSIM:               in, required, type=objref
+;                           A "MRSIM2D" or "MRSIM3D" object containing information about
+;                               the simulation domain.
+; :Keywords:
+;       ELECTRONS:          in, optional, type=boolean, default=0
+;                           If set, the electron current will be plotted instead of the
+;                               total current.
+;       IONS:               in, optional, type=boolean, default=0
+;                           If set, the ion current will be plotted instead of the
+;                               total current.
+;-
+pro MrSim_OhmsLaw_eInert, oSim, component, cut, $
+ELECTRONS = electrons, $
+HORIZONTAL = horizontal, $
+IONS = ions
+    compile_opt strictarr
+    on_error, 2
+
+;-------------------------------------------------------
+; Defaults ////////////////////////////////////////////
+;-------------------------------------------------------
+    electrons = keyword_set(electrons)
+    ions      = keyword_set(ions)
+    if electrons + ions eq 0 then fluid = 1 else fluid = 0
+    if electrons + ions gt 1 then message, 'Keywords ELECTRONS and IONS are mutually exclusive.'
+    
+;-------------------------------------------------------
+; Prepare to Plot //////////////////////////////////////
+;-------------------------------------------------------
+
+    ;Get the simulation size and time
+    oSim -> GetProperty, TIME=time, XSIM=XSim, ZSIM=ZSim, AXIS_LABELS=ax_labels
+    oSim -> GetInfo, DTXWCI=dtxwci, UNITS=units
+    
+    ;Time is inverse gyro-time?
+    if n_elements(dtxwci) gt 0 $
+        then title = 't=' + string(time*dtxwci, FORMAT='(f0.1)') + ' $\Omega$$\downc,i$$\up-1$' $
+        else title = 't$\downindex$=' + string(time, FORMAT='(i0)')
+        
+    ;Title
+    if obj_class(oSim) eq 'MRSIM3D' then begin
+        oSim -> GetProperty, YSLICE=yslice
+        title += '  [x,y]=(' + string(cut, FORMAT='(f0.1)')    + ', ' $
+                             + string(yslice, FORMAT='(f0.1)') + ')' + units
+    endif else begin
+        title += '  x=' + string(cut, FORMAT='(f0.1)') + units
+    endelse
+    
+    ;Species to be plotted
+    case 1 of
+        electrons: n_name = 'ne'
+        ions:      n_name = 'ni'
+        fluid:     n_name = 'ne'
+    endcase
+
+;-------------------------------------------------------
+; Plot the Hall Term ///////////////////////////////////
+;-------------------------------------------------------
+    subX = '$\down' + ax_labels[0] + '$'
+    subY = '$\down' + ax_labels[1] + '$'
+    subZ = '$\down' + ax_labels[2] + '$'
+    case strupcase(component) of
+        'X': begin
+            ;Ex and Spatial Derivatives of the Inertial Electric Field (x-component)
+            ;   - Ei    =   me / (e^2 * ne)   * { d/dx * ( VJ + JV - JJ / (e ne) ) }
+            ;   - Ei_VJ =   me / (e^2 * ne)   * { d/dx (Vx Jx) + d/dy (Vy Jx) + d/dz (Vz Jx)
+            ;   - Ei_JV =   me / (e^2 * ne)   * { d/dx (Jx Vx) + d/dy (Jy Vx) + d/dz (Jz Vx)
+            ;   - Ei_JJ = - me / (e^3 * ne^2) * { d/dx (Jx Jx) + d/dy (Jy Jx) + d/dz (Jz Jx)
+            E     = MrSim_LineCut(oSim, 'Ex', cut, /CURRENT, HORIZONTAL=horizontal)
+            Ei    = MrSim_LineCut(oSim, 'EIe_x', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            
+            ;Titles for the legend
+            titles = ['E'+subX, 'E$\downI$'+subX]
+        endcase
+        'Y': begin
+            ;Ex and Spatial Derivatives of the Inertial Electric Field (y-component)
+            ;   - Ei    =   me / (e^2 * ne)   * { d/dx * ( VJ + JV - JJ / (e ne) ) }
+            ;   - Ei_VJ =   me / (e^2 * ne)   * { d/dx (Vx Jy) + d/dy (Vy Jy) + d/dz (Vz Jy)
+            ;   - Ei_JV =   me / (e^2 * ne)   * { d/dx (Jx Vy) + d/dy (Jy Vy) + d/dz (Jz Vy)
+            ;   - Ei_JJ = - me / (e^3 * ne^2) * { d/dx (Jx Jy) + d/dy (Jy Jy) + d/dz (Jz Jy)
+            E     = MrSim_LineCut(oSim, 'Ey', cut, /CURRENT, HORIZONTAL=horizontal)
+            Ei    = MrSim_LineCut(oSim, 'EIe_y', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            
+            ;Titles for the legend
+            titles = ['E'+subY, 'E$\downI$'+subY]
+        endcase
+        'Z': begin
+            ;Ex and Spatial Derivatives of the Inertial Electric Field (z-component)
+            ;   - Ei    =   me / (e^2 * ne)   * { d/dx * ( VJ + JV - JJ / (e ne) ) }
+            ;   - Ei_VJ =   me / (e^2 * ne)   * { d/dx (Vx Jz) + d/dy (Vy Jz) + d/dz (Vz Jz)
+            ;   - Ei_JV =   me / (e^2 * ne)   * { d/dx (Jx Vz) + d/dy (Jy Vz) + d/dz (Jz Vz)
+            ;   - Ei_JJ = - me / (e^3 * ne^2) * { d/dx (Jx Jz) + d/dy (Jy Jz) + d/dz (Jz Jz)
+            E     = MrSim_LineCut(oSim, 'Ez', cut, /CURRENT, HORIZONTAL=horizontal)
+            Ei    = MrSim_LineCut(oSim, 'EIe_z', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
+            
+            ;Titles for the legend
+            titles = ['E'+subZ, 'E$\downI$'+subZ]
+        endcase
+        else: message, 'Component "' + component + '" not rectognized. Choose from {"X" | "Y" | "Z"}'
+    endcase
+    
+    ;Rename
+    E.name  = 'E' + component + ' vs. E eInert'
+    Ei.name = 'E eInert'   + component
+    
+    ;Find the min and max
+    yrange   = [min([E.yrange, Ei.yrange], MAX=yMax), yMax]
+    E.YRANGE = yrange
+    
+    ;Create a legend
+    ohmLegend = MrLegend(ALIGNMENT        = 'NE', $
+                         /RELATIVE, $
+                         LABEL            = titles, $
+                         NAME             = "Ohm's Law: Electron Inertial term", $
+                         POSITION         = [1,1], $
+                         SAMPLE_WIDTH     = 0, $
+                         TARGET           = E, $
+                         TEXT_COLOR       = ['Black', 'Blue'], $
+                         VERTICAL_SPACING = 1.25)
 end
 
 
@@ -742,6 +1048,7 @@ CURRENT = current, $
 ELECTRONS = electrons, $
 DIVPE = divPe, $
 HORIZONTAL = horizontal, $
+INERTIAL = inertial, $
 IONS = ions, $
 JXB = JxB, $
 OFILENAME = ofilename, $
@@ -791,6 +1098,7 @@ _REF_EXTRA = extra
     electrons = keyword_set(electrons)
     ETotal    = keyword_set(ETotal)
     divPe     = keyword_set(divPe)
+    inertial  = keyword_set(inertial)
     ions      = keyword_set(ions)
     JxB       = keyword_set(JxB)
     Sim3D     = keyword_set(Sim3D)
@@ -801,11 +1109,12 @@ _REF_EXTRA = extra
     if electrons + ions eq 0 then fluid = 1 else fluid = 0
     if electrons + ions gt 1 then message, 'Keywords ELECTRONS and IONS are mutually exclusive.'
     
-    if (ETotal + divPe + JxB + VxB) eq 0 then begin
-        ETotal = 1
-        divPe  = 1
-        JxB    = 1
-        VxB    = 1
+    if (ETotal + divPe + JxB + VxB + inertial) eq 0 then begin
+        ETotal   = 1
+        divPe    = 1
+        JxB      = 1
+        VxB      = 1
+        inertial = 1
     endif
     
     ;Buffer the output?
@@ -823,16 +1132,22 @@ _REF_EXTRA = extra
 ;-------------------------------------------------------
 ; Plot Ohm's Law ///////////////////////////////////////
 ;-------------------------------------------------------
-    if ETotal then MrSim_OhmsLaw_Total, oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
-    if VxB    then MrSim_OhmsLaw_VxB,   oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
-    if JxB    then MrSim_OhmsLaw_JxB,   oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
-    if divPe  then MrSim_OhmsLaw_DivPe, oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if ETotal   then MrSim_OhmsLaw_Total,  oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if VxB      then MrSim_OhmsLaw_VxB,    oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if JxB      then MrSim_OhmsLaw_JxB,    oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if divPe    then MrSim_OhmsLaw_DivPe,  oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
+    if inertial then MrSim_OhmsLaw_eInert, oSim, component, cut, ELECTRONS=electrons, HORIZONTAL=horizontal, IONS=ions
     
 ;-------------------------------------------------------
 ;Output ////////////////////////////////////////////////
 ;-------------------------------------------------------
-    nPlots = ETotal + VxB + JxB + divPe
+    nPlots = ETotal + VxB + JxB + divPe + inertial
     switch nPlots of
+        5: begin
+            middle = ohmWin -> FindByPIndex(4)
+            middle -> SetProperty, TITLE='', XTITLE='', XTICKFORMAT='(a1)'
+        endswitch
+        
         4: begin
             middle = ohmWin -> FindByPIndex(3)
             middle -> SetProperty, TITLE='', XTITLE='', XTICKFORMAT='(a1)'

@@ -46,6 +46,7 @@
 ;-
 function MrSim_ReconRate, theSim, time, $
 CURRENT=current, $
+GUESS=guess, $
 T0=t0, $
 VIEW_WIN=win, $
 XRANGE=xrange, $
@@ -86,11 +87,17 @@ _REF_EXTRA=extra
 ;-------------------------------------------------------
 ; Find the X-Point /////////////////////////////////////
 ;-------------------------------------------------------
-	loc = MrSim_XPoint(oSim)
-
 	;Get some properties. Store the initial time.
 	oSim -> GetProperty, XRANGE=xr, ZRANGE=zr, TIME=t, NTIMES=nTimes
 	if n_elements(t0) eq 0 then t0 = t
+	
+	;Create an initial guess
+	if n_elements(guess) eq 0 then guess = mean([[xr], [zr]], DIMENSION=1)
+
+	;Find the X-point
+	xpt = MrSim_XPoint(oSim, GUESS=guess)
+	dx  = (max(xr) - min(xr)) / 2
+	dz  = (max(zr) - min(zr)) / 2
 
 ;-------------------------------------------------------
 ; Zoom-In on the X-Point ///////////////////////////////
@@ -112,15 +119,7 @@ _REF_EXTRA=extra
 	endcase
 	
 	;Zoom in to +/-6 de of the X-point
-	xr = loc[0] + 6.0 * xorder
-	zr = loc[1] + 6.0 * zorder
-	oSim -> SetProperty, XRANGE=xr, ZRANGE=zr
-	
-	;Take a second pass to re-center the X-point
-	loc = MrSim_XPoint(oSim)
-	xr = loc[0] + 6.0 * xorder
-	zr = loc[1] + 6.0 * zorder
-	oSim -> SetProperty, XRANGE=xr, ZRANGE=zr
+	oSim -> SetProperty, XRANGE=xpt[0] + dx*xorder, ZRANGE=xpt[1] + dz*zorder
 
 ;-------------------------------------------------------
 ; Calculate the Reconnection Rate //////////////////////
@@ -130,8 +129,8 @@ _REF_EXTRA=extra
 	oSim -> GetProperty, XSIM=xSim, ZSIM=zSim
 	
 	;Find the region within 1di of the X-point
-	roix = loc[0] + 3.0 * xorder
-	roiz = loc[1] + 3.0 * zorder
+	roix = xpt[0] + 3.0 * xorder
+	roiz = xpt[1] + 3.0 * zorder
 	ix   = MrIndexRange(xSim, roix)
 	iz   = MrIndexRange(zSim, roiz)
 	
@@ -143,18 +142,24 @@ _REF_EXTRA=extra
 ;-------------------------------------------------------
 	;Step backward to the beginning of the simulation.
 	if (t le t0) && (t gt 0) then begin
-		result = MrSim_ReconRate(oSim, t-1, T0=t0)
+		result = MrSim_ReconRate(oSim, t-1, T0=t0, GUESS=xpt)
 		rate   = [result, rate]
 	endif
 	
 	;Step forward to the end of the simulation.
 	if (t ge t0) && (t lt nTimes-1) then begin
-		result = MrSim_ReconRate(oSim, t+1, T0=t0)
+		;Must reset the range the first time
+		if t eq t0 then oSim -> SetProperty, XRANGE=xr, ZRANGE=zr
+		
+		;Go forward in time
+		result = MrSim_ReconRate(oSim, t+1, T0=t0, GUESS=xpt)
 		rate   = [rate, result]
 	endif
 
 ;-------------------------------------------------------
 ; Plot the Reconnection Rate ///////////////////////////
 ;-------------------------------------------------------
+	;Reset to the original configuration
+	if t eq t0 then oSim -> SetProperty, TIME=t0, XRANGE=xr, ZRANGE=zr
 	return, rate
 end

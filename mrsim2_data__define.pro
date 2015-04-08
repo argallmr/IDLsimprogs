@@ -55,6 +55,7 @@
 ;       2014/09/06  -   Written by Matthew Argall
 ;       2014/11/20  -   Keywords properly checked in many routines. Divergence of a tensor
 ;                           is computed correctly. - MRA
+;       2015/04/04  -   Added the ::OuterProduct method. - MRA
 ;-
 ;*****************************************************************************************
 ;+
@@ -533,8 +534,13 @@ function MrSim2_Data::GetDataByName, name
         return, !Null
     endif
 
+    ;Need to remove LMN coordinates
+    if self.mva_frame $
+        then theName = MrSim_GDA_Rename(name, self.coord_system, self.coord_system, /MVA_FRAME) $
+        else theName = name
+
     ;Check to see if the data has already been read first.
-    case strupcase(name) of
+    case strupcase(theName) of
         'ANS':    return, *self.answer
         'AY':     return, self -> GetGDAByName('Ay')
         'B':      return, self -> GetGDAByName('B')
@@ -578,6 +584,26 @@ function MrSim2_Data::GetDataByName, name
         'UIZ':    return, self -> GetGDAByName('Uiz')
         
         ;Custom Data Products
+        'EIE':     data = self -> EIe()
+        'EIE_X':   data = self -> EIe(/X)
+        'EIE_Y':   data = self -> EIe(/Y)
+        'EIE_Z':   data = self -> EIe(/Z)
+        'EI':      data = self -> EI()
+        'EI_X':    data = self -> EI(/X)
+        'EI_Y':    data = self -> EI(/Y)
+        'EI_Z':    data = self -> EI(/Z)
+        'EI_JJ':   data = self -> EI_JJ()
+        'EI_JJ_X': data = self -> EI_JJ(/X)
+        'EI_JJ_Y': data = self -> EI_JJ(/Y)
+        'EI_JJ_Z': data = self -> EI_JJ(/Z)
+        'EI_VJ':   data = self -> EI_VJ()
+        'EI_VJ_X': data = self -> EI_VJ(/X)
+        'EI_VJ_Y': data = self -> EI_VJ(/Y)
+        'EI_VJ_Z': data = self -> EI_VJ(/Z)
+        'EI_JV':   data = self -> EI_JV()
+        'EI_JV_X': data = self -> EI_JV(/X)
+        'EI_JV_Y': data = self -> EI_JV(/Y)
+        'EI_JV_Z': data = self -> EI_JV(/Z)
         'DIVPE':   data = self -> Tensor_Divergence('Pe')
         'DIVPE_X': data = self -> Tensor_Divergence('Pe', /X)
         'DIVPE_Y': data = self -> Tensor_Divergence('Pe', /Y)
@@ -1417,7 +1443,7 @@ Z=z
     ;Was a name or data given?
     if MrIsA(tensor, 'STRING') $
         then T = ptr_new(self -> GetData(tensor)) $
-        else T = ptr_new(T)
+        else T = ptr_new(tensor)
 
 ;-------------------------------------------------------
 ;Take Derivative ///////////////////////////////////////
@@ -1426,6 +1452,17 @@ Z=z
     ;Allocate memory
     dims = size(*T, /DIMENSIONS)
     divT = fltarr([dims[0:1],3])
+    
+    ;
+    ; This routine expects the tensor to be symmetic and for only the upper-diagonal
+    ; elements to be passed in.
+    ;   - T[*,*,0] = Txx
+    ;   - T[*,*,1] = Txy
+    ;   - T[*,*,2] = Txz
+    ;   - T[*,*,3] = Tyy
+    ;   - T[*,*,4] = Tyz
+    ;   - T[*,*,5] = Tzz
+    ;
     
     ;Component 1
     ;   - ( div Pe)_x = d/dx Txx + d/dy Tyx + d/dz Tzx
@@ -1505,6 +1542,17 @@ function MrSim2_Data::Tensor_Parallel, T, V
     v_hat[*,*,1] /= sqrt(total(*_V^2, 3))
     v_hat[*,*,2] /= sqrt(total(*_V^2, 3))
     ptr_free, _V
+    
+    ;
+    ; This routine expects the tensor to be symmetic and for only the upper-diagonal
+    ; elements to be passed in.
+    ;   - T[*,*,0] = Txx
+    ;   - T[*,*,1] = Txy
+    ;   - T[*,*,2] = Txz
+    ;   - T[*,*,3] = Tyy
+    ;   - T[*,*,4] = Tyz
+    ;   - T[*,*,5] = Tzz
+    ;
 
     ;Parallel pressure.
     ;   - Pressure tensor is symmetric, hence, the multiple of 2.0
@@ -1558,6 +1606,17 @@ function MrSim2_Data::Tensor_Perpendicular, T, V
     if MrIsA(T, 'STRING') $
         then _T = ptr_new(self -> GetData(T, /DIAGONAL)) $
         else _T = ptr_new(T)
+    
+    ;
+    ; This routine expects the tensor to be symmetic and for only the upper-diagonal
+    ; elements to be passed in.
+    ;   - T[*,*,0] = Txx
+    ;   - T[*,*,1] = Txy
+    ;   - T[*,*,2] = Txz
+    ;   - T[*,*,3] = Tyy
+    ;   - T[*,*,4] = Tyz
+    ;   - T[*,*,5] = Tzz
+    ;
 
     ;Perpendicular pressure
     ;   - Assuming the pressure tensor is mostly gyrotropic, P = P_par + 2 P_perp
@@ -1990,6 +2049,73 @@ function MrSim2_Data::Vector_Magnitude, vx, vy, vz
     vmag = sqrt(_vx^2 + vy^2 + vz^2)
     
     return, vmag
+end
+
+
+;+
+;   Take the outer product of two quantities.
+;
+; :Params:
+;       V1:             in, required, type=string or NxMx3 float
+;                       A vectory quantity or the name of the vectory quantity.
+;       V2:             in, required, type=string or NxMx3 float
+;                       A vectory quantity or the name of the vectory quantity.
+;
+; :Returns:
+;       OUTERPRODUCT:   The outer product of `V1` and `V2`.
+;-
+function MrSim2_Data::Vector_OuterProduct, v1, v2
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_v1) then ptr_free, _v1
+        if ptr_valid(_v2) then ptr_free, _v2
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _v1 = ptr_new(self -> GetData(v1)) $
+        else _v1 = ptr_new(v1)
+        
+    if MrIsA(v2, 'STRING') $
+        then _v2 = ptr_new(self -> GetData(v2)) $
+        else _v2 = ptr_new(v2)
+    
+    ;Allocate memory
+    dims = size(*_v1, /DIMENSIONS)
+    outerProduct = fltarr( [dims[0:1], 6] )
+    
+    ;Compute the outer product
+    ;              | v1x * v2x    v1y * v2x    v1z * v2x |
+    ;  v1 (X) v2 = | v1x * v2y    v1y * v2y    v1z * v2y | = T
+    ;              | v1x * v2z    v1y * v2z    v1z * v2z |
+    ;
+    ;This is a symmetric matrix, like the pressure tensor
+    ;   - Include only the upper-diagonal terms
+    ;   - T[*,*,0] = Txx
+    ;   - T[*,*,1] = Txy
+    ;   - T[*,*,2] = Txz
+    ;   - T[*,*,3] = Tyy
+    ;   - T[*,*,4] = Tyz
+    ;   - T[*,*,5] = Tzz
+    ;
+    outerProduct[0,0,0] = (*_v1)[*,*,0] * (*_v2)[*,*,0]
+    outerProduct[0,0,1] = (*_v1)[*,*,1] * (*_v2)[*,*,0]
+    outerProduct[0,0,2] = (*_v1)[*,*,2] * (*_v2)[*,*,0]
+    outerProduct[0,0,3] = (*_v1)[*,*,1] * (*_v2)[*,*,1]
+    outerProduct[0,0,4] = (*_v1)[*,*,2] * (*_v2)[*,*,1]
+    outerProduct[0,0,5] = (*_v1)[*,*,2] * (*_v2)[*,*,2]
+        
+    ;Free the pointers
+    ptr_free, _v1
+    ptr_free, _v2
+    
+    return, outerProduct
 end
 
 
@@ -3012,6 +3138,582 @@ end
 
 
 ;+
+;   Compute the spacial gradient of the inertial term in Generalized Ohm's law assuming
+;   that electons make up the current density. In this case, cJV = cVJ = -cJJ, and two
+;   of the three contributing terms cancel, leaving
+;
+;      E_{inert,e} = \frac{m_{e}} {e} \nabla \cdot \vec{v_{e}} \vec{v_{e}}
+;
+; :Private:
+;
+; :Keywords;
+;       CROSS:              in, optional, type=boolean/string, default=0/''
+;                           If set, the cross product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the cross product with the quantity specified will
+;                               be returned.
+;       DOT:                in, optional, type=boolean/string, default=0/''
+;                           If set, the dot product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the dot product with the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude of E will be returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       VECTOR:             in, optional, type=boolean, default=0
+;                           If set, all three components of the electric field will be
+;                               returned in an NxMx3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       X:                  in, optional, type=boolean, default=0
+;                           If set, the X-component of the electric field is returned.
+;       Y:                  in, optional, type=boolean, default=0
+;                           If set, the Y-component of the electric field is returned.
+;       Z:                  in, optional, type=boolean, default=0
+;                           If set, the Z-component of the electric field is returned.
+;
+; :Returns:
+;       DATA:               Electric field data.
+;-
+function MrSim2_Data::EIe, $
+CROSS=cross, $
+DOT=dot, $
+MAGNITUDE=magnitude, $
+PARALLEL=parallel, $
+PERPENDICULAR=perpendicular, $
+VECTOR=vec, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr, hidden
+    on_error, 2
+    
+    ;Defaults
+    tf_cross  = keyword_set(cross)
+    tf_dot    = keyword_set(dot)
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    vec       = keyword_set(vec)
+    x         = keyword_set(x)
+    y         = keyword_set(y)
+    z         = keyword_set(z)
+    
+    ;If nothing was chosen, return the vector.
+    vec = vec || (x + y + z + tf_cross + tf_dot + tf_par + tf_perp + magnitude) eq 0
+    if vec then begin
+        x = 1
+        y = 1
+        z = 1
+    endif
+
+    ;Parallel & perpendicular to what?
+    dotName   = MrIsA(dot,           'STRING') ? dot           : 'B'
+    crossName = MrIsA(cross,         'STRING') ? cross         : 'B'
+    parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
+    
+    ;Get electron velocity and total current information
+    ve_ve = self -> Vector_OuterProduct('Ue', 'Ue')
+    EIe   = self -> Tensor_Divergence(ve_ve)
+    
+    ;Return
+    ;   - VECTOR must come before [XYZ].
+    case 1 of
+        magnitude: return, self -> Vector_Magnitude(    EIe)
+        tf_cross:  return, self -> Vector_CrossProduct( EIe, crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> Vector_DotProduct(   EIe, dotName,   X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Vector_Parallel(     EIe, parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Vector_Perpendicular(EIe, perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        vec:       return, EIe
+        x:         return, EIe[*,*,0]
+        y:         return, EIe[*,*,1]
+        z:         return, EIe[*,*,2]
+        else:      ;Not possible
+    endcase
+end
+
+
+;+
+;   The purpose of this program is to compute the inertial term of the
+;   generalized Ohm's Law.
+;
+;     E_{i} = \frac{m_{e}} { e^{2} n_{e} } \frac{ \partial V_{i} J_{j} } { \partial x_{i} }
+;
+; :Private:
+;
+; :Keywords;
+;       CROSS:              in, optional, type=boolean/string, default=0/''
+;                           If set, the cross product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the cross product with the quantity specified will
+;                               be returned.
+;       DOT:                in, optional, type=boolean/string, default=0/''
+;                           If set, the dot product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the dot product with the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude of E will be returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       VECTOR:             in, optional, type=boolean, default=0
+;                           If set, all three components of the electric field will be
+;                               returned in an NxMx3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       X:                  in, optional, type=boolean, default=0
+;                           If set, the X-component of the electric field is returned.
+;       Y:                  in, optional, type=boolean, default=0
+;                           If set, the Y-component of the electric field is returned.
+;       Z:                  in, optional, type=boolean, default=0
+;                           If set, the Z-component of the electric field is returned.
+;
+; :Returns:
+;       DATA:               Electric field data.
+;-
+function MrSim2_Data::EI, $
+CROSS=cross, $
+DOT=dot, $
+MAGNITUDE=magnitude, $
+PARALLEL=parallel, $
+PERPENDICULAR=perpendicular, $
+VECTOR=vec, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr, hidden
+    on_error, 2
+    
+    ;Defaults
+    tf_cross  = keyword_set(cross)
+    tf_dot    = keyword_set(dot)
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    vec       = keyword_set(vec)
+    x         = keyword_set(x)
+    y         = keyword_set(y)
+    z         = keyword_set(z)
+    
+    ;If nothing was chosen, return the vector.
+    vec = vec || (x + y + z + tf_cross + tf_dot + tf_par + tf_perp + magnitude) eq 0
+    if vec then begin
+        x = 1
+        y = 1
+        z = 1
+    endif
+
+    ;Parallel & perpendicular to what?
+    dotName   = MrIsA(dot,           'STRING') ? dot           : 'B'
+    crossName = MrIsA(cross,         'STRING') ? cross         : 'B'
+    parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
+    
+    ;Get electron velocity and total current information
+    EI_JV = self -> GetData('EI_JV')
+    EI_VJ = self -> GetData('EI_VJ')
+    EI_JJ = self -> GetData('EI_JJ')
+    EI    = EI_JV + EI_VJ + EI_JJ
+    
+    ;Return
+    ;   - VECTOR must come before [XYZ].
+    case 1 of
+        magnitude: return, self -> Vector_Magnitude(    EI)
+        tf_cross:  return, self -> Vector_CrossProduct( EI, crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> Vector_DotProduct(   EI, dotName,   X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Vector_Parallel(     EI, parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Vector_Perpendicular(EI, perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        vec:       return, EI
+        x:         return, EI[*,*,0]
+        y:         return, EI[*,*,1]
+        z:         return, EI[*,*,2]
+        else:      ;Not possible
+    endcase
+end
+
+
+;+
+;   The purpose of this program is to compute the VJ term in the inertial term of the
+;   generalized Ohm's Law.
+;
+;     E_{i} = \frac{m_{e}} { e^{2} n_{e} } \frac{ \partial V_{i} J_{j} } { \partial x_{i} }
+;
+; :Private:
+;
+; :Keywords;
+;       CROSS:              in, optional, type=boolean/string, default=0/''
+;                           If set, the cross product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the cross product with the quantity specified will
+;                               be returned.
+;       DOT:                in, optional, type=boolean/string, default=0/''
+;                           If set, the dot product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the dot product with the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude of E will be returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       VECTOR:             in, optional, type=boolean, default=0
+;                           If set, all three components of the electric field will be
+;                               returned in an NxMx3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       X:                  in, optional, type=boolean, default=0
+;                           If set, the X-component of the electric field is returned.
+;       Y:                  in, optional, type=boolean, default=0
+;                           If set, the Y-component of the electric field is returned.
+;       Z:                  in, optional, type=boolean, default=0
+;                           If set, the Z-component of the electric field is returned.
+;
+; :Returns:
+;       DATA:               Electric field data.
+;-
+function MrSim2_Data::EI_VJ, $
+CROSS=cross, $
+DOT=dot, $
+MAGNITUDE=magnitude, $
+PARALLEL=parallel, $
+PERPENDICULAR=perpendicular, $
+VECTOR=vec, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr, hidden
+    on_error, 2
+    
+    ;Defaults
+    tf_cross  = keyword_set(cross)
+    tf_dot    = keyword_set(dot)
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    vec       = keyword_set(vec)
+    x         = keyword_set(x)
+    y         = keyword_set(y)
+    z         = keyword_set(z)
+    
+    ;If nothing was chosen, return the vector.
+    vec = vec || (x + y + z + tf_cross + tf_dot + tf_par + tf_perp + magnitude) eq 0
+    if vec then begin
+        x = 1
+        y = 1
+        z = 1
+    endif
+
+    ;Parallel & perpendicular to what?
+    dotName   = MrIsA(dot,           'STRING') ? dot           : 'B'
+    crossName = MrIsA(cross,         'STRING') ? cross         : 'B'
+    parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
+    
+    ;Get electron velocity and total current information
+    ; - VJ_ij = Vi * Jj
+    ; - div VJ_ij = d/dx_i VJ_ij
+    VJ     = self -> Vector_OuterProduct('V', 'J')
+    div_VJ = self -> Tensor_Divergence(VJ)
+    
+    ;Electron Density
+    n_e = self -> GetData('ne')
+    
+    ;Compute
+    ;  - me / (e^2 * ne) * { d/dxi * (Vi * Jj) }
+    ;  - me = 1
+    ;  - e  = 1
+    Ei_vj = div_VJ / n_e
+    
+    ;Return
+    ;   - VECTOR must come before [XYZ].
+    case 1 of
+        magnitude: return, self -> Vector_Magnitude(    Ei_vj)
+        tf_cross:  return, self -> Vector_CrossProduct( Ei_vj, crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> Vector_DotProduct(   Ei_vj, dotName,   X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Vector_Parallel(     Ei_vj, parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Vector_Perpendicular(Ei_vj, perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        vec:       return, Ei_vj
+        x:         return, Ei_vj[*,*,0]
+        y:         return, Ei_vj[*,*,1]
+        z:         return, Ei_vj[*,*,2]
+        else:      ;Not possible
+    endcase
+end
+
+
+;+
+;   The purpose of this program is to compute the JV term in the inertial term of the
+;   generalized Ohm's Law.
+;
+;     E_{i} = \frac{m_{e}} { e^{2} n_{e} } \frac{ \partial J_{i} V_{j} } { \partial x_{i} }
+;
+; :Private:
+;
+; :Keywords;
+;       CROSS:              in, optional, type=boolean/string, default=0/''
+;                           If set, the cross product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the cross product with the quantity specified will
+;                               be returned.
+;       DOT:                in, optional, type=boolean/string, default=0/''
+;                           If set, the dot product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the dot product with the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude of E will be returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       VECTOR:             in, optional, type=boolean, default=0
+;                           If set, all three components of the electric field will be
+;                               returned in an NxMx3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       X:                  in, optional, type=boolean, default=0
+;                           If set, the X-component of the electric field is returned.
+;       Y:                  in, optional, type=boolean, default=0
+;                           If set, the Y-component of the electric field is returned.
+;       Z:                  in, optional, type=boolean, default=0
+;                           If set, the Z-component of the electric field is returned.
+;
+; :Returns:
+;       DATA:               Electric field data.
+;-
+function MrSim2_Data::EI_JV, $
+CROSS=cross, $
+DOT=dot, $
+MAGNITUDE=magnitude, $
+PARALLEL=parallel, $
+PERPENDICULAR=perpendicular, $
+VECTOR=vec, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr, hidden
+    on_error, 2
+    
+    ;Defaults
+    tf_cross  = keyword_set(cross)
+    tf_dot    = keyword_set(dot)
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    vec       = keyword_set(vec)
+    x         = keyword_set(x)
+    y         = keyword_set(y)
+    z         = keyword_set(z)
+    
+    ;If nothing was chosen, return the vector.
+    vec = vec || (x + y + z + tf_cross + tf_dot + tf_par + tf_perp + magnitude) eq 0
+    if vec then begin
+        x = 1
+        y = 1
+        z = 1
+    endif
+
+    ;Parallel & perpendicular to what?
+    dotName   = MrIsA(dot,           'STRING') ? dot           : 'B'
+    crossName = MrIsA(cross,         'STRING') ? cross         : 'B'
+    parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
+    
+    ;Get electron velocity and total current information
+    ; - VJ_ij = Vi * Jj
+    ; - div VJ_ij = d/dx_i VJ_ij
+    JV     = self -> Vector_OuterProduct('J', 'V')
+    div_JV = self -> Tensor_Divergence(JV)
+    
+    ;Electron Density
+    n_e = self -> GetData('ne')
+    
+    ;Compute
+    ;  - me / (e^2 * ne) * { d/dxi * (Vi * Jj) }
+    ;  - me = 1
+    ;  - e  = 1
+    Ei_jv = div_JV / n_e
+    
+    ;Return
+    ;   - VECTOR must come before [XYZ].
+    case 1 of
+        magnitude: return, self -> Vector_Magnitude(    Ei_jv)
+        tf_cross:  return, self -> Vector_CrossProduct( Ei_jv, crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> Vector_DotProduct(   Ei_jv, dotName,   X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Vector_Parallel(     Ei_jv, parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Vector_Perpendicular(Ei_jv, perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        vec:       return, Ei_jv
+        x:         return, Ei_jv[*,*,0]
+        y:         return, Ei_jv[*,*,1]
+        z:         return, Ei_jv[*,*,2]
+        else:      ;Not possible
+    endcase
+end
+
+
+;+
+;   The purpose of this program is to compute the VJ term in the inertial term of the
+;   generalized Ohm's Law.
+;
+;     E_{i} = \frac{m_{e}} { e^{3} n_{e}^{2} } \frac{ - \partial V_{i} J_{j} } { \partial x_{i} }
+;
+; :Private:
+;
+; :Keywords;
+;       CROSS:              in, optional, type=boolean/string, default=0/''
+;                           If set, the cross product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the cross product with the quantity specified will
+;                               be returned.
+;       DOT:                in, optional, type=boolean/string, default=0/''
+;                           If set, the dot product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the dot product with the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude of E will be returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       VECTOR:             in, optional, type=boolean, default=0
+;                           If set, all three components of the electric field will be
+;                               returned in an NxMx3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       X:                  in, optional, type=boolean, default=0
+;                           If set, the X-component of the electric field is returned.
+;       Y:                  in, optional, type=boolean, default=0
+;                           If set, the Y-component of the electric field is returned.
+;       Z:                  in, optional, type=boolean, default=0
+;                           If set, the Z-component of the electric field is returned.
+;
+; :Returns:
+;       DATA:               Electric field data.
+;-
+function MrSim2_Data::EI_JJ, $
+CROSS=cross, $
+DOT=dot, $
+MAGNITUDE=magnitude, $
+PARALLEL=parallel, $
+PERPENDICULAR=perpendicular, $
+VECTOR=vec, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr, hidden
+    on_error, 2
+    
+    ;Defaults
+    tf_cross  = keyword_set(cross)
+    tf_dot    = keyword_set(dot)
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    vec       = keyword_set(vec)
+    x         = keyword_set(x)
+    y         = keyword_set(y)
+    z         = keyword_set(z)
+    
+    ;If nothing was chosen, return the vector.
+    vec = vec || (x + y + z + tf_cross + tf_dot + tf_par + tf_perp + magnitude) eq 0
+    if vec then begin
+        x = 1
+        y = 1
+        z = 1
+    endif
+
+    ;Parallel & perpendicular to what?
+    dotName   = MrIsA(dot,           'STRING') ? dot           : 'B'
+    crossName = MrIsA(cross,         'STRING') ? cross         : 'B'
+    parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
+    
+    ;Get electron velocity and total current information
+    ; - VJ_ij = Vi * Jj
+    ; - div VJ_ij = d/dx_i VJ_ij
+    JJ     = self -> Vector_OuterProduct('J', 'J')
+    div_JJ = self -> Tensor_Divergence(JJ)
+    
+    ;Electron Density
+    n_e = self -> GetData('ne')
+    
+    ;Compute
+    ;  - me / (e^2 * ne) * { d/dxi * -1 / (e * ne) * (Ji * Jj) }
+    ;  - me = 1
+    ;  - e  = 1
+    Ei_jj = -div_JJ / n_e^2
+    
+    ;Return
+    ;   - VECTOR must come before [XYZ].
+    case 1 of
+        magnitude: return, self -> Vector_Magnitude(    Ei_jj)
+        tf_cross:  return, self -> Vector_CrossProduct( Ei_jj, crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> Vector_DotProduct(   Ei_jj, dotName,   X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Vector_Parallel(     Ei_jj, parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Vector_Perpendicular(Ei_jj, perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        vec:       return, Ei_jj
+        x:         return, Ei_jj[*,*,0]
+        y:         return, Ei_jj[*,*,1]
+        z:         return, Ei_jj[*,*,2]
+        else:      ;Not possible
+    endcase
+end
+
+
+;+
 ;   The purpose of this program is to calculate the x-component of the current density::
 ;       J_{x} = ( -n_{e} * U_{ex} ) + ( n_{i} * U_{ix} )
 ;
@@ -3030,10 +3732,10 @@ Y=y, $
 Z=z
     compile_opt strictarr, hidden
     on_error, 2
-	
-	;Get the data
-	;   - Number density
-	;   - Bulk velocity
+
+    ;Get the data
+    ;   - Number density
+    ;   - Bulk velocity
     n_e = self -> GetData('ne')
     n_i = self -> GetData('ni')
     Ue  = self -> GetData('Ue', MAGNITUDE=magnitude, X=x, Y=y, Z=z, VECTOR=vec, $

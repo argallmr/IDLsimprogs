@@ -913,6 +913,105 @@ end
 ;       INFO_BINARY:        out, optional, type=string
 ;                           Binary info file containing information about the simulation.
 ;-
+pro MrSim_Which_AsymmScan_By01, tIndex, $
+ASCII_VERSION=ascii_version, $
+DTXWCI=dtxwci, $
+ECOUNTFACTOR=eCountFactor, $
+EFILE=eFile, $
+EREGIONS=eRegions, $
+FMAP_DIR=fMap_dir, $
+INFO_ASCII=info_ascii, $
+INFO_BINARY=info_binary, $
+DIST3D=dist3D
+    compile_opt strictarr
+    on_error, 2
+
+    ;DIRECTORY and DTXWCI are needed for INFO_ASCII, INFO_BINARY, and EFILE
+    directory = '/data2/Asymm-Scan/By0.1/data/'
+    dtxwci    = 2.0
+    dist3D     = 0
+    if arg_present(ascii_version) then ascii_version = 1
+    if arg_present(fMap_dir)      then fMap_dir      = '/home/argall/simulations/fmaps/'
+    if arg_present(eCountFactor)  then eCountFactor  = 1L
+
+    ;Binary Info File
+    ;   - Stored in the data directory
+    if arg_present(info_binary)  then info_binary = filepath('info', ROOT_DIR=directory)
+    
+    ;Ascii Info File
+    ;   - Stored one directory up from the data directory
+    if arg_present(info_ascii) then begin
+        cd, CURRENT=pwd
+        cd, directory
+        cd, '..'
+        cd, CURRENT=ascii_dir
+        cd, pwd
+        info_ascii = filepath('info', ROOT_DIR=ascii_dir)
+    endif
+
+    ;Electron files
+    if arg_present(eFile) then begin
+        ;Time information
+        ;   - Time index indicating time-slices in the .gda field and moment files.
+        ;   - t*wci corresponding to those time-slices
+        tStr = strtrim(tIndex, 2)
+        twci = strtrim(long(tIndex * dtxwci), 2)
+        
+        ;File names
+        case tIndex of
+            else: begin
+                eFile = ''
+                message, 'No particle data available for t*wci = ' + twci + '.', /INFORMATIONAL
+            endelse
+        endcase
+    endif
+
+    ;Regions with electrons
+    if arg_present(eRegions) then begin
+;        eRegions = { tIndex: 30, $
+;                     xrange: [420, 450], $
+;                     zrange: [-10,  10]  $
+;                   }
+    endif
+end
+
+
+;+
+;   Configuration program for the Asymm-Scan/By1 simulation.
+;
+; :Params:
+;       TINDEX:             in, optional, type=long
+;                           Simulation time index.
+;
+; :Keywords:
+;       ASCII_VERSION:      in, optional, type=integer, default=1
+;                           Version of the ASCII info file.
+;       DTXWCI:             out, optional, type=integer
+;                           Time between time-slice of of the ".gda" field and moment
+;                               files. Multiply `TINDEX` by DTXWCI to get unitless
+;                               simulation time t*wci. Note that DTXWCI is different from
+;                               the "dtxwci" in the ASCII info file (data is not saved
+;                               at every iteration of the simulation).
+;       ECOUNTFACTOR:       out, optional, type=integer, default=1
+;                           Factor by which electrons need to be multiplied. Often, only
+;                               every other particle is saved.
+;       EFILE:              out, optional, type=string
+;                           File in which electron data is saved. Requires `TINDEX` and,
+;                               for 3D simulations, `YSLICE`.
+;       EREGIONS:           out, optional, type=structure
+;                           Regions and times for which we have particle data::
+;                               { TINDEX: intarr(N), $          time-index into .gda file
+;                                 XRANGE: intarr(2xN), $        [xmin, xmax]
+;                                 ZRANGE: intarr(2xN) $         [zmin, zmax]
+;                               }
+;       FMAP_DIR:           out, optional, type=string
+;                           Directory in which fMaps are saved.
+;       INFO_ASCII:         out, optional, type=string
+;                           ASCII info file containing human readable information about
+;                               the simlation.
+;       INFO_BINARY:        out, optional, type=string
+;                           Binary info file containing information about the simulation.
+;-
 pro MrSim_Which_AsymmScan_By1, tIndex, $
 ASCII_VERSION=ascii_version, $
 DTXWCI=dtxwci, $
@@ -1254,12 +1353,13 @@ _REF_EXTRA=extra
                ['7',  '2D',     'no',      'mime400-b',           '/data1/sim1/mime400-b/data/'], $
                ['8',  '2D',     'no',      'data-by0.03-OLD',     '/data1/sim1/data-by0.03-OLD/'], $
                ['9',  '2D',     'no',      'data-by0.03-NEW',     '/data1/sim1/data-by0.03-NEW/'], $
-               ['10', '2D',     'yes',     'Asymm-Scan/By1',      '/data2/Asymm-Scan/By1/data/'], $
-               ['11', '2D',     'yes',     'Asymm-Scan/By0',      '/data2/Asymm-Scan/By0/data/'],$
-               ['12', '2D',     'no',      'mime1836/by00',       '/data2/daughton/mime1836/by0.0/data/'],$
-               ['13', '2D',     'no',      'mime1836/by05',       '/data2/daughton/mime1836/by0.05/data/'],$
-               ['14', '2D',     'no',      'mime1836/by10',       '/data2/daughton/mime1836/by0.1/data/'],$
-               ['15', '2D',     'no',      'mime1836/by40',       '/data2/daughton/mime1836/by0.4/data/']]
+               ['10', '2D',     'yes',     'Asymm-Scan/By0',      '/data2/Asymm-Scan/By0/data/'],$
+               ['11', '2D',     'yes',     'Asymm-Scan/By0.1',    '/data2/Asymm-Scan/By0.1/data/'], $
+               ['12', '2D',     'yes',     'Asymm-Scan/By1',      '/data2/Asymm-Scan/By1/data/'],$
+               ['13', '2D',     'no',      'mime1836/by00',       '/data2/daughton/mime1836/by0.0/data/'],$
+               ['14', '2D',     'no',      'mime1836/by05',       '/data2/daughton/mime1836/by0.05/data/'],$
+               ['15', '2D',     'no',      'mime1836/by10',       '/data2/daughton/mime1836/by0.1/data/'],$
+               ['16', '2D',     'no',      'mime1836/by40',       '/data2/daughton/mime1836/by0.4/data/']]
     
     ;Print the info if no input was given.
     if n_elements(thisSim) eq 0 then begin
@@ -1299,12 +1399,13 @@ _REF_EXTRA=extra
             7: message, 'Information not available for "' + name + '".'
             8: message, 'Information not available for "' + name + '".'
             9:  MrSim_Which_Data_By003_NEW,   tIndex,         _STRICT_EXTRA=extra
-            10: MrSim_Which_AsymmScan_By1,    tIndex,         _STRICT_EXTRA=extra
-            11: MrSim_Which_AsymmScan_By0,    tIndex,         _STRICT_EXTRA=extra
-            12: MrSim_Which_mime1836_by00,    tIndex,         _STRICT_EXTRA=extra
-            13: MrSim_Which_mime1836_by05,    tIndex,         _STRICT_EXTRA=extra
-            14: MrSim_Which_mime1836_by10,    tIndex,         _STRICT_EXTRA=extra
-            15: MrSim_Which_mime1836_by40,    tIndex,         _STRICT_EXTRA=extra
+            10: MrSim_Which_AsymmScan_By0,    tIndex,         _STRICT_EXTRA=extra
+            11: MrSim_Which_AsymmScan_By01,   tIndex,         _STRICT_EXTRA=extra
+            12: MrSim_Which_AsymmScan_By1,    tIndex,         _STRICT_EXTRA=extra
+            13: MrSim_Which_mime1836_by00,    tIndex,         _STRICT_EXTRA=extra
+            14: MrSim_Which_mime1836_by05,    tIndex,         _STRICT_EXTRA=extra
+            15: MrSim_Which_mime1836_by10,    tIndex,         _STRICT_EXTRA=extra
+            16: MrSim_Which_mime1836_by40,    tIndex,         _STRICT_EXTRA=extra
             else: ;Do nothing
         endcase
     endif

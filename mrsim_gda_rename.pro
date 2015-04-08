@@ -33,7 +33,7 @@
 ;
 ; PURPOSE:
 ;+
-;   Translate data product names to simulation coordinates.
+;   Translate data product names from one coordinate system to another.
 ;
 ; :Categories:
 ;    Bill Daughton, Simulation
@@ -51,12 +51,22 @@
 ;                                   'SIMULATION'
 ;                                   'MAGNETOPAUSE'
 ;                                   'MAGNETOTAIL'
+;       CS_OUT:             in, optional, type=string, default='SIMULATION'
+;                           Destination coordinate system.
 ;
 ; :Keywords:
 ;       MVA_FRAME:          in, optional, type=boolean, default=0
 ;                           If set and `COORD_SYSTEM` is "Magnetopause" or "Magnetotail",
 ;                               then the minimum variance coordinates N, M, and L will
 ;                               be assigned appropriately.
+;       MVA_OUT:            in, optional, type=boolean, default=0
+;                           If set and `NEW_NAME` will be labeled with the appropriate
+;                               minimum variance coordinate.
+;
+; :Returns:
+;       NEW_NAME:           The same as `NAME` but with coordinate labels converted to
+;                                the equivalent labels in `CS_OUT`, with `MVA_OUT` taken
+;                                into consideration.
 ;
 ; :Author:
 ;    Matthew Argall::
@@ -69,17 +79,24 @@
 ; :History:
 ;    Modification History::
 ;       2014/11/12  -   Written by Matthew Argall
+;       2015/04/03  -   Added the CS_OUT parameter and MVA_OUT keywords. - MRA
+;       2015/04/04  -   Reworked coordinate finding algorithm
 ;-
-function MrSim_GDA_Rename, name, coord_system, $
-MVA_FRAME=mva_frame
+function MrSim_GDA_Rename, name, coord_system, cs_out, $
+MVA_FRAME=mva_frame, $
+MVA_OUT=mva_out
     compile_opt strictarr
     on_error, 2
     
     ;Defaults
+    _cs_out       = n_elements(cs_out)       eq 0 ? 'SIMULATION' : strupcase(cs_out)
     _coord_system = n_elements(coord_system) eq 0 ? 'SIMULATION' : strupcase(coord_system)
     _mva_frame    = keyword_set(mva_frame)
+    _mva_out      = keyword_set(mva_out)
 
-    ;Coordinates in use now
+;-----------------------------------------------------
+; Input CS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
     if _mva_frame then begin
         case _coord_system of
             'SIMULATION':   coords_in = ['L', 'M', 'N']
@@ -89,37 +106,101 @@ MVA_FRAME=mva_frame
         endcase
     endif else coords_in = ['X', 'Y', 'Z']
     
-    ;How current system relates to the simulation coordinate system:
-    case _coord_system of
-        'SIMULATION':   coords_out = ['x', 'y', 'z']
-        'MAGNETOPAUSE': coords_out = ['z', 'y', 'x']
-        'MAGNETOTAIL':  coords_out = ['x', 'y', 'z']
-        else: message, 'Coordinate system "' + coord_system + '" not recognized.'
-    endcase
-            
-    ;Regex: ^(any character)(Not coordinates)*(coordinate?)(coordinate?)$
-    ;   - Careful of "ne" with "LMN" coordinates.
-    jcoord = strjoin(coords_in)
-    regex  = '(^.[^' + jcoord + ']*)([' + jcoord + ']?)([' + jcoord + ']?$)'
+;-----------------------------------------------------
+; Output in MVA \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+    if _mva_out then begin
+        case _cs_out of
+            'SIMULATION': begin
+                case _coord_system of
+                    'SIMULATION':   coords_out = ['L', 'M', 'N']
+                    'MAGNETOPAUSE': coords_out = ['N', 'M', 'L']
+                    'MAGNETOTAIL':  coords_out = ['L', 'M', 'N']
+                endcase
+            endcase
+        
+            'MAGNETOPAUSE': begin
+                case _coord_system of
+                    'SIMULATION':   coords_out = ['L', 'M', 'N']
+                    'MAGNETOPAUSE': coords_out = ['N', 'M', 'L']
+                    'MAGNETOTAIL':  coords_out = ['L', 'M', 'N']
+                endcase
+            endcase
+        
+            'MAGNETOTAIL': begin
+                case _coord_system of
+                    'SIMULATION':   coords_out = ['L', 'M', 'N']
+                    'MAGNETOPAUSE': coords_out = ['N', 'M', 'L']
+                    'MAGNETOTAIL':  coords_out = ['L', 'M', 'N']
+                endcase
+            endcase
+        endcase
     
-    ;Find the coordinates in the name
-    namePos   = stregex(name, regex, /SUBEXP, /EXTRACT, /FOLD_CASE)
-    nameParts = stregex(name, regex, /SUBEXP, /EXTRACT, /FOLD_CASE)
-    new_name  = reform(nameParts[1,*])
-    nameParts = strupcase(nameParts)
+;-----------------------------------------------------
+; Output in XYZ \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+    endif else begin
+        case _cs_out of
+            'SIMULATION': begin
+                case _coord_system of
+                    'SIMULATION':   coords_out = ['x', 'y', 'z']
+                    'MAGNETOPAUSE': coords_out = ['z', 'y', 'x']
+                    'MAGNETOTAIL':  coords_out = ['x', 'y', 'z']
+                endcase
+            endcase
+        
+            'MAGNETOPAUSE': begin
+                case _coord_system of
+                    'SIMULATION':   coords_out = ['z', 'y', 'x']
+                    'MAGNETOPAUSE': coords_out = ['x', 'y', 'z']
+                    'MAGNETOTAIL':  coords_out = ['z', 'y', 'x']
+                endcase
+            endcase
+        
+            'MAGNETOTAIL': begin
+                case _coord_system of
+                    'SIMULATION':   coords_out = ['x', 'y', 'z']
+                    'MAGNETOPAUSE': coords_out = ['z', 'y', 'x']
+                    'MAGNETOTAIL':  coords_out = ['x', 'y', 'z']
+                endcase
+            endcase
+        endcase
+    endelse
+
+;-----------------------------------------------------
+; Translate CS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+    ;Regex: Find any coordinate at the end of the name
+    regex  = '[' + strjoin(coords_in) + ']$'
+
+    ;Split into the part before the coordinate and the part after the coordinate.
+    pre  = name
+    post = replicate('', n_elements(name))
     
-    ;Change coordinates.
-    for i = 2, 3 do begin
-        ix = where(nameParts[i,*] eq coords_in[0], nx)
-        iy = where(nameParts[i,*] eq coords_in[1], ny)
-        iz = where(nameParts[i,*] eq coords_in[2], nz)
-        if nx gt 0 then new_name[ix] += coords_out[0]
-        if ny gt 0 then new_name[iy] += coords_out[1]
-        if nz gt 0 then new_name[iz] += coords_out[2]
+    ;There will be at most 2 coordinates
+    for i = 0, 1 do begin
+        ;Find the coordinates in the name
+        pos    = stregex(pre, regex, /FOLD_CASE)
+        iCoord = where(pos ne -1, nCoord)
+
+        ;Convert the coordinate
+        if nCoord gt 0 then begin
+            ;Extract the coordinate
+            coords      = strmid(pre[iCoord], transpose(pos[iCoord]))
+            pre[iCoord] = strmid(pre[iCoord], 0, transpose(pos[iCoord]))
+
+            ;Convert the coordinate
+            iSortCoords = sort(coords_in)
+            iNewCoord   = value_locate(coords_in[iSortCoords], strupcase(coords))
+            newCoord    = coords_out[iSortCoords[iNewCoord]]
+
+            ;Append coordinate to post
+            post[iCoord] = newCoord + post[iCoord]
+        endif
     endfor
     
-    ;Return a scalar
-    if n_elements(new_name) eq 1 then new_name = new_name[0]
+    ;Combine the results
+    new_name = pre + post
     return, new_name
 end
 
