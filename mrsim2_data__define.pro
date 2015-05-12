@@ -1336,13 +1336,21 @@ D_DZ=d_dz
                     dim2 eq 'Z' ? 2 : 0
     endelse
     
+    ;If this is a 2D simulation, d/dy = 0
+    if self.dimension eq '2D'
+        
+    
     ;Allocate memory and take centered difference
+    ;  - D/DY in 2D simulations is zero.
+    ;  - !!! THIS DEPENDS ON A PROPERTY OF THE SUBCLASS MRSIM2__DEFINE !!!
     der = fltarr(dims)
-    case dimension of
-        0: message, 'Derivative not compatible with orientation "' + self.orientation + '".'
-        1: der[1:dims[0]-2,*] = ((*_data)[2:dims[0]-1,*] - (*_data)[0:dims[0]-3,*]) / (2.0 * delta)
-        2: der[*,1:dims[1]-2] = ((*_data)[*,2:dims[1]-1] - (*_data)[*,0:dims[1]-3]) / (2.0 * delta)
-    endcase
+    if ~(d_dy && self.dimension eq '2D') then begin
+        case dimension of
+            0: message, 'Derivative not compatible with orientation "' + self.orientation + '".'
+            1: der[1:dims[0]-2,*] = ((*_data)[2:dims[0]-1,*] - (*_data)[0:dims[0]-3,*]) / (2.0 * delta)
+            2: der[*,1:dims[1]-2] = ((*_data)[*,2:dims[1]-1] - (*_data)[*,0:dims[1]-3]) / (2.0 * delta)
+        endcase
+    endif
     
     ptr_free, _data
     return, der
@@ -1422,6 +1430,7 @@ end
 function MrSim2_Data::Tensor_Divergence, tensor, $
 VECTOR=vec, $
 X=x, $
+Y=y, $
 Z=z
     compile_opt strictarr
     
@@ -1439,7 +1448,7 @@ Z=z
     y   = keyword_set(y)
     z   = keyword_set(z)
     if x + z eq 0 then vec = 1
-    
+
     ;Was a name or data given?
     if MrIsA(tensor, 'STRING') $
         then T = ptr_new(self -> GetData(tensor)) $
@@ -2009,6 +2018,112 @@ end
 
 
 ;+
+;   Take the dot product of two quantities.
+;
+; :Params:
+;       V1:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be dotted into `V2`.
+;       V2:             in, required, type=NxMx3 float or string
+;                       A vectory quantity or the name of the vectory quantity to
+;                           be dotted with `V1`.
+;
+; :Keywords:
+;       X:              in, optional, type=boolean, default=0
+;                       If set, only the x-components will be used.
+;       Y:              in, optional, type=boolean, default=0
+;                       If set, only the y-components will be used.
+;       Z:              in, optional, type=boolean, default=0
+;                       If set, only the z-components will be used.
+;
+; :Returns:
+;       V1DOTV2:        Dot product of `V1` and `V2`.
+;-
+function MrSim2_Data::Vector_Gradient, vec, $
+TXX=Txx, $
+TXY=Txy, $
+TXZ=Txz, $
+TYX=Tyx, $
+TYY=Tyy, $
+TYZ=Tyz, $
+TZX=Tzx, $
+TZY=Tzy, $
+TZZ=Tzz
+    compile_opt strictarr
+    
+    ;Error handling
+    catch, the_error
+    if the_error ne 0 then begin
+        catch, /cancel
+        if ptr_valid(_V) then ptr_free, _V
+        void = cgErrorMSG()
+        return, !Null
+    endif
+    
+    ;Defaults
+    Txx = keyword_set(Txx)
+    Txy = keyword_set(Txy)
+    Txz = keyword_set(Txz)
+    Tyx = keyword_set(Tyx)
+    Tyy = keyword_set(Tyy)
+    Tyz = keyword_set(Tyz)
+    Tzx = keyword_set(Tzx)
+    Tzy = keyword_set(Tzy)
+    Tzz = keyword_set(Tzz)
+    
+    ;Was a name or data given?
+    if MrIsA(v1, 'STRING') $
+        then _V = ptr_new(self -> GetData(vec)) $
+        else _V = ptr_new(vec)
+    
+    ;
+    ;Compute the outer product
+    ;           | d/dx vx    d/dx vy    d/dx vz |
+    ;  grad V = | d/dy vx    d/dy vy    d/dy vz | = T
+    ;           | d/dz vx    d/dz vy    d/dz vz |
+    ;
+    ;This is an asymmetric matrix
+    ;   - T[*,*,0] = Txx
+    ;   - T[*,*,1] = Txy
+    ;   - T[*,*,2] = Txz
+    ;   - T[*,*,3] = Tyx
+    ;   - T[*,*,4] = Tyy
+    ;   - T[*,*,5] = Tyz
+    ;   - T[*,*,6] = Tzx
+    ;   - T[*,*,7] = Tzy
+    ;   - T[*,*,8] = Tzz
+    ;
+    T = fltarr( [size(*_V), 9] )
+    T[*,*,0] = self -> Scalar_Derivative((*_V)[*,*,0], /D_DX)
+    T[*,*,1] = self -> Scalar_Derivative((*_V)[*,*,1], /D_DX)
+    T[*,*,2] = self -> Scalar_Derivative((*_V)[*,*,2], /D_DX)
+    T[*,*,3] = self -> Scalar_Derivative((*_V)[*,*,0], /D_DY)
+    T[*,*,4] = self -> Scalar_Derivative((*_V)[*,*,1], /D_DY)
+    T[*,*,5] = self -> Scalar_Derivative((*_V)[*,*,2], /D_DY)
+    T[*,*,6] = self -> Scalar_Derivative((*_V)[*,*,0], /D_DZ)
+    T[*,*,7] = self -> Scalar_Derivative((*_V)[*,*,1], /D_DZ)
+    T[*,*,8] = self -> Scalar_Derivative((*_V)[*,*,2], /D_DZ)
+        
+    ;Free the pointers
+    ptr_free, _V
+    
+    ;Return the proper term
+    case 1 of
+        Txx:  return, T[*,*,0]
+        Txy:  return, T[*,*,1]
+        Txz:  return, T[*,*,2]
+        Tyx:  return, T[*,*,3]
+        Tyy:  return, T[*,*,4]
+        Tyz:  return, T[*,*,5]
+        Tzx:  return, T[*,*,6]
+        Tzy:  return, T[*,*,7]
+        Tzz:  return, T[*,*,8]
+        else: return, T
+    endcase
+end
+
+
+;+
 ;   Compute the magnitude of a vector.
 ;
 ;   Calling Sequence:
@@ -2090,6 +2205,7 @@ function MrSim2_Data::Vector_OuterProduct, v1, v2
     dims = size(*_v1, /DIMENSIONS)
     outerProduct = fltarr( [dims[0:1], 6] )
     
+    ;
     ;Compute the outer product
     ;              | v1x * v2x    v1y * v2x    v1z * v2x |
     ;  v1 (X) v2 = | v1x * v2y    v1y * v2y    v1z * v2y | = T
@@ -3226,6 +3342,117 @@ Z=z
     perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
     
     ;Get electron velocity and total current information
+    ve_ve = self -> Vector_OuterProduct('Ue', 'Ue')
+    EIe   = self -> Tensor_Divergence(ve_ve)
+    
+    ;Return
+    ;   - VECTOR must come before [XYZ].
+    case 1 of
+        magnitude: return, self -> Vector_Magnitude(    EIe)
+        tf_cross:  return, self -> Vector_CrossProduct( EIe, crossName, X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_dot:    return, self -> Vector_DotProduct(   EIe, dotName,   X=x, Y=y, Z=z, MAGNITUDE=magitude)
+        tf_par:    return, self -> Vector_Parallel(     EIe, parName,   X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        tf_perp:   return, self -> Vector_Perpendicular(EIe, perpName,  X=x, Y=y, Z=z, MAGNITUDE=magnitude)
+        vec:       return, EIe
+        x:         return, EIe[*,*,0]
+        y:         return, EIe[*,*,1]
+        z:         return, EIe[*,*,2]
+        else:      ;Not possible
+    endcase
+end
+
+
+;+
+;   Compute the spacial gradient of the inertial term in Generalized Ohm's law assuming
+;   that electons make up the current density. In this case, cJV = cVJ = -cJJ, and two
+;   of the three contributing terms cancel, leaving
+;
+;      E_{inert,e} = \frac{m_{e}} {e} \nabla \cdot \vec{v_{e}} \vec{v_{e}}
+;
+; :Private:
+;
+; :Keywords;
+;       CROSS:              in, optional, type=boolean/string, default=0/''
+;                           If set, the cross product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the cross product with the quantity specified will
+;                               be returned.
+;       DOT:                in, optional, type=boolean/string, default=0/''
+;                           If set, the dot product with B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the dot product with the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the magnitude of E will be returned.
+;       PARALLEL:           in, optional, type=boolean/string, default=0/''
+;                           If set, the component parallel to B (magnetic field) will be
+;                               returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component parallel to the quantity specified will
+;                               be returned.
+;       MAGNITUDE:          in, optional, type=boolean, default=0
+;                           If set, the component perpendicular to B (magnetic field) will
+;                               be returned. If a string is given, it must be the name of
+;                               a vector quantity ('B' for the magnetic field), in which
+;                               case the component perpendicular to the quantity specified
+;                               will be returned.
+;       VECTOR:             in, optional, type=boolean, default=0
+;                           If set, all three components of the electric field will be
+;                               returned in an NxMx3-dimensional array. If no other
+;                               keywords are set, this is the default.
+;       X:                  in, optional, type=boolean, default=0
+;                           If set, the X-component of the electric field is returned.
+;       Y:                  in, optional, type=boolean, default=0
+;                           If set, the Y-component of the electric field is returned.
+;       Z:                  in, optional, type=boolean, default=0
+;                           If set, the Z-component of the electric field is returned.
+;
+; :Returns:
+;       DATA:               Electric field data.
+;-
+function MrSim2_Data::EIe_UeDotGradUe, $
+CROSS=cross, $
+DOT=dot, $
+MAGNITUDE=magnitude, $
+PARALLEL=parallel, $
+PERPENDICULAR=perpendicular, $
+VECTOR=vec, $
+X=x, $
+Y=y, $
+Z=z
+    compile_opt strictarr, hidden
+    on_error, 2
+    
+    ;Defaults
+    tf_cross  = keyword_set(cross)
+    tf_dot    = keyword_set(dot)
+    magnitude = keyword_set(magnitude)
+    tf_par    = keyword_set(parallel)
+    tf_perp   = keyword_set(perpendicular)
+    vec       = keyword_set(vec)
+    x         = keyword_set(x)
+    y         = keyword_set(y)
+    z         = keyword_set(z)
+    
+    ;If nothing was chosen, return the vector.
+    vec = vec || (x + y + z + tf_cross + tf_dot + tf_par + tf_perp + magnitude) eq 0
+    if vec then begin
+        x = 1
+        y = 1
+        z = 1
+    endif
+
+    ;Parallel & perpendicular to what?
+    dotName   = MrIsA(dot,           'STRING') ? dot           : 'B'
+    crossName = MrIsA(cross,         'STRING') ? cross         : 'B'
+    parName   = MrIsA(parallel,      'STRING') ? parellel      : 'B'
+    perpName  = MrIsA(perpendicular, 'STRING') ? perpendicular : 'B'
+    
+    ;Get electron velocity and total current information
+    Ue     = self -> getData('Ue')
+    gradUe = self -> Scalar_Derivative('Ue')
     ve_ve = self -> Vector_OuterProduct('Ue', 'Ue')
     EIe   = self -> Tensor_Divergence(ve_ve)
     
