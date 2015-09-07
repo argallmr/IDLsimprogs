@@ -201,6 +201,7 @@ MVA_OUT=mva_out
     
     ;Combine the results
     new_name = pre + post
+    if n_elements(new_name) eq 1 then new_name = new_name[0]
     return, new_name
 end
 

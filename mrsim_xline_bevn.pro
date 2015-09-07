@@ -71,10 +71,10 @@
 ;
 ; :History:
 ;    Modification History::
-;       2015/03/20  -   Written by Matthew Argall
-;       2015/04/03  -   Fixed plot labels. - MRA
+;       2015/05/25  -   Written by Matthew Argall
 ;-
-function MrSim_ProxX, theSim, time, $
+function MrSim_XLine_BEVn, theSim, time, $
+HORIZONTAL=horizontal, $
 SIM_OBJECT=oSim, $
 _REF_EXTRA=extra
 	compile_opt idl2
@@ -92,6 +92,7 @@ _REF_EXTRA=extra
 ;-------------------------------------------------------
 ; Check Simulation /////////////////////////////////////
 ;-------------------------------------------------------
+	horizontal   = keyword_set(horizontal)
 	osim_created = 0B
 
 	;Simulation name or number?
@@ -120,49 +121,46 @@ _REF_EXTRA=extra
 	if n_elements(time) eq 0 then time = oSim.TIME
 	
 	;Create a window
-	win = MrWindow(XSIZE=700, OXMARGIN=[33,15], REFRESH=0)
+	win = MrWindow(LAYOUT=[2,1], XGAP=25, XSIZE=900, YSIZE=250, OXMARGIN=[10,15], REFRESH=0)
 
-	;Find the X-Point & Reconnection Rate
+	;Find the X-Point
 	xpt  = MrSim_XPoint(oSim)
-	rate = MrSim_ReconRate(oSim)
 
 ;-------------------------------------------------------
-; Plot the Reconnection Rate \\\\\\\\\\\\\\\\\\\\\\\\\\\
+; 2D Image of Jey with X-Point Marked \\\\\\\\\\\\\\\\\\
 ;-------------------------------------------------------
-	;Convert time to t*wci^-2.
-	ti   = lindgen(oSim.nTimes)
-	twci = oSim -> tIndex2txwci(ti)
-	
-	;Plot the reconnection rate
-	gPlot = MrPlot(twci, rate, /CURRENT, $
-	               TITLE  = 'Reconnection Rate', $
-	               XTITLE = 't$\Omega$$\downci$$\up-1$', $
-	               YTITLE = 'R')
-	
-	;Determine the current time
-	t = oSim -> tIndex2txwci(time)
+	;Color image of Jey in a new window
+	!Null = MrSim_ColorSlab(oSim, 'Jey', /CURRENT, C_NAME='Ay')
 
-	;Draw a line through the current time
-	!Null = MrPlotS([t, t], [min(rate, MAX=rMax), rMax], $
-	                COLOR     = 'Forest Green', $
-	                LINESTYLE = 'Dash', $
-	                NAME      = 'R Time', $
-	                TARGET    = gPlot)
+	;Update asthetics
+	win['Ay Contours']   -> SetProperty, C_THICK=1.0, C_COLOR='Grey'
+	win['CB: Color Jey'] -> SetProperty, WIDTH=0.5, XTICKS=2, XTICKFORMAT='(f0.2)'
+	
+	;Change title location?
+	if oSim.coord_sys eq 'MAGNETOPAUSE' then begin
+		title                 = win['Color Jey'].TITLE
+		win['Color Jey']     -> SetProperty, TITLE=''
+		win['CB: Color Jey'] -> SetProperty, TITLE=title
+	endif
 
 ;-------------------------------------------------------
 ; Plot 1D Cuts of BL, ni, and EN through X-Point \\\\\\\
 ;-------------------------------------------------------
+	coord = horizontal ? xpt[1] : xpt[0]
+
 	;Plot cuts of BL, n, and EN through the X-line
-	lc1 = MrSim_LineCut(oSim, 'BL', xpt[1], /CURRENT, /HORIZONTAL)
+	lc1 = MrSim_LineCut(oSim, 'BL', coord, /CURRENT, HORIZONTAL=horizontal)
 	pos = lc1.position
-	lc2 = MrSim_LineCut(oSim, 'ni', xpt[1], /CURRENT, /HORIZONTAL)
-	lc3 = MrSim_LineCut(oSim, 'EN', xpt[1], /CURRENT, /HORIZONTAL)
-	lc4 = MrSim_LineCut(oSim, 'UiL', xpt[1], /CURRENT, /HORIZONTAL)
+	lc2 = MrSim_LineCut(oSim, 'ni',  coord, /CURRENT, HORIZONTAL=horizontal)
+	lc3 = MrSim_LineCut(oSim, 'EN',  coord, /CURRENT, HORIZONTAL=horizontal)
+	lc4 = MrSim_LineCut(oSim, 'UiL', coord, /CURRENT, HORIZONTAL=horizontal)
 	
 	;Move ni and Ex plots onto Bz to create independent data spaces for them
 	lc2 -> SetProperty, COLOR='Blue', POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
 	lc3 -> SetProperty, COLOR='Red',  POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
 	lc4 -> SetProperty, COLOR='Forest Green', POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
+	
+	;Remove extra space created by moving graphics
 	win -> TrimLayout
 	
 	;Reorder to put UiL being and BL in front
@@ -170,8 +168,9 @@ _REF_EXTRA=extra
 	lc4 -> Order, /SEND_TO_BACK
 	
 	;Create axes for ni and Ex
-	ax1 = MrAxis('Y', NAME='ni', TARGET=lC2, LOCATION='Right', COLOR='Blue', TICKDIR=1, TITLE='n$\downi$')
-	ax2 = MrAxis('Y', NAME='EN', TARGET=lC3, LOCATION='Right', COLOR='Red',  TICKDIR=1, TITLE='E$\downN$', OFFSET=7)
+	ax1 = MrAxis('Y', NAME='ni',  TARGET=lc2, LOCATION='Right', COLOR='Blue', TICKDIR=1, TITLE='n$\downi$')
+	ax2 = MrAxis('Y', NAME='EN',  TARGET=lc3, LOCATION='Right', COLOR='Red',  TICKDIR=1, TITLE='E$\downN$', OFFSET=7)
+	ax3 = MrAxis('Y', NAME='UiL', TARGET=lc4, LOCATION='Left',  COLOR='Forest Green',  TICKDIR=0, TITLE='U$\downiL$', OFFSET=7.5)
 	
 	;Find where Bz = 0
 	lc1   -> GetData, x, Bz
@@ -197,36 +196,6 @@ _REF_EXTRA=extra
 	                LINESTYLE = 'Dash', $
 	                NAME      = 'EN=0 Horiz', $
 	                TARGET    = lc3)
-
-;-------------------------------------------------------
-; 2D Image of Jey with X-Point Marked \\\\\\\\\\\\\\\\\\
-;-------------------------------------------------------
-	;Color image of Jey in a new window
-	win2 = MrSim_ColorSlab(oSim, 'Jey', C_NAME='Ay')
-	win2 -> Refresh, /DISABLE
-
-	;Put an X at the x-point
-	img  = win2['Color Jey']
-	gXpt = MrPlotS(xpt[0], xpt[1], $
-	               LINESTYLE = 'None', $
-	               NAME      = 'X-Point', $
-	               PSYM      = 7, $
-	               SYMCOLOR  = 'Purple', $
-	               SYMSIZE   = 2, $
-	               TARGET    = img, $
-	               THICK     = 2)
-	
-	;Update asthetics
-	title = img.TITLE
-	img                   -> SetProperty, POSITION=[0.1, 0.2, 0.3, 0.77], TITLE=''
-	win2['Ay Contours']   -> SetProperty, C_THICK=1.0, C_COLOR='Grey'
-	win2['CB: Color Jey'] -> SetProperty, CBLOCATION='TOP', TITLE=title, WIDTH=0.5, XTICKS=2, $
-	                                      XTICKFORMAT='(f0.2)'
-	
-	;Put the contents of the ColorSlab window into the LineCut window.
-	allGfx = win2 -> Get(/ALL)
-	foreach gfx, allGfx do gfx -> SwitchWindows, win
-	obj_destroy, win2
 
 ;-------------------------------------------------------
 ; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

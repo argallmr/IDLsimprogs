@@ -1336,10 +1336,6 @@ D_DZ=d_dz
                     dim2 eq 'Z' ? 2 : 0
     endelse
     
-    ;If this is a 2D simulation, d/dy = 0
-    if self.dimension eq '2D'
-        
-    
     ;Allocate memory and take centered difference
     ;  - D/DY in 2D simulations is zero.
     ;  - !!! THIS DEPENDS ON A PROPERTY OF THE SUBCLASS MRSIM2__DEFINE !!!

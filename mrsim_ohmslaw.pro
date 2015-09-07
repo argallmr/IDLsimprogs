@@ -160,21 +160,21 @@ IONS = ions
             VxB   = MrSim_LineCut(oSim, 'VxB_x',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
             JxB   = MrSim_LineCut(oSim, 'JxB_x/ne',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
             divPe = MrSim_LineCut(oSim, 'divPe_x/ne', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
-            Ei    = MrSim_LineCut(oSim, 'Eie_x',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
+;            Ei    = MrSim_LineCut(oSim, 'Eie_x',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
         endcase
         'Y': begin
             E     = MrSim_LineCut(oSim, 'Ey',         cut, /CURRENT, HORIZONTAL=horizontal)
             VxB   = MrSim_LineCut(oSim, 'VxB_y',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
             JxB   = MrSim_LineCut(oSim, 'JxB_y/ne',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
             divPe = MrSim_LineCut(oSim, 'divPe_y/ne', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
-            Ei    = MrSim_LineCut(oSim, 'Eie_y',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
+;            Ei    = MrSim_LineCut(oSim, 'Eie_y',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
         endcase
         'Z': begin
             E     = MrSim_LineCut(oSim, 'Ez',         cut, /CURRENT,   HORIZONTAL=horizontal)
             VxB   = MrSim_LineCut(oSim, 'VxB_z',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Blue')
             JxB   = MrSim_LineCut(oSim, 'JxB_z/ne',   cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Forest Green')
             divPe = MrSim_LineCut(oSim, 'divPe_z/ne', cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Red')
-            Ei    = MrSim_LineCut(oSim, 'Eie_z',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
+;            Ei    = MrSim_LineCut(oSim, 'Eie_z',      cut, OVERPLOT=E, HORIZONTAL=horizontal, COLOR='Purple')
         endcase
         else: message, 'Component "' + component + '" not rectognized. Choose from {"X" | "Y" | "Z"}'
     endcase
@@ -197,14 +197,14 @@ IONS = ions
     VxB.name   = 'Total (VxB)'   + component
     JxB.name   = 'Total (JxB)'   + component
     divPe.name = 'Total div(Pe)' + component
-    Ei.name    = 'Total Eie'     + component
+;    Ei.name    = 'Total Eie'     + component
     
     ;Set the range
     E     -> GetData, pos, E_data
     VxB   -> GetData, VxB_data
     JxB   -> GetData, JxB_data
     divPe -> GetData, divPe_data
-    Ei    -> GetData, Ei_data
+;    Ei    -> GetData, Ei_data
     
     ;Change signs
     ;   - E = -VxB              --> Negate
@@ -216,7 +216,7 @@ IONS = ions
     divPe -> SetData, divPe_data
     
     ;Create a plot that is the sum of all non-inertial and non-resistive terms
-    Etot_data  = VxB_data + JxB_data + divPe_data + Ei_data
+    Etot_data  = VxB_data + JxB_data + divPe_data; + Ei_data
     Etot       = MrPlot(pos, Etot_data, OVERPLOT=E, COLOR='Magenta', YRANGE=[min(Etot_data, MAX=yMax), yMax])
     
     ;Change the ranges
@@ -224,15 +224,17 @@ IONS = ions
     divPe.yrange = -divPe.yrange
     
     ;Find the min and max
-    yrange = [min([E.yrange, VxB.yrange, JxB.yrange, divPe.yrange, Ei.yrange, Etot.yrange], MAX=yMax), yMax]
+;    yrange = [min([E.yrange, VxB.yrange, JxB.yrange, divPe.yrange, Ei.yrange, Etot.yrange], MAX=yMax), yMax]
+    yrange = [min([E.yrange, VxB.yrange, JxB.yrange, divPe.yrange, Etot.yrange], MAX=yMax), yMax]
     E.YRANGE = yrange
     
     legend_titles = ['E'                  + '$\down' + _comp + '$', $
                      'E$\downC$=-(VxB)'   + '$\down' + _comp + '$', $
                      'E$\downH$=(JxB)'    + '$\down' + _comp + '$', $
                      'E$\downP$=-(divPe)' + '$\down' + _comp + '$', $
-                     'E$\downI$=m$\downe$/e[div(v$\downe$v$\downe$)]' + '$\down' + _comp + '$', $
-                     "E'$\down"+_comp+"$=E$\downC$+E$\downH$+E$\downP$+E$\downI$"]
+                     "E'$\down"+_comp+"$=E$\downC$+E$\downH$+E$\downP$"]
+;                     'E$\downI$=m$\downe$/e[div(v$\downe$v$\downe$)]' + '$\down' + _comp + '$', $
+;                     "E'$\down"+_comp+"$=E$\downC$+E$\downH$+E$\downP$+E$\downI$"]
     legend_titles[2:3] += '/en'
     
     ;Create a legend
@@ -243,7 +245,8 @@ IONS = ions
                          POSITION         = [1,1], $
                          SAMPLE_WIDTH     = 0, $
                          TARGET           = E, $
-                         TEXT_COLOR       = ['Black', 'Blue', 'Forest Green', 'Red', 'Purple', 'Magenta'], $
+;                         TEXT_COLOR       = ['Black', 'Blue', 'Forest Green', 'Red', 'Purple', 'Magenta'], $
+                         TEXT_COLOR       = ['Black', 'Blue', 'Forest Green', 'Red', 'Magenta'], $
                          VERTICAL_SPACING = 1.25)
 end
 
@@ -1114,13 +1117,13 @@ _REF_EXTRA = extra
         divPe    = 1
         JxB      = 1
         VxB      = 1
-        inertial = 1
+;        inertial = 1
     endif
     
     ;Buffer the output?
     if current eq 0 then $
         if ofilename eq '' then buffer = 0 else buffer = 1
-    
+        
 ;-------------------------------------------------------
 ; Prepare to Plot //////////////////////////////////////
 ;-------------------------------------------------------

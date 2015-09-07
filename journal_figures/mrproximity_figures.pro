@@ -25,7 +25,8 @@
 ;-
 ;*****************************************************************************************
 ;+
-;   Create Figure 1: X-Line proximity for Asymm-Scan/By0, Asymm-Scan/By1, and Asymm-3D.
+;   Asymm-Scan/By0 and Asymm-Scan/By1, Asymm-3D.
+;       - Proximity to the X-line
 ;-
 function MrProxFigs_Figure1, $
 FNAMES=fnames
@@ -248,7 +249,8 @@ end
 
 
 ;+
-;   Create Figure 2: eMap for Asymm-Scan/By0 and Asymm-Scan/By1.
+;   Asymm-Scan/By0 and Asymm-Scan/By1.
+;       - eMaps at points along cuts that show proximity to the X-line
 ;-
 function MrProxFigs_Figure2, $
 FNAMES=fnames
@@ -753,6 +755,498 @@ end
 
 
 ;+
+;   Asymm-Scan/By0 and Asymm-Scan/By1, Asymm-3D.
+;       - Proximity to the X-line
+;-
+function MrProxFigs_XLineProxBy0, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win) then obj_destroy, win
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+;-----------------------------------------------------
+; Asymm-Scan/By0 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By0'
+	cuts      = [36.77, 34.9, 33.0]
+	tIndex    = 28
+	xrange    = [2,-2]
+	zrange    = 36.77 + [-5, 5]
+	coord_sys = 'Magnetopause'
+	ion_scale = 1
+	mva_frame = 1
+	im_name   = 'Jey'
+	c_name    = 'Ay'
+
+	win = MrSim_XProximity(theSim, cuts, tIndex, $
+	                       C_NAME     = c_name, $
+	                       COORD_SYS  = coord_sys, $
+	                       IM_NAME    = im_name, $
+	                       ION_SCALE  = ion_scale, $
+	                       MVA_FRAME  = mva_frame, $
+	                       XRANGE     = xrange, $
+	                       ZRANGE     = zrange)
+	
+	
+	fnames = 'proxfigs_by0-mrx'
+	return, win
+end
+
+
+;+
+;   Plots of By0, By0.1, By1
+;       - Jey on left
+;       - BL overplotted with EN, ni, UiL on right
+;       - Each 1D plot has its own axis
+;-
+function MrProxFigs_XLine_BEVn, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win)      then obj_destroy, win
+		if obj_valid(win_temp) then obj_destroy, win_temp
+		if obj_valid(oSim)     then obj_destroy, oSim
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+;-----------------------------------------------------
+; Asymm-Scan/By0, t=30 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By0'
+	time      = 28
+	xrange    = 36.77 + [-5, 5]
+	zrange    = [-1,2]
+	coord_sys = 'Simulation'
+	ion_scale = 1
+	mva_frame = 1
+	oSim      = MrSim_Create(theSim, time, $
+	                         COORD_SYSTEM = coord_sys, $
+	                         MVA_FRAME    = mva_frame, $
+	                         ION_SCALE    = ion_scale, $
+	                         XRANGE       = xrange, $
+	                         ZRANGE       = zrange)
+	
+	;Create the figure
+	win = MrSim_XLine_BEVn(oSim)
+	win -> Refresh, /DISABLE
+	win.ysize = 600
+	win.ygap = 4
+	
+	;Change the title
+	title = win['Color Jey'].title
+	win['Color Jey'].title = 'B$\downG$=0 ' + title
+	
+	;Rename all of the graphics
+	graphics = win -> Get(/ALL)
+	foreach gfx, graphics do begin
+		name = gfx.name
+		gfx.name = 'By0 ' + name
+	endforeach
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Asymm-Scan/By0.1, t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By0.1'
+	time      = 28
+	xrange    = 40.5 + [-2.0, 2.0]
+	zrange    = [-1,2]
+	coord_sys = 'Simulation'
+	ion_scale = 1
+	mva_frame = 1
+	oSim      = MrSim_Create(theSim, time, $
+	                         COORD_SYSTEM = coord_sys, $
+	                         MVA_FRAME    = mva_frame, $
+	                         ION_SCALE    = ion_scale, $
+	                         XRANGE       = xrange, $
+	                         ZRANGE       = zrange)
+	
+	;Create the figure
+	win_temp = MrSim_XLine_BEVn(oSim)
+	win_temp -> Refresh, /DISABLE
+	
+	;Change the title
+	title = win_temp['Color Jey'].title
+	win_temp['Color Jey'].title = 'B$\downG$=0.1 ' + title
+	
+	;Move into row 2
+	win_temp['Color Jey'] -> SetLayout, [1,2]
+	win_temp['Cut BL']    -> SetLayout, [2,2]
+
+	;Rename and move all graphics
+	graphics = win_temp -> Get(/ALL)
+	foreach gfx, graphics do begin
+		;Rename
+		name = gfx.name
+		gfx.name = 'By0.1 ' + name
+		
+		;Move
+		gfx -> SwitchWindows, win
+	endforeach
+
+	;Destroy the old window
+	obj_destroy, win_temp
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Asymm-Scan/By1, t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By1'
+	time      = 28
+	xrange    = 42.9 + [-2, 2]
+	zrange    = [-1,2]
+	coord_sys = 'Simulation'
+	ion_scale = 1
+	mva_frame = 1
+	oSim      = MrSim_Create(theSim, time, $
+	                         COORD_SYSTEM = coord_sys, $
+	                         MVA_FRAME    = mva_frame, $
+	                         ION_SCALE    = ion_scale, $
+	                         XRANGE       = xrange, $
+	                         ZRANGE       = zrange)
+	
+	;Create the figure
+	win_temp = MrSim_XLine_BEVn(oSim)
+	win_temp -> Refresh, /DISABLE
+	
+	;Change the title
+	title = win_temp['Color Jey'].title
+	win_temp['Color Jey'].title = 'B$\downG$=1 ' + title
+	
+	;Move into row 3
+	win_temp['Color Jey'] -> SetLayout, [1,3]
+	win_temp['Cut BL']    -> SetLayout, [2,3]
+	
+	;Rename and move all graphics
+	graphics = win_temp -> Get(/ALL)
+	foreach gfx, graphics do begin
+		;Rename
+		name = gfx.name
+		gfx.name = 'By1 ' + name
+		
+		;Move
+		gfx -> SwitchWindows, win
+	endforeach
+	
+	;Destroy the old window
+	obj_destroy, win_temp
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Make Pretty \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	win -> Refresh
+	win.ygap = 5
+	win -> Refresh, /DISABLE
+	
+	sims = ['By0', 'By0.1', 'By1']
+	for i = 0, 2 do begin
+		pos = win[sims[i] + ' Cut BL'].POSITION
+		win[sims[i] + ' Cut ni'].POSITION=pos
+		win[sims[i] + ' Cut UiL'].POSITION=pos
+		win[sims[i] + ' Cut EN'].POSITION=pos
+	endfor
+
+	;Make the sun at the right
+	;   - Negate independent data to make earth in -N direction
+	;   - Reverse x-range for +N (sun) to the right and -N (earth) to left
+	;   - Negate N- and M-components
+	graphics = win -> Get(/ALL, ISA='MrPlot')
+	foreach gfx, graphics do begin
+		gfx -> GetData,  x, y
+		
+		;Negate N- & M-components
+		;   - UiL will have units of 1e-3 (update MrAxis)
+		;   - EN will have XTICKFORMAT='(f0.2)' (update MrAxis)
+		if stregex(gfx.NAME, 'EN', /BOOLEAN) then begin
+			gfx -> SetData, -x, -y
+			gfx.yrange = -reverse(gfx.yrange)
+		endif else if stregex(gfx.NAME, 'UiL', /BOOLEAN) then begin
+			gfx -> SetData, -x, y*1e3
+			gfx.yrange = gfx.yrange * 1e3
+		endif else begin
+			gfx -> SetData, -x,  y
+		endelse
+		
+		gfx.XRANGE = -zrange
+	endforeach
+	
+	;The images are of J_eM, so must be negated
+	;   - Instead of multiplying the image by -1, we multiply the colorbar
+	;     range by -1. That way the colors in the colorbar
+	;     do not have to be reversed, just the axis range, to acheive the
+	;     correct color scheme
+	graphics = win -> Get(/ALL, ISA='MrImage')
+	foreach gfx, graphics do begin
+		gfx -> GetData, im, x,  y
+		gfx -> SetData, im, x, -y
+		
+		gfx -> GetProperty, RANGE=range
+		gfx -> SetProperty, YRANGE = [-1, 1];, RANGE=-reverse(range)
+	endforeach
+	
+	;Contours are of A_M and must be negated
+	graphics = win -> Get(/ALL, ISA='MrContour')
+	foreach gfx, graphics do begin
+		;Get Data
+		gfx  -> GetData,  z, x,  y
+		name  = gfx.NAME
+		gfx -> SetData, -z, x, -y
+		
+		;Set contour levels and ranges
+		gfx -> GetProperty, LEVELS=levels, YRANGE=yrange, RANGE=range
+		gfx -> SetProperty, LEVELS=-reverse(levels), YRANGE=[-1,1], RANGE=-reverse(range)
+	endforeach
+	
+	;Colorbars
+	graphics = win -> Get(/ALL, ISA='weColorbar')
+	foreach gfx, graphics do begin
+		gfx.range = -reverse(gfx.range)
+	endforeach
+	
+	;Lines
+	graphics = win -> Get(/ALL, ISA='MrPlotS')
+	foreach gfx, graphics do begin
+		gfx -> GetProperty, XCOORDS=x
+		gfx -> SetProperty, XCOORDS=-reverse(x)
+	endforeach
+
+	;Axes
+	graphics = win -> Get(/ALL, ISA='MrAxis')
+	foreach gfx, graphics do begin
+		if stregex(gfx.name, 'EN', /BOOLEAN) then begin
+			gfx.TICKFORMAT = '(f0.2)'
+		endif else if stregex(gfx.name, 'UiL', /BOOLEAN) then begin
+			gfx.title = 'U$\downiL$ (x10$\up-3$)'
+		endif
+	endforeach
+;-----------------------------------------------------
+; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	
+	fnames = 'proxfigs_bevn'
+	
+	;Return the window
+	win -> Refresh
+	return, win
+end
+
+
+;+
+;   Plots of By0, By0.1, By1
+;       - EN overplotted with contributing Hall terms.
+;-
+function MrProxFigs_ETot_Terms, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if n_elements(win1) gt 0 then obj_destroy, win1
+		if n_elements(win2) gt 0 then obj_destroy, win2
+		if n_elements(win3) gt 0 then obj_destroy, win3
+		if obj_valid(win)        then obj_destroy, win
+		if obj_valid(oSim)       then obj_destroy, oSim
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+;-----------------------------------------------------
+; Asymm-Scan/By0, t=30 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By0'
+	time      = 28
+	xrange    = 36.77 + [-5, 5]
+	zrange    = [-1,2]
+	coord_sys = 'Simulation'
+	ion_scale = 1
+	mva_frame = 1
+	oSim      = MrSim_Create(theSim, time, $
+	                         COORD_SYSTEM = coord_sys, $
+	                         MVA_FRAME    = mva_frame, $
+	                         ION_SCALE    = ion_scale, $
+	                         XRANGE       = xrange, $
+	                         ZRANGE       = zrange)
+	
+	;Figure out where the x-point is
+	xpt = MrSim_XPoint(oSim)
+	
+	;Create the figure
+	win = MrSim_OhmsLaw(oSim, 'Z', xpt[0], /TOTAL)
+	win -> Refresh, /DISABLE
+	
+	;Rename all of the graphics
+	graphics = win -> Get(/ALL)
+	foreach gfx, graphics do begin
+		name = gfx.name
+		gfx.name = 'By0 ' + name
+	endforeach
+	
+	;Change title
+	title = win['By0 Total EZ'].TITLE
+	win['By0 Total EZ'].TITLE = 'B$\downG$=0 ' + title
+	
+	;Draw line at X-point
+	gET  = win['By0 Total Ez']
+	line = MrPlotS( [xpt[1], xpt[1]], gET.YRANGE, $
+	                COLOR     = 'Grey', $
+	                LINESTYLE = '--', $
+	                NAME      = 'By0 BL=0', $
+	                TARGET    = gET)
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Asymm-Scan/By0.1, t=28 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By0.1'
+	time      = 28
+	xrange    = 40.5 + [-2.0, 2.0]
+	zrange    = [-1,2]
+	coord_sys = 'Simulation'
+	ion_scale = 1
+	mva_frame = 1
+	oSim      = MrSim_Create(theSim, time, $
+	                         COORD_SYSTEM = coord_sys, $
+	                         MVA_FRAME    = mva_frame, $
+	                         ION_SCALE    = ion_scale, $
+	                         XRANGE       = xrange, $
+	                         ZRANGE       = zrange)
+	
+	;Figure out where the x-point is
+	xpt = MrSim_XPoint(oSim)
+	
+	;Create the figure
+	!Null = MrSim_OhmsLaw(oSim, 'Z', xpt[0], /TOTAL, /CURRENT)
+	
+	;Rename all of the graphics
+	graphics = win -> Get(/ALL)
+	foreach gfx, graphics do begin
+		name = gfx.name
+		if ~stregex(name, '^By', /BOOLEAN) then gfx.name = 'By0.1 ' + name
+	endforeach
+	
+	;Change title
+	title = win['By0.1 Total EZ'].TITLE
+	win['By0.1 Total EZ'].TITLE = 'B$\downG$=0.1 ' + title
+	
+	;Draw line at X-point
+	gET  = win['By0.1 Total Ez']
+	line = MrPlotS( [xpt[1], xpt[1]], gET.YRANGE, $
+	                COLOR     = 'Grey', $
+	                LINESTYLE = '--', $
+	                NAME      = 'By0.1 BL=0', $
+	                TARGET    = gET)
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Asymm-Scan/By1, t=30 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By1'
+	time      = 28
+	xrange    = [42.0, 45.0]
+	zrange    = [-1,2]
+	coord_sys = 'Simulation'
+	ion_scale = 1
+	mva_frame = 1
+	oSim      = MrSim_Create(theSim, time, $
+	                         COORD_SYSTEM = coord_sys, $
+	                         MVA_FRAME    = mva_frame, $
+	                         ION_SCALE    = ion_scale, $
+	                         XRANGE       = xrange, $
+	                         ZRANGE       = zrange)
+	
+	;Figure out where the x-point is
+	xpt = MrSim_XPoint(oSim)
+	
+	;Create the figure
+	!Null = MrSim_OhmsLaw(oSim, 'Z', xpt[0], /TOTAL, /CURRENT)
+	
+	;Rename all of the graphics
+	graphics = win -> Get(/ALL)
+	foreach gfx, graphics do begin
+		name = gfx.name
+		if ~stregex(name, '^By', /BOOLEAN) then gfx.name = 'By1 ' + name
+	endforeach
+	
+	;Change title
+	title = win['By1 Total EZ'].TITLE
+	win['By1 Total EZ'].TITLE = 'B$\downG$=1 ' + title
+	
+	;Draw line at X-point
+	gET  = win['By1 Total Ez']
+	line = MrPlotS( [xpt[1], xpt[1]], gET.YRANGE, $
+	                COLOR     = 'Grey', $
+	                LINESTYLE = '--', $
+	                NAME      = 'By1 BL=0', $
+	                TARGET    = gET)
+	
+	;Destroy the simulation object
+	obj_destroy, oSim
+
+;-----------------------------------------------------
+; Make Pretty \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	;Make spacing larger
+	win -> SetProperty, YGAP=5, OXMARGIN=[10,18]
+	
+	;Remove and move legends
+	win -> Remove, win["By0.1 Ohm's Law"]
+	win -> Remove, win["By1 Ohm's Law"]
+	win["By0 Ohm's Law"] -> SetProperty, ALIGNMENT='NW', LINESTYLE='None', FILL_COLOR=''
+
+	;Make the sun at the right
+	;   - Must negate all N-components to point the correct direction
+	graphics = win -> Get(/ALL, ISA='MrPlot')
+	foreach gfx, graphics do begin
+		gfx -> GetData,  x,  y
+		gfx -> SetData, -x, -y
+		
+		;Reverse x-range for +N (sun) to the right and -N (earth) to left
+		gfx -> GetProperty, XRANGE=xrange, YRANGE=yrange
+		gfx -> SetProperty, XRANGE=-zrange, YRANGE=-reverse(yrange)
+	endforeach
+
+	;Vertical lines
+	graphics = win -> Get(/ALL, ISA='MrPlotS')
+	foreach gfx, graphics do begin
+		gfx -> GetProperty, XCOORDS=xcoords, YCOORDS=ycoords
+		gfx -> SetProperty, XCOORDS=-xcoords, YCOORDS=-reverse(ycoords)
+	endforeach
+
+;-----------------------------------------------------
+; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	win -> SetGlobal, YTITLE='E$\downN$'
+	fnames = 'proxfigs_E-total'
+	
+	;Return the window
+	win -> Refresh
+	return, win
+end
+
+
+;+
 ;   Create Figure 2: eMap for Asymm-Scan/By0 and Asymm-Scan/By1.
 ;-
 function MrProxFigs_XPoint, $
@@ -1239,11 +1733,14 @@ SAVE=tf_save
 	tf_save = keyword_set(tf_save)
 
 	case _figure of
-		'FIGURE 1': win = MrProxFigs_Figure1(FNAMES=fnames)
-		'FIGURE 2': win = MrProxFigs_Figure2(FNAMES=fnames)
-		'OHMSLAW':  win = MrProxFigs_OhmsLaw(FNAMES=fnames)
-		'X-POINT':  win = MrProxFigs_XPoint(FNAMES=fnames)
-		'TPROX':    win = MrProxFigs_TProx(FNAMES=fnames)
+		'FIGURE 1':   win = MrProxFigs_Figure1(FNAMES=fnames)
+		'FIGURE 2':   win = MrProxFigs_Figure2(FNAMES=fnames)
+		'OHMSLAW':    win = MrProxFigs_OhmsLaw(FNAMES=fnames)
+		'XLINE BEVN': win = MrProxFigs_XLine_BEVn(FNAMES=fnames)
+		'BY0-MRX':    win = MrProxFigs_XLineProxBy0(FNAMES=fnames)
+		'ETOTAL':     win = MrProxFigs_ETot_Terms(FNAMES=fnames)
+		'X-POINT':    win = MrProxFigs_XPoint(FNAMES=fnames)
+		'TPROX':      win = MrProxFigs_TProx(FNAMES=fnames)
 		else: message, 'Figure "' + figure + '" not an option.', /INFORMATIONAL
 	endcase
     

@@ -218,7 +218,8 @@ _REF_EXTRA = extra
             endelse
             
             ;Title
-            xtitle = axLabels[0] + ' (' + units + ')'
+            xtitle = horizontal ? axLabels[0] + ' (' + units + ')' : $
+                                  axLabels[1] + ' (' + units + ')'
         endcase
         
         'XZ': begin
@@ -241,7 +242,8 @@ _REF_EXTRA = extra
             endelse
             
             ;Title
-            xtitle = axLabels[0] + ' (' + units + ')'
+            xtitle = horizontal ? axLabels[0] + ' (' + units + ')' : $
+                                  axLabels[2] + ' (' + units + ')'
         endcase
         
         'YZ': begin
@@ -264,7 +266,8 @@ _REF_EXTRA = extra
             endelse
             
             ;Title
-            xtitle = axLabels[1] + ' (' + units + ')'
+            xtitle = horizontal ? axLabels[1] + ' (' + units + ')' : $
+                                  axLabels[2] + ' (' + units + ')'
         endcase
         else: message, 'Cuts not possible in orientation "' + orientation + '".'
     endcase
