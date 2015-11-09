@@ -130,17 +130,17 @@ _REF_EXTRA=extra
 ; 2D Image of Jey with X-Point Marked \\\\\\\\\\\\\\\\\\
 ;-------------------------------------------------------
 	;Color image of Jey in a new window
-	!Null = MrSim_ColorSlab(oSim, 'Jey', /CURRENT, C_NAME='Ay')
+	!Null = MrSim_ColorSlab(oSim, 'JeM', /CURRENT, C_NAME='AM')
 
 	;Update asthetics
-	win['Ay Contours']   -> SetProperty, C_THICK=1.0, C_COLOR='Grey'
-	win['CB: Color Jey'] -> SetProperty, WIDTH=0.5, XTICKS=2, XTICKFORMAT='(f0.2)'
+	win['AM Contours']   -> SetProperty, C_THICK=1.0, C_COLOR='Grey'
+	win['CB: Color JeM'] -> SetProperty, WIDTH=0.5, MAJOR=2, TICKFORMAT='(f0.2)'
 	
 	;Change title location?
 	if oSim.coord_sys eq 'MAGNETOPAUSE' then begin
-		title                 = win['Color Jey'].TITLE
-		win['Color Jey']     -> SetProperty, TITLE=''
-		win['CB: Color Jey'] -> SetProperty, TITLE=title
+		title                 = win['Color JeM'].TITLE
+		win['Color JeM']     -> SetProperty, TITLE=''
+		win['CB: Color JeM'] -> SetProperty, TITLE=title
 	endif
 
 ;-------------------------------------------------------
@@ -156,6 +156,7 @@ _REF_EXTRA=extra
 	lc4 = MrSim_LineCut(oSim, 'UiL', coord, /CURRENT, HORIZONTAL=horizontal)
 	
 	;Move ni and Ex plots onto Bz to create independent data spaces for them
+	lc1 -> SetProperty, YSTYLE=9, XTICKLEN=0.04
 	lc2 -> SetProperty, COLOR='Blue', POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
 	lc3 -> SetProperty, COLOR='Red',  POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
 	lc4 -> SetProperty, COLOR='Forest Green', POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
@@ -196,6 +197,13 @@ _REF_EXTRA=extra
 	                LINESTYLE = 'Dash', $
 	                NAME      = 'EN=0 Horiz', $
 	                TARGET    = lc3)
+	
+	;Vertical line through X-point
+	!Null = MrPlotS([coord,coord], win['Color JeM'].yrange, $
+	                COLOR     = 'White', $
+	                LINESTYLE = 'Dash', $
+	                NAME      = 'XPt', $
+	                TARGET    = win['Color JeM'])
 
 ;-------------------------------------------------------
 ; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

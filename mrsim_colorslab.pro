@@ -309,7 +309,7 @@ _REF_EXTRA = extra
                       YTITLE  = ytitle)
 
     ;Create a color bar
-    colorCB = MrColorbar(TARGET=colorIm, NAME='CB: Color ' + name, TITLE=_name)
+    colorCB = MrColorbar(TARGET=colorIm, NAME='CB: Color ' + name, ORIENTATION=1, TITLE=_name)
 
     ;Bind the colorbar to the image.
     colorWin -> Bind, [colorCB, colorIm], /CAXIS
@@ -321,25 +321,14 @@ _REF_EXTRA = extra
         ;The X-point is a saddle point in Ay
         ;   - Find the minimum along the bottom boundary.
         ;   - Find the maximum along a vertical cut that passes through min point.
-        if strupcase(c_name) eq 'AY' then begin
-            nx = n_elements(x)
-            ny = n_elements(y)
-
-            ;Take the derivative
-            dx = c_data[1:nx-1, *] - c_data[0:nx-2, *]
-            dy = c_data[*, 1:ny-1] - c_data[*, 0:ny-2]
-            
-            ;Find the minimum of Ay along each row
-            ;   - Turn the 1D indices into 2D indices
-            xMin = min(dx, ixMin, DIMENSION=1, /ABSOLUTE)
-            inds = array_indices([nx-1, ny], ixMin, /DIMENSIONS)
-            
-            ;Find the maximum along the path of minimums just found.
-            yMin = min(dy[inds[0,*], inds[1,*]], iyMin, DIMENSION=2, /ABSOLUTE)
-            sepAy  = c_data[inds[0, iyMin], inds[1, iyMin]]
+        if stregex(c_name, 'A(M|Y)', /BOOLEAN, /FOLD_CASE) then begin
+            ;Find the x-point
+            xpt = MrSim_XPoint(oSim)
+            ix  = value_locate(x, xpt[0])
+            iy  = value_locate(y, xpt[1])
 
             ;Create the contour levels
-            levels = [sepAy, cgConLevels(c_data, NLEVELS=nLevels)]
+            levels = [c_data[ix,iy], cgConLevels(c_data, NLEVELS=nLevels)]
             levels = levels[sort(levels)]
         endif else begin
             levels = cgConLevels(c_data, NLEVELS=nLevels)

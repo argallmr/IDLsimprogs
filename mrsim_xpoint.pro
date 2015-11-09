@@ -119,69 +119,68 @@ _REF_EXTRA=extra
 		inds = array_indices(Bz, ixpoint)
 		ix   = inds[0]
 		iz   = inds[1]
-		path = [xSim[ix], zSim[iz]]
+		guess = [xSim[ix], zSim[iz]]
+	endif
 
 ;-------------------------------------------------------
 ; Wander Toward X-Point ////////////////////////////////
 ;-------------------------------------------------------
-	endif else begin
-		;Initial guess
-		ix = value_locate(xSim, guess[0])
-		iz = value_locate(zSim, guess[1])
-		Bmag = sqrt(Bx^2 + Bz^2)
-		Btemp = !values.f_infinity
-	
-		;Loop conditions
-		if n_elements(max_iter) eq 0 then max_iter = 500
-		count     = 0L
-		ixTrans   = -2
-		izTrans   = -2
-		path      = fltarr(2, max_iter)
-		index     = lonarr(2, max_iter)
+	;Initial guess
+	ix = value_locate(xSim, guess[0])
+	iz = value_locate(zSim, guess[1])
+	Bmag = sqrt(Bx^2 + Bz^2)
+	Btemp = !values.f_infinity
 
-		;Walk through the data grid
-		while (count lt max_iter) do begin
-			Btemp = Bmag[ix, iz]
-			dx = 5
-			dz = 10
+	;Loop conditions
+	if n_elements(max_iter) eq 0 then max_iter = 500
+	count     = 0L
+	ixTrans   = -2
+	izTrans   = -2
+	path      = fltarr(2, max_iter)
+	index     = lonarr(2, max_iter)
 
-			;Ascend in x -- Translate in the direction of steepest gradient
-			BxSubArr = Bx[ix-dx:ix+dx, iz-dz:iz+dz]
-			Bxmin    = min(BxSubArr, iNew, /ABSOLUTE)
-			iNew     = array_indices([2*dx+1, 2*dz+1], iNew, /DIMENSIONS)
-			izTrans = iNew[1] - dz
+	;Walk through the data grid
+	while (count lt max_iter) do begin
+		Btemp = Bmag[ix, iz]
+		dx = 5
+		dz = 10
 
-			;Descend in z -- Translate opposite to the steepest gradient
-			BzSubArr = Bz[ix-dx:ix+dx, iz-dz:iz+dz]
-			Bzmin    = min(BzSubArr, iNew, /ABSOLUTE)
-			iNew     = array_indices([2*dx+1, 2*dz+1], iNew, /DIMENSIONS)
-			ixTrans  = iNew[0] - dx
+		;Ascend in x -- Translate in the direction of steepest gradient
+		BxSubArr = Bx[ix-dx:ix+dx, iz-dz:iz+dz]
+		Bxmin    = min(BxSubArr, iNew, /ABSOLUTE)
+		iNew     = array_indices([2*dx+1, 2*dz+1], iNew, /DIMENSIONS)
+		izTrans = iNew[1] - dz
 
-			;New  value of the derivative
-			ix += ixTrans
-			iz += izTrans
-			
-			;If elements repeat, we will trace the same path over and over.
-			;   - This typically happens when we reach the x-point. We step away
-			;     then circle back along the same trajectory.
-			irepeat = where(ix eq index[0, *])
-			if irepeat[0] ne -1 then irepeat = where(iz eq index[1, irepeat])
-			if irepeat[0] ne -1 then begin
+		;Descend in z -- Translate opposite to the steepest gradient
+		BzSubArr = Bz[ix-dx:ix+dx, iz-dz:iz+dz]
+		Bzmin    = min(BzSubArr, iNew, /ABSOLUTE)
+		iNew     = array_indices([2*dx+1, 2*dz+1], iNew, /DIMENSIONS)
+		ixTrans  = iNew[0] - dx
+
+		;New  value of the derivative
+		ix += ixTrans
+		iz += izTrans
+		
+		;If elements repeat, we will trace the same path over and over.
+		;   - This typically happens when we reach the x-point. We step away
+		;     then circle back along the same trajectory.
+		irepeat = where(ix eq index[0, *])
+		if irepeat[0] ne -1 then irepeat = where(iz eq index[1, irepeat])
+		if irepeat[0] ne -1 then begin
 ;				print, 'Repeated elements.'
-				ix -= ixTrans
-				iz -= izTrans
-				break
-			endif
-			
-			;Record the path and indices
-			path[*, count]  = [xSim[ix], zSim[iz]]
-			index[*, count] = [ix, iz]
-			count += 1
-		endwhile
+			ix -= ixTrans
+			iz -= izTrans
+			break
+		endif
+		
+		;Record the path and indices
+		path[*, count]  = [xSim[ix], zSim[iz]]
+		index[*, count] = [ix, iz]
+		count += 1
+	endwhile
 
-		;Trim the path
-		if count lt max_iter then path = path[*, 0:count-1]
-	endelse
+	;Trim the path
+	if count lt max_iter then path = path[*, 0:count-1]
 
 ;-------------------------------------------------------
 ; Plot Meander Toward X-Point //////////////////////////

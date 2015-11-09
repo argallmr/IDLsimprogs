@@ -823,7 +823,7 @@ FNAMES=fnames
 ; Asymm-Scan/By0, t=30 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	theSim    = 'Asymm-Scan/By0'
-	time      = 28
+	time      = 35
 	xrange    = 36.77 + [-5, 5]
 	zrange    = [-1,2]
 	coord_sys = 'Simulation'
@@ -843,8 +843,8 @@ FNAMES=fnames
 	win.ygap = 4
 	
 	;Change the title
-	title = win['Color Jey'].title
-	win['Color Jey'].title = 'B$\downG$=0 ' + title
+	title = win['Color JeM'].title
+	win['Color JeM'].title = 'B$\downG$=0 ' + title
 	
 	;Rename all of the graphics
 	graphics = win -> Get(/ALL)
@@ -878,11 +878,11 @@ FNAMES=fnames
 	win_temp -> Refresh, /DISABLE
 	
 	;Change the title
-	title = win_temp['Color Jey'].title
-	win_temp['Color Jey'].title = 'B$\downG$=0.1 ' + title
+	title = win_temp['Color JeM'].title
+	win_temp['Color JeM'].title = 'B$\downG$=0.1 ' + title
 	
 	;Move into row 2
-	win_temp['Color Jey'] -> SetLayout, [1,2]
+	win_temp['Color JeM'] -> SetLayout, [1,2]
 	win_temp['Cut BL']    -> SetLayout, [2,2]
 
 	;Rename and move all graphics
@@ -924,11 +924,11 @@ FNAMES=fnames
 	win_temp -> Refresh, /DISABLE
 	
 	;Change the title
-	title = win_temp['Color Jey'].title
-	win_temp['Color Jey'].title = 'B$\downG$=1 ' + title
+	title = win_temp['Color JeM'].title
+	win_temp['Color JeM'].title = 'B$\downG$=1 ' + title
 	
 	;Move into row 3
-	win_temp['Color Jey'] -> SetLayout, [1,3]
+	win_temp['Color JeM'] -> SetLayout, [1,3]
 	win_temp['Cut BL']    -> SetLayout, [2,3]
 	
 	;Rename and move all graphics
@@ -949,14 +949,49 @@ FNAMES=fnames
 	obj_destroy, oSim
 
 ;-----------------------------------------------------
-; Make Pretty \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+; Asym-3D, t=120816 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	win_temp = MrProxFigs_3D_BEVn()
+	win_temp -> Refresh, /DISABLE
+	
+	;Move into row 4
+	win_temp['Color JeM'] -> SetLayout, [1,4]
+	win_temp['Cut BL']    -> SetLayout, [2,4]
+	
+	;Rename and move all graphics
+	graphics = win_temp -> Get(/ALL)
+	foreach gfx, graphics do begin
+		;Rename
+		name = gfx.name
+		gfx.name = '3D-By1 ' + name
+		
+		;Move
+		gfx -> SwitchWindows, win
+	endforeach
+	
+	;Destroy the old window
+	obj_destroy, win_temp
+
+;-----------------------------------------------------
+; General Properties \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	win -> SetGlobal, CHARSIZE=2.0, CHARTHICK=2, XTICKLEN=0.04, YTICKLEN=0.04, $
+	                  THICK=2, XTHICK=2, YTHICK=2
+	win -> SetProperty, XSIZE=1000, YSIZE=700
+
 	win -> Refresh
-	win.ygap = 5
+	win.ygap = 3.5
 	win -> Refresh, /DISABLE
 	
-	sims = ['By0', 'By0.1', 'By1']
-	for i = 0, 2 do begin
+	for icol = 1, 2 do begin
+		for irow = 1, 3 do begin
+			gfx = win -> FindByColRow([icol,irow])
+			gfx.xtitle = ''
+		endfor
+	endfor
+	
+	sims = ['By0', 'By0.1', 'By1', '3D-By1']
+	for i = 0, n_elements(sims)-1 do begin
 		pos = win[sims[i] + ' Cut BL'].POSITION
 		win[sims[i] + ' Cut ni'].POSITION=pos
 		win[sims[i] + ' Cut UiL'].POSITION=pos
@@ -976,17 +1011,18 @@ FNAMES=fnames
 		;   - EN will have XTICKFORMAT='(f0.2)' (update MrAxis)
 		if stregex(gfx.NAME, 'EN', /BOOLEAN) then begin
 			gfx -> SetData, -x, -y
-			gfx.yrange = -reverse(gfx.yrange)
+;			gfx.yrange = -reverse(gfx.yrange)
 		endif else if stregex(gfx.NAME, 'UiL', /BOOLEAN) then begin
-			gfx -> SetData, -x, y*1e3
-			gfx.yrange = gfx.yrange * 1e3
+			gfx -> SetData, -x, y*1e2
+;			gfx.yrange = gfx.yrange * 1e3
 		endif else begin
 			gfx -> SetData, -x,  y
 		endelse
 		
-		gfx.XRANGE = -zrange
+		gfx.XRANGE        = -zrange
+		gfx.XTICKINTERVAL = 1.0
 	endforeach
-	
+
 	;The images are of J_eM, so must be negated
 	;   - Instead of multiplying the image by -1, we multiply the colorbar
 	;     range by -1. That way the colors in the colorbar
@@ -996,9 +1032,9 @@ FNAMES=fnames
 	foreach gfx, graphics do begin
 		gfx -> GetData, im, x,  y
 		gfx -> SetData, im, x, -y
-		
+
 		gfx -> GetProperty, RANGE=range
-		gfx -> SetProperty, YRANGE = [-1, 1];, RANGE=-reverse(range)
+		gfx -> SetProperty, YRANGE = [-1, 1], YTICKINTERVAL=1.0;, RANGE=-reverse(range)
 	endforeach
 	
 	;Contours are of A_M and must be negated
@@ -1015,16 +1051,21 @@ FNAMES=fnames
 	endforeach
 	
 	;Colorbars
-	graphics = win -> Get(/ALL, ISA='weColorbar')
+	graphics = win -> Get(/ALL, ISA='MrColorbar')
 	foreach gfx, graphics do begin
+		gfx.title = 'J$\downeM$'
 		gfx.range = -reverse(gfx.range)
 	endforeach
 	
 	;Lines
 	graphics = win -> Get(/ALL, ISA='MrPlotS')
 	foreach gfx, graphics do begin
-		gfx -> GetProperty, XCOORDS=x
-		gfx -> SetProperty, XCOORDS=-reverse(x)
+		if ~stregex(gfx.name, 'XPt', /BOOLEAN) then begin
+			gfx -> GetProperty, XCOORDS=x
+			gfx -> SetProperty, XCOORDS=-reverse(x)
+		endif else begin
+			gfx -> SetProperty, YCOORDS=[-1,1]
+		endelse
 	endforeach
 
 	;Axes
@@ -1032,10 +1073,58 @@ FNAMES=fnames
 	foreach gfx, graphics do begin
 		if stregex(gfx.name, 'EN', /BOOLEAN) then begin
 			gfx.TICKFORMAT = '(f0.2)'
+;			gfx.AXIS_RANGE = -gfx.AXIS_RANGE
 		endif else if stregex(gfx.name, 'UiL', /BOOLEAN) then begin
-			gfx.title = 'U$\downiL$ (x10$\up-3$)'
+			gfx.title = 'U$\downiL$ (x10$\up2$)'
 		endif
 	endforeach
+
+;-----------------------------------------------------
+; Individual Properties \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+
+	;EN
+	win['By0 Cut EN']    -> SetProperty, YRANGE=[-0.02, 0.03]
+	win['By0.1 Cut EN']  -> SetProperty, YRANGE=[-0.02, 0.03]
+	win['By1 Cut EN']    -> SetProperty, YRANGE=[-0.02, 0.03]
+	win['3D-By1 Cut EN'] -> SetProperty, YRANGE=[-0.02, 0.03]
+
+	;EN Axis
+	win['By0 EN']    -> SetProperty, TICKINTERVAL=0.02, TICKLEN=0.04
+	win['By0.1 EN']  -> SetProperty, TICKINTERVAL=0.02, TICKLEN=0.04
+	win['By1 EN']    -> SetProperty, TICKINTERVAL=0.02, TICKLEN=0.04
+	win['3D-By1 EN'] -> SetProperty, TICKINTERVAL=0.02, TICKLEN=0.04
+	
+	;NI
+	win['By0 Cut ni']    -> SetProperty, YRANGE=[0.0, 1.0]
+	win['By0.1 Cut ni']  -> SetProperty, YRANGE=[0.0, 1.0]
+	win['By1 Cut ni']    -> SetProperty, YRANGE=[0.0, 1.0]
+	win['3D-By1 Cut ni'] -> SetProperty, YRANGE=[0.0, 1.0]
+	
+	;NI Axis
+	win['By0 ni']    -> SetProperty, TICKINTERVAL=0.5
+	win['By0.1 ni']  -> SetProperty, TICKINTERVAL=0.5
+	win['By1 ni']    -> SetProperty, TICKINTERVAL=0.5
+	win['3D-By1 ni'] -> SetProperty, TICKINTERVAL=0.5
+	
+	;UiL
+	win['By0 Cut UiL']    -> SetProperty, YRANGE=[-3,0]
+	win['By0.1 Cut UiL']  -> SetProperty, YRANGE=[-3,0]
+	win['By1 Cut UiL']    -> SetProperty, YRANGE=[-3,0]
+	win['3D-By1 Cut UiL'] -> SetProperty, YRANGE=[-3,0]
+	
+	;UiL Axis
+	win['By0 UiL']    -> SetProperty, TICKINTERVAL=1
+	win['By0.1 UiL']  -> SetProperty, TICKINTERVAL=1
+	win['By1 UiL']    -> SetProperty, TICKINTERVAL=1
+	win['3D-By1 UiL'] -> SetProperty, TICKINTERVAL=1
+	
+	;BL
+	win['By0 Cut BL']    -> SetProperty, YRANGE=[-0.25,0.5], YTICKINTERVAL=0.2
+	win['By0.1 Cut BL']  -> SetProperty, YRANGE=[-0.25,0.5], YTICKINTERVAL=0.2
+	win['By1 Cut BL']    -> SetProperty, YRANGE=[-0.25,0.5], YTICKINTERVAL=0.2
+	win['3D-By1 Cut BL'] -> SetProperty, YRANGE=[-0.25,0.5], YTICKINTERVAL=0.2
+
 ;-----------------------------------------------------
 ; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
@@ -1043,6 +1132,147 @@ FNAMES=fnames
 	fnames = 'proxfigs_bevn'
 	
 	;Return the window
+	win -> Refresh
+	return, win
+end
+
+
+;+
+;   Plots of By0, By0.1, By1
+;       - EN overplotted with contributing Hall terms.
+;-
+function MrProxFigs_3D_BEVn, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win)  then obj_destroy, win
+		if obj_valid(oSim) then obj_destroy, oSim
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+;---------------------------------------------------------------------
+; 3D Sim, t=120816, y=1400 ///////////////////////////////////////////
+;---------------------------------------------------------------------
+	theSim       = 'Asymm-3D'
+	time         = 120816
+	ycell        = 860
+	coord_system = 'SIMULATION'
+	mva_frame    = 1
+	ion_scale    = 1
+	
+	if coord_system eq 'SIMULATION' then begin
+		horizontal = 0
+		xrange     = 45.3 + [-15, 15]
+		zrange     = [-4, 5]
+	endif else begin
+		horizontal = 1
+		xrange     = [5, -4]
+		zrange     = 45.3 + [-15, 15]
+	endelse
+	xpt = [45.3,0]
+	
+	;Create the simulation
+	oSim   = MrSim_Create(theSim, time, $
+	                      ION_SCALE = ion_scale, $
+	                      XRANGE = xrange, $
+	                      ZRANGE = zrange, $
+	                      COORD_SYSTEM = coord_system, $
+	                      MVA_FRAME = mva_frame)
+	ycoord = oSim -> Cell2Coord(ycell, /Y)
+	oSim.yrange = [ycoord, ycoord]
+
+;---------------------------------------------------------------------
+; Create the Plot ////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+
+	;Create the color image
+	win = mrsim_colorslab(osim, 'JeM')
+	win -> Refresh, /DISABLE
+	win -> SetProperty, LAYOUT = [2,1], XSIZE=1000, OXMARGIN=[8,15], XGAP=29
+	coord = horizontal ? xpt[1] : xpt[0]
+
+	;Plot cuts of BL, n, and EN through the X-line
+	lc1 = MrSim_LineCut(oSim, 'BL', coord, /CURRENT, HORIZONTAL=horizontal)
+	pos = lc1.position
+	lc2 = MrSim_LineCut(oSim, 'ni',  coord, /CURRENT, HORIZONTAL=horizontal)
+	lc3 = MrSim_LineCut(oSim, 'EN',  coord, /CURRENT, HORIZONTAL=horizontal)
+	lc4 = MrSim_LineCut(oSim, 'UiL', coord, /CURRENT, HORIZONTAL=horizontal)
+	
+	;Move ni and Ex plots onto Bz to create independent data spaces for them
+	lc1 -> SetProperty, YSTYLE=9
+	lc2 -> SetProperty, COLOR='Blue', POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
+	lc3 -> SetProperty, COLOR='Red',  POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
+	lc4 -> SetProperty, COLOR='Forest Green', POSITION=pos, XSTYLE=5, YSTYLE=5, TITLE=''
+	
+	;Remove extra space created by moving graphics
+	win -> TrimLayout
+	
+	;Reorder to put UiL being and BL in front
+	lc1 -> Order, /BRING_TO_FRONT
+	lc4 -> Order, /SEND_TO_BACK
+	
+	;Create axes for ni and Ex
+	ax1 = MrAxis('Y', NAME='ni',  TARGET=lc2, LOCATION='Right', COLOR='Blue', TICKDIR=1, TITLE='n$\downi$')
+	ax2 = MrAxis('Y', NAME='EN',  TARGET=lc3, LOCATION='Right', COLOR='Red',  TICKDIR=1, TITLE='E$\downN$', OFFSET=7)
+	ax3 = MrAxis('Y', NAME='UiL', TARGET=lc4, LOCATION='Left',  COLOR='Forest Green',  TICKDIR=0, TITLE='U$\downiL$', OFFSET=7.5)
+
+	;Zoom in on BL transition
+	graphics = win -> Get(/ALL, ISA='MrPlot')
+	foreach gfx, graphics do gfx.xrange = [-1,2]
+
+;---------------------------------------------------------------------
+; Add Lines //////////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+	;Find where Bz = 0
+	lc1   -> GetData, x, Bz
+	!Null  = min(Bz, iZero, /ABSOLUTE)
+	
+	;Draw a vertical line throubh BL = 0
+	!Null = MrPlotS(x[[iZero, iZero]], lc1.yrange, $
+	                /CLIP, $
+	                COLOR     = 'Black', $
+	                LINESTYLE = 'Dash', $
+	                NAME      = 'BL=0 Vert', $
+	                TARGET    = lc1)
+	
+	;Draw a horizontal line throubh BL = 0
+	!Null = MrPlotS(lc1.xrange, [0, 0], $
+	                /CLIP, $
+	                COLOR     = 'Black', $
+	                LINESTYLE = 'Dash', $
+	                NAME      = 'BL=0 Horiz', $
+	                TARGET    = lc1)
+	
+	;Draw a horizontal line throubh EN = 0
+	!Null = MrPlotS(lc3.xrange, [0, 0], $
+	                /CLIP, $
+	                COLOR     = 'Red', $
+	                LINESTYLE = 'Dash', $
+	                NAME      = 'EN=0 Horiz', $
+	                TARGET    = lc3)
+
+	;Line through the X-point
+	!Null = MrPlotS( [xpt[0],xpt[0]], win['Color JeM'].yrange, $
+	                 COLOR     = 'White', $
+	                 LINESTYLE = 'Dash', $
+	                 NAME      = 'XPt', $
+	                 TARGET    = win['Color JeM'])
+
+;---------------------------------------------------------------------
+; Make Pretty ////////////////////////////////////////////////////////
+;---------------------------------------------------------------------
+	
+	;Add guidefield strength to title
+	title = win['Color JeM'].TITLE
+	win['Color JeM'].TITLE = 'B$\downG$=1 ' + title
+	
+	;Decrease CB width
+	win['CB: Color JeM'].width = 0.5
+
 	win -> Refresh
 	return, win
 end
@@ -1736,6 +1966,7 @@ SAVE=tf_save
 		'FIGURE 1':   win = MrProxFigs_Figure1(FNAMES=fnames)
 		'FIGURE 2':   win = MrProxFigs_Figure2(FNAMES=fnames)
 		'OHMSLAW':    win = MrProxFigs_OhmsLaw(FNAMES=fnames)
+		'3D BEVN':    win = MrProxFigs_3D_BEVn(FNAMES=fnames)
 		'XLINE BEVN': win = MrProxFigs_XLine_BEVn(FNAMES=fnames)
 		'BY0-MRX':    win = MrProxFigs_XLineProxBy0(FNAMES=fnames)
 		'ETOTAL':     win = MrProxFigs_ETot_Terms(FNAMES=fnames)

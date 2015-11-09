@@ -319,13 +319,14 @@ _REF_EXTRA = extra
     endif
     
     ;Add the location to the title
+    yax = mva_frame ? 'M' : 'y'
     if n_elements(cuts) eq 1 then begin
         if oSim.dimension eq '2D' $
             then title += '  '  + caxis +   '='  + string(cuts, FORMAT='(f0.1)')  + units $
-            else title += '  (' + caxis + 'y)=(' + strjoin(string(cuts, yrange[0], FORMAT='(f0.1)'), ',') + ')' + units
+            else title += '  (' + caxis + ',' + yax + ')=(' + strjoin(string(cuts, yrange[0], FORMAT='(f0.1)'), ',') + ')' + units
     endif else begin
         if oSim.dimension eq '3D' $
-            then title += '  ' + caxis + 'y=' + string(yrange[0], FORMAT='(f0.1)') + units
+            then title += '  ' + caxis + yax + '=' + string(yrange[0], FORMAT='(f0.1)') + units
     endelse
 
     ;Destroy the object

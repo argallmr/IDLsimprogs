@@ -1177,6 +1177,7 @@ RANGES=ranges
     catch, the_error
     if the_error ne 0 then begin
         catch, /cancel
+stop
         void = cgErrorMSG()
         return, !Null
     endif
@@ -1190,7 +1191,7 @@ RANGES=ranges
     ;Cell location in the current coordinate system.
     if ranges then begin
         ix = MrIndexRange(*self.xSim, self.xrange)
-        iy = MrIndexRange(*self.ySim, self.yrange)
+        iy = (n_elements(*self.ySim) eq 1) ? [0,0] : MrIndexRange(*self.ySim, self.yrange)
         iz = MrIndexRange(*self.zSim, self.zrange)
     endif else begin
         ix = value_locate(*self.xSim, coords[0,*]) > 0
