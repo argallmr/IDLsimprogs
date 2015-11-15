@@ -491,7 +491,10 @@ _REF_EXTRA=extra
     ix = value_locate(xSim, reform(coords[0,*])) > 0
     iz = value_locate(zSim, reform(coords[2,*])) > 0
     iy = n_elements(ySim) eq 1 ? replicate(0, count) : value_locate(ySim, reform(coords[1,*])) > 0
-    
+
+print, r0, r1, ix[0], ix[-1], iy[0], iy[-1], iz[0], iz[-1], $
+       FORMAT='(%"r0=[%0.2f,%0.2f,%0.2f], r1=[%0.2f,%0.2f,%0.2f], ix=[%i,%i], iy=[%i,%i], iz=[%i,%i]")'
+
     ;Get the desired data product
     data = self -> GetData(name, _STRICT_EXTRA=extra)
     

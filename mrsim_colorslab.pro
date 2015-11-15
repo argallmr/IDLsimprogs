@@ -237,7 +237,7 @@ _REF_EXTRA = extra
     ;   - Display time in terms of t*wci.
     ;   - Display the time index.
     if n_elements(dtxwci) gt 0 $
-        then title = 't$\Omega$$\downci$=' + string(time*dtxwci, FORMAT='(f0.1)') $
+        then title = 't$\Omega$$\downci$$\up-1$=' + string(time*dtxwci, FORMAT='(f0.1)') $
         else title = 't$\downindex$=' + string(time, FORMAT='(i0)')
 
     ;If a 3D simulation was given, several orientations are possible

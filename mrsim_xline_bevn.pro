@@ -73,7 +73,7 @@
 ;    Modification History::
 ;       2015/05/25  -   Written by Matthew Argall
 ;-
-function MrSim_XLine_BEVn, theSim, time, $
+function MrSim_XLine_BEVn, theSim, time, cut, $
 HORIZONTAL=horizontal, $
 SIM_OBJECT=oSim, $
 _REF_EXTRA=extra
@@ -124,29 +124,33 @@ _REF_EXTRA=extra
 	win = MrWindow(LAYOUT=[2,1], XGAP=25, XSIZE=900, YSIZE=250, OXMARGIN=[10,15], REFRESH=0)
 
 	;Find the X-Point
-	xpt  = MrSim_XPoint(oSim)
+	if n_elements(cut) eq 0 then begin
+		xpt   = MrSim_XPoint(oSim)
+		coord = horizontal ? xpt[1] : xpt[0]
+	endif else begin
+		coord = cut
+	endelse
 
 ;-------------------------------------------------------
 ; 2D Image of Jey with X-Point Marked \\\\\\\\\\\\\\\\\\
 ;-------------------------------------------------------
 	;Color image of Jey in a new window
-	!Null = MrSim_ColorSlab(oSim, 'JeM', /CURRENT, C_NAME='AM')
+	!Null = MrSim_ColorSlab(oSim, 'JM', /CURRENT, C_NAME='AM')
 
 	;Update asthetics
 	win['AM Contours']   -> SetProperty, C_THICK=1.0, C_COLOR='Grey'
-	win['CB: Color JeM'] -> SetProperty, WIDTH=0.5, MAJOR=2, TICKFORMAT='(f0.2)'
+	win['CB: Color JM'] -> SetProperty, WIDTH=0.5, MAJOR=2, TICKFORMAT='(f0.2)'
 	
 	;Change title location?
 	if oSim.coord_sys eq 'MAGNETOPAUSE' then begin
-		title                 = win['Color JeM'].TITLE
-		win['Color JeM']     -> SetProperty, TITLE=''
-		win['CB: Color JeM'] -> SetProperty, TITLE=title
+		title                 = win['Color JM'].TITLE
+		win['Color JM']     -> SetProperty, TITLE=''
+		win['CB: Color JM'] -> SetProperty, TITLE=title
 	endif
 
 ;-------------------------------------------------------
 ; Plot 1D Cuts of BL, ni, and EN through X-Point \\\\\\\
 ;-------------------------------------------------------
-	coord = horizontal ? xpt[1] : xpt[0]
 
 	;Plot cuts of BL, n, and EN through the X-line
 	lc1 = MrSim_LineCut(oSim, 'BL', coord, /CURRENT, HORIZONTAL=horizontal)
@@ -199,11 +203,11 @@ _REF_EXTRA=extra
 	                TARGET    = lc3)
 	
 	;Vertical line through X-point
-	!Null = MrPlotS([coord,coord], win['Color JeM'].yrange, $
+	!Null = MrPlotS([coord,coord], win['Color JM'].yrange, $
 	                COLOR     = 'White', $
 	                LINESTYLE = 'Dash', $
 	                NAME      = 'XPt', $
-	                TARGET    = win['Color JeM'])
+	                TARGET    = win['Color JM'])
 
 ;-------------------------------------------------------
 ; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

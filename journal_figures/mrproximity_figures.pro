@@ -781,7 +781,7 @@ FNAMES=fnames
 	coord_sys = 'Magnetopause'
 	ion_scale = 1
 	mva_frame = 1
-	im_name   = 'Jey'
+	im_name   = 'Jy'
 	c_name    = 'Ay'
 
 	win = MrSim_XProximity(theSim, cuts, tIndex, $
@@ -793,6 +793,13 @@ FNAMES=fnames
 	                       XRANGE     = xrange, $
 	                       ZRANGE     = zrange)
 	
+	;Label in MVA components
+	win['Cut Bz']       -> SetProperty, YTITLE='B$\downL$'
+	win['Cut By']       -> SetProperty, YTITLE='B$\downM$'
+	win['Cut Uiz']      -> SetProperty, YTITLE='U$\downiL$'
+	win['Cut Ex']       -> SetProperty, YTITLE='E$\downN$'
+	win['CB: Color Jy'] -> SetProperty, TITLE='J$\downM$'
+	win['HLines Jy']    -> SetProperty, THICK=2
 	
 	fnames = 'proxfigs_by0-mrx'
 	return, win
@@ -843,8 +850,8 @@ FNAMES=fnames
 	win.ygap = 4
 	
 	;Change the title
-	title = win['Color JeM'].title
-	win['Color JeM'].title = 'B$\downG$=0 ' + title
+	title = win['Color JM'].title
+	win['Color JM'].title = 'B$\downG$=0 ' + title
 	
 	;Rename all of the graphics
 	graphics = win -> Get(/ALL)
@@ -878,11 +885,11 @@ FNAMES=fnames
 	win_temp -> Refresh, /DISABLE
 	
 	;Change the title
-	title = win_temp['Color JeM'].title
-	win_temp['Color JeM'].title = 'B$\downG$=0.1 ' + title
+	title = win_temp['Color JM'].title
+	win_temp['Color JM'].title = 'B$\downG$=0.1 ' + title
 	
 	;Move into row 2
-	win_temp['Color JeM'] -> SetLayout, [1,2]
+	win_temp['Color JM'] -> SetLayout, [1,2]
 	win_temp['Cut BL']    -> SetLayout, [2,2]
 
 	;Rename and move all graphics
@@ -924,11 +931,11 @@ FNAMES=fnames
 	win_temp -> Refresh, /DISABLE
 	
 	;Change the title
-	title = win_temp['Color JeM'].title
-	win_temp['Color JeM'].title = 'B$\downG$=1 ' + title
+	title = win_temp['Color JM'].title
+	win_temp['Color JM'].title = 'B$\downG$=1 ' + title
 	
 	;Move into row 3
-	win_temp['Color JeM'] -> SetLayout, [1,3]
+	win_temp['Color JM'] -> SetLayout, [1,3]
 	win_temp['Cut BL']    -> SetLayout, [2,3]
 	
 	;Rename and move all graphics
@@ -955,7 +962,7 @@ FNAMES=fnames
 	win_temp -> Refresh, /DISABLE
 	
 	;Move into row 4
-	win_temp['Color JeM'] -> SetLayout, [1,4]
+	win_temp['Color JM'] -> SetLayout, [1,4]
 	win_temp['Cut BL']    -> SetLayout, [2,4]
 	
 	;Rename and move all graphics
@@ -1019,6 +1026,7 @@ FNAMES=fnames
 			gfx -> SetData, -x,  y
 		endelse
 		
+		gfx.TITLE         = ''
 		gfx.XRANGE        = -zrange
 		gfx.XTICKINTERVAL = 1.0
 	endforeach
@@ -1032,9 +1040,11 @@ FNAMES=fnames
 	foreach gfx, graphics do begin
 		gfx -> GetData, im, x,  y
 		gfx -> SetData, im, x, -y
+		
+		title = gfx.TITLE
+		title = (stregex(gfx.name, '^3D', /BOOLEAN) ? '3D ' : '2D ') + title
 
-		gfx -> GetProperty, RANGE=range
-		gfx -> SetProperty, YRANGE = [-1, 1], YTICKINTERVAL=1.0;, RANGE=-reverse(range)
+		gfx -> SetProperty, YRANGE=[-1, 1], YTICKINTERVAL=1.0, TITLE=title
 	endforeach
 	
 	;Contours are of A_M and must be negated
@@ -1053,8 +1063,9 @@ FNAMES=fnames
 	;Colorbars
 	graphics = win -> Get(/ALL, ISA='MrColorbar')
 	foreach gfx, graphics do begin
-		gfx.title = 'J$\downeM$'
-		gfx.range = -reverse(gfx.range)
+		gfx.title  = 'J$\downM$'
+		gfx.range  = -reverse(gfx.range)
+		gfx.border = 1
 	endforeach
 	
 	;Lines
@@ -1075,7 +1086,7 @@ FNAMES=fnames
 			gfx.TICKFORMAT = '(f0.2)'
 ;			gfx.AXIS_RANGE = -gfx.AXIS_RANGE
 		endif else if stregex(gfx.name, 'UiL', /BOOLEAN) then begin
-			gfx.title = 'U$\downiL$ (x10$\up2$)'
+			gfx.title = 'V$\downiL$'
 		endif
 	endforeach
 
@@ -1124,6 +1135,13 @@ FNAMES=fnames
 	win['By0.1 Cut BL']  -> SetProperty, YRANGE=[-0.25,0.5], YTICKINTERVAL=0.2
 	win['By1 Cut BL']    -> SetProperty, YRANGE=[-0.25,0.5], YTICKINTERVAL=0.2
 	win['3D-By1 Cut BL'] -> SetProperty, YRANGE=[-0.25,0.5], YTICKINTERVAL=0.2
+
+	;JEY 3D
+	win['3D-By1 Color JM']  -> SetProperty, YRANGE=[-5,5], RANGE=[-0.03,0.12], YTICKINTERVAL=2.5
+	win['3D-By1 XPt']        -> SetProperty, YCOORDS=[-5,5]
+	win['3D-By1 EN=0 Horiz'] -> SetProperty, XCOORDS=[1,-2]
+	win['3D-By1 BL=0 Horiz'] -> SetProperty, XCOORDS=[1,-2]
+	win['3D-By1 BL=0 Vert']  -> SetProperty, YCOORD=win['3D-By1 Cut BL'].yrange
 
 ;-----------------------------------------------------
 ; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -1175,6 +1193,10 @@ FNAMES=fnames
 	endelse
 	xpt = [45.3,0]
 	
+	;Show a larger domain size to fit in the three islands.
+	xrange = 45.3 + [-20,20]
+	zrange = [-5,5]
+	
 	;Create the simulation
 	oSim   = MrSim_Create(theSim, time, $
 	                      ION_SCALE = ion_scale, $
@@ -1190,7 +1212,7 @@ FNAMES=fnames
 ;---------------------------------------------------------------------
 
 	;Create the color image
-	win = mrsim_colorslab(osim, 'JeM')
+	win = mrsim_colorslab(osim, 'JM')
 	win -> Refresh, /DISABLE
 	win -> SetProperty, LAYOUT = [2,1], XSIZE=1000, OXMARGIN=[8,15], XGAP=29
 	coord = horizontal ? xpt[1] : xpt[0]
@@ -1221,8 +1243,8 @@ FNAMES=fnames
 	ax3 = MrAxis('Y', NAME='UiL', TARGET=lc4, LOCATION='Left',  COLOR='Forest Green',  TICKDIR=0, TITLE='U$\downiL$', OFFSET=7.5)
 
 	;Zoom in on BL transition
-	graphics = win -> Get(/ALL, ISA='MrPlot')
-	foreach gfx, graphics do gfx.xrange = [-1,2]
+;	graphics = win -> Get(/ALL, ISA='MrPlot')
+;	foreach gfx, graphics do gfx.xrange = [-1,2]
 
 ;---------------------------------------------------------------------
 ; Add Lines //////////////////////////////////////////////////////////
@@ -1256,22 +1278,22 @@ FNAMES=fnames
 	                TARGET    = lc3)
 
 	;Line through the X-point
-	!Null = MrPlotS( [xpt[0],xpt[0]], win['Color JeM'].yrange, $
+	!Null = MrPlotS( [xpt[0],xpt[0]], win['Color JM'].yrange, $
 	                 COLOR     = 'White', $
 	                 LINESTYLE = 'Dash', $
 	                 NAME      = 'XPt', $
-	                 TARGET    = win['Color JeM'])
+	                 TARGET    = win['Color JM'])
 
 ;---------------------------------------------------------------------
 ; Make Pretty ////////////////////////////////////////////////////////
 ;---------------------------------------------------------------------
 	
 	;Add guidefield strength to title
-	title = win['Color JeM'].TITLE
-	win['Color JeM'].TITLE = 'B$\downG$=1 ' + title
+	title = win['Color JM'].TITLE
+	win['Color JM'].TITLE = 'B$\downG$=1 ' + title
 	
 	;Decrease CB width
-	win['CB: Color JeM'].width = 0.5
+	win['CB: Color JM'].width = 0.5
 
 	win -> Refresh
 	return, win
@@ -1336,7 +1358,7 @@ FNAMES=fnames
 	;Draw line at X-point
 	gET  = win['By0 Total Ez']
 	line = MrPlotS( [xpt[1], xpt[1]], gET.YRANGE, $
-	                COLOR     = 'Grey', $
+	                COLOR     = 'Black', $
 	                LINESTYLE = '--', $
 	                NAME      = 'By0 BL=0', $
 	                TARGET    = gET)
@@ -1381,7 +1403,7 @@ FNAMES=fnames
 	;Draw line at X-point
 	gET  = win['By0.1 Total Ez']
 	line = MrPlotS( [xpt[1], xpt[1]], gET.YRANGE, $
-	                COLOR     = 'Grey', $
+	                COLOR     = 'Black', $
 	                LINESTYLE = '--', $
 	                NAME      = 'By0.1 BL=0', $
 	                TARGET    = gET)
@@ -1426,7 +1448,7 @@ FNAMES=fnames
 	;Draw line at X-point
 	gET  = win['By1 Total Ez']
 	line = MrPlotS( [xpt[1], xpt[1]], gET.YRANGE, $
-	                COLOR     = 'Grey', $
+	                COLOR     = 'Black', $
 	                LINESTYLE = '--', $
 	                NAME      = 'By1 BL=0', $
 	                TARGET    = gET)
@@ -1438,31 +1460,72 @@ FNAMES=fnames
 ; Make Pretty \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Make spacing larger
-	win -> SetProperty, YGAP=5, OXMARGIN=[10,18]
+	win -> SetProperty, YGAP=0.0, OXMARGIN=[10,18]
 	
 	;Remove and move legends
 	win -> Remove, win["By0.1 Ohm's Law"]
 	win -> Remove, win["By1 Ohm's Law"]
 	win["By0 Ohm's Law"] -> SetProperty, ALIGNMENT='NW', LINESTYLE='None', FILL_COLOR=''
 
+	;global y-range
+	yrange = [-0.03, 0.06]
+
 	;Make the sun at the right
 	;   - Must negate all N-components to point the correct direction
 	graphics = win -> Get(/ALL, ISA='MrPlot')
 	foreach gfx, graphics do begin
+		gfx -> GetProperty, XRANGE=xrange
 		gfx -> GetData,  x,  y
 		gfx -> SetData, -x, -y
+		gfx -> SetProperty, XRANGE=-xrange, YRANGE=yrange
 		
 		;Reverse x-range for +N (sun) to the right and -N (earth) to left
-		gfx -> GetProperty, XRANGE=xrange, YRANGE=yrange
-		gfx -> SetProperty, XRANGE=-zrange, YRANGE=-reverse(yrange)
+;		gfx -> GetProperty, XRANGE=xrange, YRANGE=yrange
+;		gfx -> SetProperty, XRANGE=-zrange, YRANGE=-reverse(yrange)
 	endforeach
 
 	;Vertical lines
 	graphics = win -> Get(/ALL, ISA='MrPlotS')
 	foreach gfx, graphics do begin
-		gfx -> GetProperty, XCOORDS=xcoords, YCOORDS=ycoords
-		gfx -> SetProperty, XCOORDS=-xcoords, YCOORDS=-reverse(ycoords)
+		gfx -> GetProperty, XCOORDS=xcoords
+		gfx -> SetProperty, XCOORDS=-xcoords, YCOORDS=yrange
 	endforeach
+
+	;Remove title and ticks from intermediate plots
+	win['By0 Total EZ']   -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
+	win['By0.1 Total EZ'] -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
+
+;---------------------------------------------------------------------
+; Add B_G=X As A Legend //////////////////////////////////////////////
+;---------------------------------------------------------------------
+	bg = ['By0', 'By0.1', 'By1']
+
+	for i = 0, n_elements(bg) - 1 do begin
+		gfx       = win[bg[i] + ' Total EZ']
+		title     = gfx.TITLE
+		gfx.TITLE = ''
+	
+		;Title Segments
+		parts = strsplit(title, ' ', /EXTRACT)
+		
+		;Create a Legend
+		!Null = MrLegend(ALIGNMENT    ='NW', $
+		                 FILL_COLOR   = '', $
+		                 NAME         = bg[i], $
+		                 POSITION     = [0,1], $
+		                 /RELATIVE, $
+		                 LABEL        = parts[0], $
+		                 LINESTYLE    = 6, $
+		                 SAMPLE_WIDTH = 0.0, $
+		                 TARGET       = gfx)
+		
+		;Draw a line through EN = 0
+		line = MrPlotS( gfx.XRANGE, [0,0], $
+		                COLOR     = 'Black', $
+		                LINESTYLE = '--', $
+		                NAME      = bg[i] + ' EN=0', $
+		                TARGET    = gfx)
+	endfor
 
 ;-----------------------------------------------------
 ; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -2001,18 +2064,29 @@ SAVE=tf_save
 			fname = 'MrProximity_' + idl_validname(figure, /CONVERT_ALL)
 			fbase = filepath(fname, ROOT_DIR=froot)
 	
+			;Take a snapshot
+			if png then begin
+				;Set a true type font
+				device, SET_FONT='Helvetica Bold', /TT_FONT
+				win -> SetGlobal, FONT=1
+			
+				win.SAVEAS -> SetProperty, IM_RASTER=0
+				win -> Save, fbase + '-ss.png'
+				win.SAVEAS -> SetProperty, IM_RASTER=1
+			endif
+	
+			;
+			; PostScript
+			;
+			
+			;Hardware fonts
+			win -> SetGlobal, FONT=0;, CHARSIZE=1.0
+	
 			;Save a variety of file types.
 			win -> Refresh
 			if im_png then win -> Save, fbase + '_im.png'
 			if eps    then win -> Save, fbase + '.eps'
 			if ps     then win -> Save, fbase + '.ps'
-	
-			;Take a snapshot
-			if png then begin
-				win.SAVEAS -> SetProperty, IM_RASTER=0
-				win -> Save, fbase + '-ss.png'
-				win.SAVEAS -> SetProperty, IM_RASTER=1
-			endif
 		
 		;Multiple windows
 		endif else begin

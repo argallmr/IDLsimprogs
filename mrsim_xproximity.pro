@@ -244,7 +244,8 @@ _REF_EXTRA = extra
             ;Relocate it to fill the first column
             position = [0.12, 0.13, 0.41, 0.82]
             drWin['Color '     + im_name] -> SetProperty, POSITION=position, TITLE=''
-            drWin['CB: Color ' + im_name] -> SetProperty, CBLOCATION='TOP', OFFSET=0.5, WIDTH=1.0, XTICKS=2
+            drWin['CB: Color ' + im_name] -> SetProperty, ORIENTATION=0, LOCATION='TOP', $
+                                                          OFFSET=0.5, WIDTH=1.0, MAJOR=2
         
     ;-------------------------------------------------------
     ; Horizontal Orientation ///////////////////////////////
