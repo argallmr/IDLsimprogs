@@ -1072,7 +1072,7 @@ FNAMES=fnames
 	graphics = win -> Get(/ALL, ISA='MrPlotS')
 	foreach gfx, graphics do begin
 		if ~stregex(gfx.name, 'XPt', /BOOLEAN) then begin
-			gfx -> GetProperty, XCOORDS=x
+			gfx -> GetProperty, XCOORDS=x, YCOORDS=[-0.25,0.5]
 			gfx -> SetProperty, XCOORDS=-reverse(x)
 		endif else begin
 			gfx -> SetProperty, YCOORDS=[-1,1]
@@ -1141,7 +1141,12 @@ FNAMES=fnames
 	win['3D-By1 XPt']        -> SetProperty, YCOORDS=[-5,5]
 	win['3D-By1 EN=0 Horiz'] -> SetProperty, XCOORDS=[1,-2]
 	win['3D-By1 BL=0 Horiz'] -> SetProperty, XCOORDS=[1,-2]
-	win['3D-By1 BL=0 Vert']  -> SetProperty, YCOORD=win['3D-By1 Cut BL'].yrange
+
+	;Vertical Lines
+	win['By0 BL=0 Vert']    -> SetProperty, YCOORDS=win['By0 Cut BL'].YRANGE
+	win['By0.1 BL=0 Vert']  -> SetProperty, YCOORDS=win['By0.1 Cut BL'].YRANGE
+	win['By1 BL=0 Vert']    -> SetProperty, YCOORDS=win['By1 Cut BL'].YRANGE
+	win['3D-By1 BL=0 Vert'] -> SetProperty, YCOORDS=win['3D-By1 Cut BL'].YRANGE
 
 ;-----------------------------------------------------
 ; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -1194,8 +1199,8 @@ FNAMES=fnames
 	xpt = [45.3,0]
 	
 	;Show a larger domain size to fit in the three islands.
-	xrange = 45.3 + [-20,20]
-	zrange = [-5,5]
+	xrange = 45.3 + [-15,15]
+	zrange = [-1,2]
 	
 	;Create the simulation
 	oSim   = MrSim_Create(theSim, time, $
@@ -1252,7 +1257,7 @@ FNAMES=fnames
 	;Find where Bz = 0
 	lc1   -> GetData, x, Bz
 	!Null  = min(Bz, iZero, /ABSOLUTE)
-	
+
 	;Draw a vertical line throubh BL = 0
 	!Null = MrPlotS(x[[iZero, iZero]], lc1.yrange, $
 	                /CLIP, $
@@ -1358,7 +1363,7 @@ FNAMES=fnames
 	;Draw line at X-point
 	gET  = win['By0 Total Ez']
 	line = MrPlotS( [xpt[1], xpt[1]], gET.YRANGE, $
-	                COLOR     = 'Black', $
+	                COLOR     = 'Grey', $
 	                LINESTYLE = '--', $
 	                NAME      = 'By0 BL=0', $
 	                TARGET    = gET)
@@ -1403,7 +1408,7 @@ FNAMES=fnames
 	;Draw line at X-point
 	gET  = win['By0.1 Total Ez']
 	line = MrPlotS( [xpt[1], xpt[1]], gET.YRANGE, $
-	                COLOR     = 'Black', $
+	                COLOR     = 'Grey', $
 	                LINESTYLE = '--', $
 	                NAME      = 'By0.1 BL=0', $
 	                TARGET    = gET)
@@ -1448,7 +1453,7 @@ FNAMES=fnames
 	;Draw line at X-point
 	gET  = win['By1 Total Ez']
 	line = MrPlotS( [xpt[1], xpt[1]], gET.YRANGE, $
-	                COLOR     = 'Black', $
+	                COLOR     = 'Grey', $
 	                LINESTYLE = '--', $
 	                NAME      = 'By1 BL=0', $
 	                TARGET    = gET)
@@ -1457,14 +1462,71 @@ FNAMES=fnames
 	obj_destroy, oSim
 
 ;-----------------------------------------------------
+; Asymm-3D/By1, t=120816 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+;	theSim    = 'Asymm-3D'
+;	time      = 120816
+;	ycell     = 860
+;	coord_sys = 'SIMULATION'
+;	ion_scale = 1
+;	mva_frame = 1
+;	
+;	if coord_sys eq 'SIMULATION' then begin
+;		horizontal = 0
+;		xrange     = 45.3 + [-15, 15]
+;		zrange     = [-1,2]
+;	endif else begin
+;		horizontal = 1
+;		xrange     = [2,-1]
+;		zrange     = 45.3 + [-15, 15]
+;	endelse
+;	xpt = [45.3,0]
+;	
+;	oSim = MrSim_Create(theSim, time, $
+;	                    COORD_SYSTEM = coord_sys, $
+;	                    MVA_FRAME    = mva_frame, $
+;	                    ION_SCALE    = ion_scale, $
+;	                    XRANGE       = xrange, $
+;	                    ZRANGE       = zrange)
+;	ycoord = oSim -> Cell2Coord(ycell, /Y)
+;	oSim.yrange = [ycoord, ycoord]
+;	
+;
+;	;Create the figure
+;	!Null = MrSim_OhmsLaw(oSim, 'Z', xpt[0], /TOTAL, /CURRENT)
+;
+;	;Rename all of the graphics
+;	graphics = win -> Get(/ALL)
+;	foreach gfx, graphics do begin
+;		name = gfx.name
+;		if ~stregex(name, '^By', /BOOLEAN) then gfx.name = 'D3-By1 ' + name
+;	endforeach
+;	
+;	;Change title
+;	title = win['D3-By1 Total EZ'].TITLE
+;	win['D3-By1 Total EZ'] -> SetProperty, TITLE='B$\downG$=1 ' + title
+;	
+;	;Draw line at X-point
+;	gET  = win['D3-By1 Total Ez']
+;	line = MrPlotS( [0.4967, 0.4967], gET.YRANGE, $
+;	                COLOR     = 'Grey', $
+;	                LINESTYLE = '--', $
+;	                NAME      = '3D-By1 BL=0', $
+;	                TARGET    = gET)
+;	
+;	;Destroy the simulation object
+;	obj_destroy, oSim
+
+;-----------------------------------------------------
 ; Make Pretty \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	;Make spacing larger
 	win -> SetProperty, YGAP=0.0, OXMARGIN=[10,18]
-	
+
 	;Remove and move legends
 	win -> Remove, win["By0.1 Ohm's Law"]
 	win -> Remove, win["By1 Ohm's Law"]
+;	win -> Remove, win["D3-By1 Ohm's Law"]
 	win["By0 Ohm's Law"] -> SetProperty, ALIGNMENT='NW', LINESTYLE='None', FILL_COLOR=''
 
 	;global y-range
@@ -1494,11 +1556,12 @@ FNAMES=fnames
 	;Remove title and ticks from intermediate plots
 	win['By0 Total EZ']   -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
 	win['By0.1 Total EZ'] -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
+;	win['By1 Total EZ']   -> SetProperty, XTITLE='', XTICKFORMAT='(a1)'
 
 ;---------------------------------------------------------------------
 ; Add B_G=X As A Legend //////////////////////////////////////////////
 ;---------------------------------------------------------------------
-	bg = ['By0', 'By0.1', 'By1']
+	bg = ['By0', 'By0.1', 'By1'];, 'D3-By1']
 
 	for i = 0, n_elements(bg) - 1 do begin
 		gfx       = win[bg[i] + ' Total EZ']
@@ -1530,6 +1593,7 @@ FNAMES=fnames
 ;-----------------------------------------------------
 ; Return \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
+	win -> SetProperty, XSIZE=450, YSIZE=450
 	win -> SetGlobal, YTITLE='E$\downN$'
 	fnames = 'proxfigs_E-total'
 	
