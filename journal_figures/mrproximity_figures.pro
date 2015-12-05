@@ -758,6 +758,59 @@ end
 ;   Asymm-Scan/By0 and Asymm-Scan/By1, Asymm-3D.
 ;       - Proximity to the X-line
 ;-
+function MrProxFigs_XLineProxBy1, $
+FNAMES=fnames
+	compile_opt idl2
+
+	catch, the_error
+	if the_error ne 0 then begin
+		catch, /CANCEL
+		if obj_valid(win) then obj_destroy, win
+		void = cgErrorMSG()
+		return, obj_new()
+	endif
+
+;-----------------------------------------------------
+; Asymm-Scan/By0 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+;-----------------------------------------------------
+	theSim    = 'Asymm-Scan/By1'
+;	cuts      = [36.77, 34.9, 33.0]
+	cuts      = [42.9, 42.4, 41.9, 41.4, 40.9]
+	tIndex    = 28
+	xrange    = [2,-2]
+	zrange    = 42.9 + [-5, 5]
+	coord_sys = 'Magnetopause'
+	ion_scale = 1
+	mva_frame = 1
+	im_name   = 'Jy'
+	c_name    = 'Ay'
+
+	win = MrSim_XProximity(theSim, cuts, tIndex, $
+	                       C_NAME     = c_name, $
+	                       COORD_SYS  = coord_sys, $
+	                       IM_NAME    = im_name, $
+	                       ION_SCALE  = ion_scale, $
+	                       MVA_FRAME  = mva_frame, $
+	                       XRANGE     = xrange, $
+	                       ZRANGE     = zrange)
+	
+	;Label in MVA components
+	win['Cut Bz']       -> SetProperty, YTITLE='B$\downL$'
+	win['Cut By']       -> SetProperty, YTITLE='B$\downM$'
+	win['Cut Uiz']      -> SetProperty, YTITLE='U$\downiL$'
+	win['Cut Ex']       -> SetProperty, YTITLE='E$\downN$'
+	win['CB: Color Jy'] -> SetProperty, TITLE='J$\downM$'
+	win['HLines Jy']    -> SetProperty, THICK=2
+	
+	fnames = 'proxfigs_by0-mrx'
+	return, win
+end
+
+
+;+
+;   Asymm-Scan/By0 and Asymm-Scan/By1, Asymm-3D.
+;       - Proximity to the X-line
+;-
 function MrProxFigs_XLineProxBy0, $
 FNAMES=fnames
 	compile_opt idl2
@@ -774,7 +827,8 @@ FNAMES=fnames
 ; Asymm-Scan/By0 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 ;-----------------------------------------------------
 	theSim    = 'Asymm-Scan/By0'
-	cuts      = [36.77, 34.9, 33.0]
+;	cuts      = [36.77, 34.9, 33.0]
+	cuts      = [36.77, 36.27, 35.77, 35.27, 34.77]
 	tIndex    = 28
 	xrange    = [2,-2]
 	zrange    = 36.77 + [-5, 5]
@@ -2096,6 +2150,7 @@ SAVE=tf_save
 		'3D BEVN':    win = MrProxFigs_3D_BEVn(FNAMES=fnames)
 		'XLINE BEVN': win = MrProxFigs_XLine_BEVn(FNAMES=fnames)
 		'BY0-MRX':    win = MrProxFigs_XLineProxBy0(FNAMES=fnames)
+		'BY1-MRX':    win = MrProxFigs_XLineProxBy1(FNAMES=fnames)
 		'ETOTAL':     win = MrProxFigs_ETot_Terms(FNAMES=fnames)
 		'X-POINT':    win = MrProxFigs_XPoint(FNAMES=fnames)
 		'TPROX':      win = MrProxFigs_TProx(FNAMES=fnames)
